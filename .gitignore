@@ -9,6 +9,7 @@ out-tsc
 node_modules
 
 # IDEs and editors
+.github
 /.idea
 .project
 .classpath
