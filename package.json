@@ -16,8 +16,9 @@
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
-    "@analogjs/vite-plugin-angular": "~1.14.1",
-    "@analogjs/vitest-angular": "~1.14.1",
+    "@analogjs/platform": "^1.15.1",
+    "@analogjs/vite-plugin-angular": "^1.15.1",
+    "@analogjs/vitest-angular": "^1.15.1",
     "@angular-devkit/build-angular": "~19.2.0",
     "@angular-devkit/core": "~19.2.0",
     "@angular-devkit/schematics": "~19.2.0",
@@ -26,9 +27,11 @@
     "@angular/language-service": "~19.2.0",
     "@eslint/js": "^9.8.0",
     "@nx/angular": "20.8.1",
+    "@nx/devkit": "^20.8.1",
     "@nx/eslint": "20.8.1",
     "@nx/eslint-plugin": "20.8.1",
     "@nx/js": "20.8.1",
+    "@nx/plugin": "^20.8.1",
     "@nx/vite": "20.8.1",
     "@nx/web": "20.8.1",
     "@nx/workspace": "20.8.1",
@@ -51,6 +54,7 @@
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.19.0",
     "vite": "^6.0.0",
+    "vite-tsconfig-paths": "^4.2.0",
     "vitest": "^3.0.0"
   }
 }
