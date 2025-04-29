@@ -48,11 +48,13 @@
     "@nx/eslint-plugin": "20.8.1",
     "@nx/js": "20.8.1",
     "@nx/plugin": "^20.8.1",
+    "@nx/rollup": "20.8.1",
     "@nx/vite": "20.8.1",
     "@nx/web": "20.8.1",
     "@nx/workspace": "20.8.1",
     "@schematics/angular": "~19.2.0",
     "@swc-node/register": "~1.9.1",
+    "@swc/cli": "~0.6.0",
     "@swc/core": "~1.5.7",
     "@swc/helpers": "~0.5.11",
     "@types/node": "18.16.9",
@@ -65,15 +67,23 @@
     "eslint-config-prettier": "^10.0.0",
     "jiti": "2.4.2",
     "jsdom": "~22.1.0",
+    "jsonc-eslint-parser": "^2.1.0",
     "nx": "20.8.1",
     "postcss": "^8.4.5",
     "prettier": "^2.6.2",
+    "rollup": "^4.14.0",
+    "swc-loader": "0.1.15",
     "tailwindcss": "^3.0.2",
+    "ts-node": "10.9.1",
     "tslib": "^2.3.0",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.19.0",
+    "verdaccio": "^6.0.5",
     "vite": "^6.0.0",
     "vite-tsconfig-paths": "^4.2.0",
     "vitest": "^3.0.0"
+  },
+  "nx": {
+    "includedScripts": []
   }
 }

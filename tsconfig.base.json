@@ -14,7 +14,9 @@
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
-    "paths": {}
+    "paths": {
+      "@analog-tools/session": ["packages/session/src/index.ts"],
+    }
   },
   "exclude": ["node_modules", "tmp"]
 }
