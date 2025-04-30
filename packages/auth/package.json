@@ -1,0 +1,11 @@
+{
+  "name": "@analog-tools/auth",
+  "version": "0.0.1",
+  "main": "./index.cjs",
+  "module": "./index.js",
+  "peerDependencies": {
+    "h3": "^1.15.2",
+    "@analog-tools/session": "0.0.1",
+    "uncrypto":"0.1.3"
+  }
+}

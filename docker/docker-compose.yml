@@ -1,0 +1,70 @@
+services:
+    postgres:
+        image: postgres:16-alpine
+        container_name: keycloak-postgres
+        environment:
+            POSTGRES_DB: keycloak
+            POSTGRES_USER: keycloak
+            POSTGRES_PASSWORD: keycloak_password
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U keycloak']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        ports:
+            - '5432:5432'
+        networks:
+            - keycloak-network
+
+    keycloak:
+        image: quay.io/keycloak/keycloak:23.0
+        container_name: keycloak
+        command: start-dev --import-realm
+        environment:
+            KC_DB: postgres
+            KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+            KC_DB_USERNAME: keycloak
+            KC_DB_PASSWORD: keycloak_password
+            KEYCLOAK_ADMIN: admin
+            KEYCLOAK_ADMIN_PASSWORD: admin
+            KC_HEALTH_ENABLED: 'true'
+        volumes:
+            - ./keycloak/imports:/opt/keycloak/data/import
+        ports:
+            - '8080:8080'
+        depends_on:
+            postgres:
+                condition: service_healthy
+        healthcheck:
+            test: ['CMD-SHELL', 'curl -f http://localhost:8080/health/ready || exit 1']
+            interval: 30s
+            timeout: 10s
+            retries: 3
+        networks:
+            - keycloak-network
+
+    redis:
+        image: redis:7-alpine
+        container_name: redis
+        command: redis-server
+        ports:
+            - '6379:6379'
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - keycloak-network
+
+networks:
+    keycloak-network:
+        driver: bridge
+
+volumes:
+    postgres_data:
+    redis_data:

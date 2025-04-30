@@ -1,8 +1,11 @@
 /// <reference types="vitest" />
 
 import analog from '@analogjs/platform';
-import { defineConfig, Plugin } from 'vite';
+
+import { defineConfig } from 'vite';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
+import { resolve } from 'path';
+
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -27,11 +30,16 @@ export default defineConfig(({ mode }) => {
     plugins: [
       analog({
         nitro: {
+          logLevel: 9999,
+          alias: {
+            "@analog-tools/auth": resolve(__dirname, '../../packages/auth/src/index.ts'),
+            "@analog-tools/session": resolve(__dirname, '../../packages/session/src/index.ts'),
+          },
           routeRules: {
             '/': {
               prerender: false,
             },
-          },
+          }
         },
       }),
 
