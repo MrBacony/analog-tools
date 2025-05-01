@@ -1,7 +1,5 @@
 # AnalogTools
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
-
 > **⚠️ IMPORTANT: Early Development Stage** ⚠️  
 > This project is in its early development stage. Breaking changes may happen frequently as the APIs evolve. Use with caution in production environments.
 
