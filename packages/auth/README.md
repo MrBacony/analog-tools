@@ -2,6 +2,9 @@
 
 A comprehensive authentication and authorization solution for AnalogJS applications, providing OAuth 2.0/OpenID Connect integration with session management.
 
+[![npm version](https://img.shields.io/npm/v/@analog-tools/session.svg)](https://www.npmjs.com/package/@analog-tools/auth)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
 ## Features
 
 - 🔐 **OAuth 2.0/OpenID Connect Support**: Seamless integration with OAuth providers (Auth0, Keycloak, etc.)
