@@ -1,8 +1,26 @@
 {
   "name": "@analog-tools/session",
   "version": "0.0.1",
+  "description": "Session management for AnalogJS server-side applications",
   "main": "./index.cjs",
   "module": "./index.js",
+  "author": "Gregor Speck <gregor.speck@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrBacony/analog-tools.git"
+  },
+  "keywords": [
+    "analogjs",
+    "session",
+    "nitro",
+    "h3",
+    "unstorage",
+    "angular",
+    "server-side",
+    "analog-tools",
+    "session-management"
+  ],
+  "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
@@ -11,5 +29,8 @@
     "h3": "^1.15.2",
     "uncrypto": "^0.1.3",
     "unstorage": "^1.16.0"
+  },
+  "peerDependencies": {
+    "h3": "^1.15.2"
   }
 }

@@ -1,9 +1,26 @@
 {
   "name": "@analog-tools/source",
   "version": "0.0.0",
+  "description": "Tools and utilities for AnalogJS applications",
   "license": "MIT",
   "scripts": {},
   "private": true,
+  "author": "Gregor Speck <gregor.speck@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrBacony/analog-tools.git"
+  },
+  "keywords": [
+    "analogjs",
+    "angular",
+    "meta-framework",
+    "nitro",
+    "nx",
+    "h3",
+    "authentication",
+    "session",
+    "analog-tools"
+  ],
   "dependencies": {
     "@analogjs/content": "^1.15.1",
     "@analogjs/router": "^1.15.1",

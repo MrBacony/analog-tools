@@ -1,11 +1,29 @@
 {
   "name": "@analog-tools/auth",
   "version": "0.0.1",
+  "description": "Authentication module for AnalogJS applications",
   "main": "./index.cjs",
   "module": "./index.js",
+  "author": "Gregor Speck <gregor.speck@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrBacony/analog-tools.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "analogjs",
+    "auth",
+    "authentication",
+    "oauth",
+    "angular",
+    "session",
+    "nitro",
+    "h3",
+    "analog-tools"
+  ],
   "peerDependencies": {
     "h3": "^1.15.2",
     "@analog-tools/session": "0.0.1",
-    "uncrypto":"0.1.3"
+    "uncrypto": "0.1.3"
   }
 }
