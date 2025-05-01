@@ -9,7 +9,7 @@ module.exports = withNx(
     format: ['cjs', 'esm'],
     assets: [
       { input: '.', output: '.', glob: 'README.md' },
-      { input: '.', output: '.', glob: '*.md' }
+      { input: '.', output: '.', glob: '*.md' },
     ],
   },
   {
