@@ -7,10 +7,7 @@ module.exports = withNx(
     tsConfig: './tsconfig.lib.json',
     compiler: 'swc',
     format: ['cjs', 'esm'],
-    assets: [
-      { input: '.', output: '.', glob: 'README.md' },
-      { input: '.', output: '.', glob: '*.md' },
-    ],
+    assets: [{ input: 'packages/auth', output: '.', glob: 'README.md' }],
   },
   {
     // Provide additional rollup configuration here. See: https://rollupjs.org/configuration-options
