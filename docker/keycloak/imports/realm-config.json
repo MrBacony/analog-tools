@@ -1,11 +1,11 @@
 {
-  "realm": "whn",
+  "realm": "dev",
   "enabled": true,
-  "displayName": "WHN Realm",
-  "displayNameHtml": "WHN Realm",
+  "displayName": "DEV Realm",
+  "displayNameHtml": "DEV Realm",
   "clients": [
     {
-      "clientId": "whn-local",
+      "clientId": "local",
       "name": "",
       "description": "",
       "rootUrl": "http://localhost:4200",
@@ -107,11 +107,11 @@
   ],
   "users": [
     {
-      "username": "greg",
+      "username": "testuser",
       "enabled": true,
-      "firstName": "Gregor",
+      "firstName": "Max",
       "lastName": "Test",
-      "email": "greg@example.com",
+      "email": "test@example.com",
       "emailVerified": true,
       "credentials": [
         {
@@ -121,10 +121,10 @@
         }
       ],
       "requiredActions": [],
-      "realmRoles": ["default-roles-whn"],
+      "realmRoles": ["default-roles-dev"],
       "attributes": {
         "locale": ["en"]
       }
     }
   ]
-} 
+}
