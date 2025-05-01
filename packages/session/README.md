@@ -1,5 +1,8 @@
 # @analog-tools/session
 
+> **⚠️ IMPORTANT: Early Development Stage** ⚠️  
+> This project is in its early development stage. Breaking changes may happen frequently as the APIs evolve. Use with caution in production environments.
+
 A powerful session management library for H3-based applications (Nuxt, Nitro, Analog), providing persistent sessions with various storage backends.
 
 [![npm version](https://img.shields.io/npm/v/@analog-tools/session.svg)](https://www.npmjs.com/package/@analog-tools/session)
@@ -43,11 +46,11 @@ const sessionStore = new UnstorageSessionStore(
     driver: redisDriver({
       host: 'localhost',
       port: 6379,
-    })
+    }),
   }),
-  { 
+  {
     ttl: 60 * 60 * 24, // 1 day
-    prefix: 'sess'
+    prefix: 'sess',
   }
 );
 
@@ -60,22 +63,22 @@ export default defineEventHandler(async (event) => {
 
   // Access session data
   const session = event.context.sessionHandler;
-  
+
   // Get session data
   console.log(session.data);
-  
+
   // Update session data
-  session.update((data) => ({ 
-    ...data, 
-    visits: (data.visits || 0) + 1 
+  session.update((data) => ({
+    ...data,
+    visits: (data.visits || 0) + 1,
   }));
-  
+
   // Save session (required after modifications)
   await session.save();
-  
-  return { 
+
+  return {
     sessionId: session.id,
-    visits: session.data.visits 
+    visits: session.data.visits,
   };
 });
 ```
@@ -91,7 +94,7 @@ import { useSession } from '@analog-tools/session';
 
 export default defineEventHandler(async (event) => {
   const { username, password } = await readBody(event);
-  
+
   // Validate credentials (example)
   // Note: validateUser is a placeholder function you would implement
   // to validate user credentials against your database
@@ -102,19 +105,19 @@ export default defineEventHandler(async (event) => {
 
   // Setup session
   await useSession(event);
-  
+
   // Store user info in session
   const session = event.context.sessionHandler;
-  session.set({ 
+  session.set({
     userId: user.id,
     username: user.username,
     role: user.role,
-    isAuthenticated: true
+    isAuthenticated: true,
   });
-  
+
   // Save session
   await session.save();
-  
+
   return { success: true };
 });
 ```
@@ -139,17 +142,14 @@ const storage = createStorage({
   driver: redisDriver({
     host: REDIS_HOST,
     port: REDIS_PORT,
-  })
+  }),
 });
 
 // Create session store
-export const sessionStore = new UnstorageSessionStore(
-  storage,
-  { 
-    ttl: 60 * 60 * 24 * 7, // 1 week
-    prefix: 'app-sess'
-  }
-);
+export const sessionStore = new UnstorageSessionStore(storage, {
+  ttl: 60 * 60 * 24 * 7, // 1 week
+  prefix: 'app-sess',
+});
 
 // Session configuration
 export const sessionConfig = {
@@ -159,9 +159,9 @@ export const sessionConfig = {
     path: '/',
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 7 // 1 week
+    maxAge: 60 * 60 * 24 * 7, // 1 week
   },
-  saveUninitialized: false
+  saveUninitialized: false,
 };
 ```
 
@@ -205,12 +205,12 @@ import { defineEventHandler, createError, getRouterParam } from 'h3';
 export default defineEventHandler(async (event) => {
   // Access session from previous middleware
   const session = event.context.sessionHandler;
-  
+
   // Check if user is authenticated
   if (!session?.data?.isAuthenticated) {
     throw createError({
       statusCode: 401,
-      message: 'Authentication required'
+      message: 'Authentication required',
     });
   }
 });
@@ -226,12 +226,12 @@ import { defineEventHandler, getRouterParam } from 'h3';
 export default defineEventHandler(async (event) => {
   const session = event.context.sessionHandler;
   const id = getRouterParam(event, 'id');
-  
+
   // User is guaranteed to be authenticated here
   return {
     id,
     username: session.data.username,
-    message: `This is protected resource ${id}`
+    message: `This is protected resource ${id}`,
   };
 });
 ```
@@ -242,11 +242,11 @@ export default defineEventHandler(async (event) => {
 
 ### Comparison of Session Stores
 
-| Store Type | Description | Best For | Configuration Complexity |
-|------------|-------------|----------|--------------------------|
-| **UnstorageSessionStore** | Uses [Unstorage](https://github.com/unjs/unstorage) to support multiple storage drivers (Redis, Memory, FS, etc.). | Flexibility and adaptability to different environments. | Medium |
-| **RedisSessionStore** | Specialized implementation optimized for Redis. | High-performance production environments. | Low |
-| **Memory** (via Unstorage) | In-memory storage that doesn't persist across restarts. | Development and testing. | Very Low |
+| Store Type                 | Description                                                                                                        | Best For                                                | Configuration Complexity |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- | ------------------------ |
+| **UnstorageSessionStore**  | Uses [Unstorage](https://github.com/unjs/unstorage) to support multiple storage drivers (Redis, Memory, FS, etc.). | Flexibility and adaptability to different environments. | Medium                   |
+| **RedisSessionStore**      | Specialized implementation optimized for Redis.                                                                    | High-performance production environments.               | Low                      |
+| **Memory** (via Unstorage) | In-memory storage that doesn't persist across restarts.                                                            | Development and testing.                                | Very Low                 |
 
 ### When to use each store:
 

@@ -1,5 +1,8 @@
 # @analog-tools/auth
 
+> **⚠️ IMPORTANT: Early Development Stage** ⚠️  
+> This project is in its early development stage. Breaking changes may happen frequently as the APIs evolve. Use with caution in production environments.
+
 A comprehensive authentication and authorization solution for AnalogJS applications, providing OAuth 2.0/OpenID Connect integration with session management.
 
 [![npm version](https://img.shields.io/npm/v/@analog-tools/session.svg)](https://www.npmjs.com/package/@analog-tools/auth)
