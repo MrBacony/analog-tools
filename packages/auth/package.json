@@ -10,6 +10,9 @@
     "url": "https://github.com/MrBacony/analog-tools.git"
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "analogjs",
     "auth",
