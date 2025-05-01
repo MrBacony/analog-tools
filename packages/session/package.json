@@ -1,6 +1,6 @@
 {
   "name": "@analog-tools/session",
-  "version": "0.0.1",
+  "version": "0.0.1+snap1",
   "description": "Session management for AnalogJS server-side applications",
   "main": "./index.cjs",
   "module": "./index.js",
@@ -18,7 +18,7 @@
     "angular",
     "server-side",
     "analog-tools",
-    "session-management"
+    "state-anagement"
   ],
   "license": "MIT",
   "publishConfig": {
