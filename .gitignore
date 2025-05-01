@@ -9,7 +9,6 @@ out-tsc
 node_modules
 
 # IDEs and editors
-.github
 /.idea
 .project
 .classpath
@@ -46,3 +45,6 @@ Thumbs.db
 
 vite.config.*.timestamp*
 vitest.config.*.timestamp*
+
+.github/*.md
+
