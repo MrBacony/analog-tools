@@ -1,6 +1,6 @@
 {
   "name": "@analog-tools/session",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Session management for AnalogJS server-side applications",
   "main": "./index.cjs",
   "module": "./index.js",
