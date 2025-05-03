@@ -2,8 +2,13 @@
   "name": "@analog-tools/auth",
   "version": "0.0.3",
   "description": "Authentication module for AnalogJS applications",
+  "type": "module",
   "main": "./index.cjs",
   "module": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./angular": "./angular.js"
+  },
   "author": "Gregor Speck <gregor.speck@gmail.com>",
   "repository": {
     "type": "git",
@@ -24,9 +29,25 @@
     "h3",
     "analog-tools"
   ],
+  "dependencies": {
+    "@analog-tools/session": "^0.0.3"
+  },
   "peerDependencies": {
     "h3": "^1.15.2",
-    "@analog-tools/session": "^0.0.3",
-    "uncrypto": "^0.1.3"
+    "uncrypto": "^0.1.3",
+    "@angular/core": "^17.0.0 || ^18.0.0 || ^19.0.0",
+    "@angular/common": "^17.0.0 || ^18.0.0 || ^19.0.0",
+    "@angular/router": "^17.0.0 || ^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@angular/core": {
+      "optional": true
+    },
+    "@angular/common": {
+      "optional": true
+    },
+    "@angular/router": {
+      "optional": true
+    }
   }
 }
