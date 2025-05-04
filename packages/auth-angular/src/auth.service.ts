@@ -1,6 +1,6 @@
 import {
   computed,
-  Inject,
+  inject,
   Injectable,
   OnDestroy,
   PLATFORM_ID,
@@ -33,6 +33,10 @@ export interface AuthUser {
  */
 @Injectable()
 export class AuthService implements OnDestroy {
+  private http = inject(HttpClient);
+  private router = inject(Router);
+  private platformId = inject(PLATFORM_ID);
+  private document = inject(DOCUMENT);
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
 
   // Auth state
@@ -40,12 +44,7 @@ export class AuthService implements OnDestroy {
   readonly isAuthenticated = computed(() => this.user() !== null);
   readonly isLoading = signal<boolean>(true);
 
-  constructor(
-    private http: HttpClient,
-    private router: Router,
-    @Inject(PLATFORM_ID) private platformId: object,
-    @Inject(DOCUMENT) private document: Document
-  ) {
+  constructor() {
     // Check authentication status on startup
     if (isPlatformBrowser(this.platformId)) {
       this.checkAuthentication();
@@ -158,6 +157,6 @@ export class AuthService implements OnDestroy {
     const user = this.user();
     if (!user || !user.roles) return false;
 
-    return roles.some((role) => user.roles?.includes(role));
+    return roles.some((role) => user.roles?.lastIndexOf(role) !== -1);
   }
 }
