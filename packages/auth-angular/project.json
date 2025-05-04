@@ -8,7 +8,7 @@
   "release": {
     "version": {
       "generatorOptions": {
-        "packageRoot": "dist/{projectRoot}",
+        "packageRoot": "node_modules/{projectRoot}",
         "currentVersionResolver": "git-tag",
         "fallbackCurrentVersionResolver": "disk"
       }
@@ -18,7 +18,7 @@
   "targets": {
     "build": {
       "executor": "@nx/angular:package",
-      "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
+      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
       "options": {
         "project": "packages/auth-angular/ng-package.json"
       },
@@ -34,7 +34,7 @@
     },
     "nx-release-publish": {
       "options": {
-        "packageRoot": "dist/{projectRoot}"
+        "packageRoot": "node_modules/{projectRoot}"
       }
     },
     "lint": {

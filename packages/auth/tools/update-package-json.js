@@ -16,11 +16,11 @@ const __dirname = path.dirname(__filename);
 // Paths to package.json files
 const mainPackagePath = path.resolve(
   __dirname,
-  '../../../dist/packages/auth/package.json'
+  '../../../node_modules/@analog-tools/auth/package.json'
 );
 const angularPackagePath = path.resolve(
   __dirname,
-  '../../../dist/packages/auth/angular/package.json'
+  '../../../node_modules/@analog-tools/auth/angular/package.json'
 );
 
 // Read package.json files

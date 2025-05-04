@@ -6,7 +6,7 @@
   "release": {
     "version": {
       "generatorOptions": {
-        "packageRoot": "dist/{projectRoot}",
+        "packageRoot": "node_modules/{projectRoot}",
         "currentVersionResolver": "git-tag",
         "fallbackCurrentVersionResolver": "disk"
       }
@@ -20,8 +20,8 @@
         "commands": [
           "nx run @analog-tools/auth-angular:build --configuration=production",
           "nx run @analog-tools/auth:vite:build --configuration=production",
-          "mkdir -p dist/packages/auth/angular",
-          "cp -R dist/packages/auth-angular/* dist/packages/auth/angular/",
+          "mkdir -p node_modules/@analog-tools/auth/angular",
+          "cp -R node_modules/@analog-tools/auth-angular/* node_modules/@analog-tools/auth/angular/",
           "node packages/auth/tools/update-package-json.js"
         ],
         "parallel": false
@@ -35,8 +35,23 @@
     },
     "nx-release-publish": {
       "options": {
-        "packageRoot": "dist/{projectRoot}"
+        "packageRoot": "node_modules/{projectRoot}"
       }
+    },
+    "pack": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx run @analog-tools/auth:build",
+          "cd node_modules/@analog-tools/auth && npm pack --pack-destination ~"
+        ],
+        "parallel": false
+      },
+      "dependsOn": [
+        {
+          "target": "build"
+        }
+      ]
     }
   }
 }

@@ -20,7 +20,7 @@ export default defineConfig(() => ({
   //  plugins: [ nxViteTsPaths() ],
   // },
   build: {
-    outDir: '../../dist/packages/auth',
+    outDir: '../../node_modules/@analog-tools/auth',
     emptyOutDir: true,
     reportCompressedSize: true,
     commonjsOptions: {
