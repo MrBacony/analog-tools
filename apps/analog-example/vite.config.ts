@@ -6,7 +6,6 @@ import { defineConfig } from 'vite';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 import { resolve } from 'path';
 
-
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   return {
@@ -14,7 +13,11 @@ export default defineConfig(({ mode }) => {
     cacheDir: `../../node_modules/.vite`,
 
     ssr: {
-      noExternal: ['@analogjs/trpc', '@trpc/server'],
+      noExternal: [
+        '@analogjs/trpc',
+        '@trpc/server',
+        '@analog-tools/auth-angular',
+      ],
     },
 
     build: {
@@ -32,14 +35,23 @@ export default defineConfig(({ mode }) => {
         nitro: {
           logLevel: 9999,
           alias: {
-            "@analog-tools/auth": resolve(__dirname, '../../packages/auth/src/index.ts'),
-            "@analog-tools/session": resolve(__dirname, '../../packages/session/src/index.ts'),
+            '@analog-tools/auth': resolve(
+              __dirname,
+              '../../packages/auth/src/index.ts'
+            ),'@analog-tools/auth-angular': resolve(
+              __dirname,
+              '../../packages/auth-angular/src/index.ts'
+            ),
+            '@analog-tools/session': resolve(
+              __dirname,
+              '../../packages/session/src/index.ts'
+            ),
           },
           routeRules: {
             '/': {
               prerender: false,
             },
-          }
+          },
         },
       }),
 
