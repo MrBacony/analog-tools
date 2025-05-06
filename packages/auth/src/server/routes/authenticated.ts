@@ -10,7 +10,7 @@ const route: AuthRoute = {
   path: 'authenticated',
     handler: async (event: H3Event) => {
         const authService = OAuthAuthenticationService.getInstance();
-        return { authenticated: authService.isAuthenticated(event) };
+        return { authenticated: await authService.isAuthenticated(event) };
     }
 }
 
