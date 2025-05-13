@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
 @Component({
-  selector: 'app-root',
+  selector: 'analog-example-root',
   imports: [RouterOutlet],
   template: ` <router-outlet></router-outlet> `,
 })

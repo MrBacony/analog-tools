@@ -22,7 +22,6 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
     return;
   }
 
-
   // Initialize session
   await authService.initSession(event);
 
@@ -37,9 +36,9 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
         message: 'Authentication required',
       });
     } else {
-      console.log("Redirecting to login page");
+      console.log('Redirecting to login page');
       // Browser request - redirect to login page
-      sendRedirect(event, '/api/auth/login');
+      await sendRedirect(event, '/api/auth/login');
     }
   }
 }

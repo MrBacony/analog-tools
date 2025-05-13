@@ -1,9 +1,11 @@
 /// <reference types="vitest" />
 
 import analog from '@analogjs/platform';
-
 import { defineConfig } from 'vite';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
+
+// @ts-expect-error @tailwindcss/vite currently uses mts. TypeScript is complaining this, but it works as expected.
+import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path';
 
 // https://vitejs.dev/config/
@@ -13,11 +15,7 @@ export default defineConfig(({ mode }) => {
     cacheDir: `../../node_modules/.vite`,
 
     ssr: {
-      noExternal: [
-        '@analogjs/trpc',
-        '@trpc/server',
-        '@analog-tools/auth-angular',
-      ],
+      noExternal: ['@analogjs/trpc', '@trpc/server'],
     },
 
     build: {
@@ -31,21 +29,13 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
+      tailwindcss(),
+
       analog({
         nitro: {
-          logLevel: 9999,
           alias: {
-            '@analog-tools/auth': resolve(
-              __dirname,
-              '../../packages/auth/src/index.ts'
-            ),'@analog-tools/auth-angular': resolve(
-              __dirname,
-              '../../packages/auth-angular/src/index.ts'
-            ),
-            '@analog-tools/session': resolve(
-              __dirname,
-              '../../packages/session/src/index.ts'
-            ),
+            "@analog-tools/auth": resolve(__dirname,"../../packages/auth/src/index.ts"),
+            "@analog-tools/session": resolve(__dirname,"../../packages/session/src/index.ts"),
           },
           routeRules: {
             '/': {

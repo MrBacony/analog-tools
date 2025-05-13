@@ -4,7 +4,11 @@
   "peerDependencies": {
     "@angular/common": "^19.2.0",
     "@angular/core": "^19.2.0",
-    "@angular/router": "^19.2.0"
+    "@angular/router": "^19.2.0",
+    "rxjs": "~7.8.0"
+  },
+  "devDependencies": {
+    "@nx/vite": "^21.0.0"
   },
   "sideEffects": false
 }
