@@ -1,5 +1,5 @@
 {
-  "name": "@analog-tools/source",
+  "name": "analog-tools",
   "version": "0.0.2",
   "description": "Tools and utilities for AnalogJS applications",
   "license": "MIT",
