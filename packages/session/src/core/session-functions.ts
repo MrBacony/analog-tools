@@ -22,13 +22,15 @@ export interface SessionState<T extends SessionDataT = SessionDataT> {
  * @param state The session state
  * @returns A readonly copy of the session data
  */
-export function getSessionData<T extends SessionDataT = SessionDataT>(state: SessionState<T>): Readonly<T> {
+export function getSessionData<T extends SessionDataT = SessionDataT>(
+  state: SessionState<T>
+): Readonly<T> {
   return state.data;
 }
 
 /**
  * Update session data immutably
- * @param state The session state 
+ * @param state The session state
  * @param updater Function that returns the updated data or partial data to merge
  * @returns The updated session state
  */
@@ -69,7 +71,22 @@ export function setSessionData<T extends SessionDataT = SessionDataT>(
 export async function saveSession<T extends SessionDataT = SessionDataT>(
   state: SessionState<T>
 ): Promise<void> {
-  await state.store.set(state.id, { ...state.data });
+  try {
+    console.log(
+      `[@analog-tools/session] Saving session ${state.id} with data:`,
+      JSON.stringify(state.data)
+    );
+    await state.store.set(state.id, { ...state.data });
+    console.log(
+      `[@analog-tools/session] Session ${state.id} saved successfully`
+    );
+  } catch (error) {
+    console.error(
+      `[@analog-tools/session] Error saving session ${state.id}:`,
+      error
+    );
+    throw error;
+  }
 }
 
 /**
@@ -80,7 +97,8 @@ export async function saveSession<T extends SessionDataT = SessionDataT>(
 export async function reloadSession<T extends SessionDataT = SessionDataT>(
   state: SessionState<T>
 ): Promise<SessionState<T>> {
-  const freshData = (await state.store.get(state.id)) ?? (await state.generator()).data;
+  const freshData =
+    (await state.store.get(state.id)) ?? (await state.generator()).data;
   return {
     ...state,
     data: Object.freeze({ ...freshData }),
@@ -95,7 +113,7 @@ export async function destroySession<T extends SessionDataT = SessionDataT>(
   state: SessionState<T>
 ): Promise<void> {
   state.cookie.maxAge = 0;
-  console.log(`[h3-session] Destroying session ${state.id}`);
+  console.log(`[@analog-tools/session] Destroying session ${state.id}`);
   await state.store.destroy(state.id);
 }
 

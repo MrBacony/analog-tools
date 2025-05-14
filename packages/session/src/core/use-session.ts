@@ -3,8 +3,8 @@ import { defu } from 'defu';
 import { randomUUID } from 'uncrypto';
 import { H3SessionOptions, SessionDataT, SessionCookie } from '../types';
 import { signCookie, unsignCookie } from '../utils/crypto-utils';
-import { 
-  SessionState, 
+import {
+  SessionState,
   createSessionState,
   getSessionData,
   updateSessionData,
@@ -12,7 +12,7 @@ import {
   saveSession,
   reloadSession,
   destroySession,
-  regenerateSession
+  regenerateSession,
 } from './session-functions';
 
 /**
@@ -20,12 +20,14 @@ import {
  * @param config The session configuration to validate
  * @throws Error if required configuration is missing
  */
-export function validateConfig<T extends SessionDataT = SessionDataT>(config: H3SessionOptions<T>): void {
+export function validateConfig<T extends SessionDataT = SessionDataT>(
+  config: H3SessionOptions<T>
+): void {
   if (!config.store) {
-    throw new Error('[h3-session] Session store is required!');
+    throw new Error('[@analog-tools/session] Session store is required!');
   }
   if (!config.secret) {
-    throw new Error('[h3-session] Session secret is required!');
+    throw new Error('[@analog-tools/session] Session secret is required!');
   }
 }
 
@@ -35,7 +37,7 @@ export function validateConfig<T extends SessionDataT = SessionDataT>(config: H3
  * @param config
  */
 export async function useSession<T extends SessionDataT = SessionDataT>(
-  event: H3Event, 
+  event: H3Event,
   config: H3SessionOptions<T>
 ): Promise<void> {
   if (event.context['session']) {
@@ -52,12 +54,14 @@ export async function useSession<T extends SessionDataT = SessionDataT>(
   });
   const { store } = sessionConfig;
   const generator = async () => {
-    return await Promise.resolve({
+    return {
       id: sessionConfig.genid(event),
       data: sessionConfig.generate() as T,
-    });
+    };
   };
-  const normalizedSecrets = Array.isArray(sessionConfig.secret) ? sessionConfig.secret : [sessionConfig.secret];
+  const normalizedSecrets = Array.isArray(sessionConfig.secret)
+    ? sessionConfig.secret
+    : [sessionConfig.secret];
   const createSessionCookie = async (sid: string) => {
     let signedCookie: string;
     const cookie = {
@@ -65,13 +69,20 @@ export async function useSession<T extends SessionDataT = SessionDataT>(
       // Default to a max age of one day
       maxAge: sessionConfig.cookie.maxAge || 60 * 60 * 24,
       setSessionId: async (sid2: string) => {
-        signedCookie = await signCookie(sid2, normalizedSecrets[normalizedSecrets.length - 1]);
+        signedCookie = await signCookie(
+          sid2,
+          normalizedSecrets[normalizedSecrets.length - 1]
+        );
         setCookie(event, sessionConfig.name, signedCookie, cookie);
       },
     };
     await cookie.setSessionId(sid);
     return new Proxy(cookie, {
-      set<K extends keyof typeof cookie>(target: typeof cookie, property: K, value: typeof cookie[K]) {
+      set<K extends keyof typeof cookie>(
+        target: typeof cookie,
+        property: K,
+        value: (typeof cookie)[K]
+      ) {
         target[property] = value;
         setCookie(event, sessionConfig.name, signedCookie, cookie);
         return true;
@@ -79,22 +90,30 @@ export async function useSession<T extends SessionDataT = SessionDataT>(
     });
   };
   const rawCookie = getCookie(event, sessionConfig.name);
-  const unsignResult = rawCookie ? await unsignCookie(rawCookie, normalizedSecrets) : null;
+  const unsignResult = rawCookie
+    ? await unsignCookie(rawCookie, normalizedSecrets)
+    : null;
   let sessionData: T | undefined;
   let sessionId = null;
   if (unsignResult?.success) {
-    sessionId = unsignResult.value; 
-    sessionData = await store.get(unsignResult.value) as T | undefined;
+    sessionId = unsignResult.value;
+    sessionData = (await store.get(unsignResult.value)) as T | undefined;
   }
   async function createNewSession(): Promise<void> {
     const { id, data } = await generator();
     const cookie = await createSessionCookie(id);
-    const sessionState = createSessionState<T>(id, data, store, generator, cookie);
+    const sessionState = createSessionState<T>(
+      id,
+      data,
+      store,
+      generator,
+      cookie
+    );
     event.context['session'] = sessionState;
-    
+
     // Create the session handler API that mimics the original Session class interface
     attachSessionHandlerToEvent<T>(event, sessionState);
-    
+
     if (sessionConfig.saveUninitialized) {
       await event.context['sessionHandler'].save();
     }
@@ -105,10 +124,16 @@ export async function useSession<T extends SessionDataT = SessionDataT>(
     if (store.touch && data) {
       await store.touch(id, data);
     }
-    const sessionState = createSessionState<T>(id, data ?? sessionConfig.generate() as T, store, generator, cookie);
+    const sessionState = createSessionState<T>(
+      id,
+      data ?? (sessionConfig.generate() as T),
+      store,
+      generator,
+      cookie
+    );
     event.context['session'] = sessionState;
     event.context['sessionId'] = id;
-    
+
     // Create the session handler API that mimics the original Session class interface
     attachSessionHandlerToEvent<T>(event, sessionState);
   }
@@ -142,7 +167,7 @@ export interface SessionHandler<T extends SessionDataT = SessionDataT> {
  * as the original Session class for backward compatibility
  */
 function attachSessionHandlerToEvent<T extends SessionDataT = SessionDataT>(
-  event: H3Event, 
+  event: H3Event,
   sessionState: SessionState<T>
 ): void {
   // Create a strongly-typed session handler with the same API as the original Session class
@@ -150,45 +175,55 @@ function attachSessionHandlerToEvent<T extends SessionDataT = SessionDataT>(
     get id() {
       return sessionState.id;
     },
-    
+
     get cookie() {
       return sessionState.cookie;
     },
-    
+
     set cookie(value) {
       sessionState.cookie = value;
     },
-    
+
     get data() {
       return getSessionData(sessionState);
     },
-    
+
     update(updater) {
-      event.context['session'] = sessionState = updateSessionData<T>(sessionState, updater);
+      event.context['session'] = sessionState = updateSessionData<T>(
+        sessionState,
+        updater
+      );
       return sessionHandler;
     },
-    
+
     set(newData) {
-      event.context['session'] = sessionState = setSessionData<T>(sessionState, newData);
+      event.context['session'] = sessionState = setSessionData<T>(
+        sessionState,
+        newData
+      );
       return sessionHandler;
     },
-    
+
     async save() {
       await saveSession(sessionState);
     },
-    
+
     async reload() {
-      event.context['session'] = sessionState = await reloadSession<T>(sessionState);
+      event.context['session'] = sessionState = await reloadSession<T>(
+        sessionState
+      );
     },
-    
+
     async destroy() {
       await destroySession(sessionState);
     },
-    
+
     async regenerate() {
-      event.context['session'] = sessionState = await regenerateSession<T>(sessionState);
-    }
+      event.context['session'] = sessionState = await regenerateSession<T>(
+        sessionState
+      );
+    },
   };
-  
+
   event.context['sessionHandler'] = sessionHandler;
 }

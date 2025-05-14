@@ -1,10 +1,18 @@
 import { Storage } from 'unstorage';
-import { RawSession, SessionDataT, SessionStore, TTL, UnstorageSessionStoreOptions } from '../types';
+import {
+  RawSession,
+  SessionDataT,
+  SessionStore,
+  TTL,
+  UnstorageSessionStoreOptions,
+} from '../types';
 
 /**
  * Session store implementation using unstorage
  */
-export class UnstorageSessionStore<T extends SessionDataT = SessionDataT> implements SessionStore<T> {
+export class UnstorageSessionStore<T extends SessionDataT = SessionDataT>
+  implements SessionStore<T>
+{
   storage: Storage<RawSession<T>>;
   prefix: string;
   ttl: TTL<T>;
@@ -14,7 +22,10 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT> implem
    * @param storage The unstorage storage instance
    * @param options Configuration options
    */
-  constructor(storage: Storage<RawSession<T>>, options: Partial<UnstorageSessionStoreOptions<T>>) {
+  constructor(
+    storage: Storage<RawSession<T>>,
+    options: Partial<UnstorageSessionStoreOptions<T>>
+  ) {
     this.storage = storage;
     this.prefix = options?.prefix ?? 'sess';
     this.ttl = options?.ttl ?? 60 * 60 * 24; // Default: 1 day
@@ -35,7 +46,14 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT> implem
   async get(sid: string): Promise<RawSession<T> | undefined> {
     try {
       const item = await this.storage.getItem(this.getKey(sid));
-
+      if (item) {
+        console.log(
+          `[@analog-tools/session] Retrieved session ${sid}:`,
+          JSON.stringify(item)
+        );
+      } else {
+        console.log(`[@analog-tools/session] No session found for ID ${sid}`);
+      }
       return item as RawSession<T> | undefined;
     } catch (error) {
       console.error(`[@analog-tools/session] Error getting session: ${error}`);
@@ -52,8 +70,16 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT> implem
   async set(sid: string, data: RawSession<T>): Promise<void> {
     const ttl = this.getTTL(data as T);
     if (ttl > 0) {
+      console.log(
+        `[@analog-tools/session] Saving session ${sid} with TTL ${ttl}:`,
+        JSON.stringify(data)
+      );
       await this.storage.setItem(this.getKey(sid), data, { ttl });
+      console.log(`[@analog-tools/session] Session ${sid} saved successfully`);
     } else {
+      console.log(
+        `[@analog-tools/session] Session ${sid} has expired TTL, destroying`
+      );
       await this.destroy(sid);
     }
   }
