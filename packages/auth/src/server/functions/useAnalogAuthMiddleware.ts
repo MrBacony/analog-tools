@@ -6,11 +6,12 @@ import {
   sendRedirect,
 } from 'h3';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
+import { inject } from '@analog-tools/inject';
 
 export async function useAnalogAuthMiddleware(event: H3Event) {
   // Skip authentication for public auth routes
   const pathname = getRequestURL(event).pathname;
-  const authService = OAuthAuthenticationService.getInstance();
+  const authService = inject(OAuthAuthenticationService);
 
   // Public routes that should bypass authentication
   if (

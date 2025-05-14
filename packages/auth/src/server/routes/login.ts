@@ -3,11 +3,12 @@ import { randomUUID } from 'uncrypto';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { AuthSessionData } from '../types/auth-session.types';
 import { AuthRoute } from '../types/auth.types';
+import { inject } from '@analog-tools/inject';
 
 const route: AuthRoute = {
     path: 'login',
     handler: async (event: H3Event) => {
-        const authService = OAuthAuthenticationService.getInstance();
+      const authService = inject(OAuthAuthenticationService);
 
         // Initialize session
         await authService.initSession(event);

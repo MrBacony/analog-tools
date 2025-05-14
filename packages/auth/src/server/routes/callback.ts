@@ -2,6 +2,7 @@ import { createError, getQuery, H3Event, sendRedirect } from 'h3';
 import { AuthRoute } from '../types/auth.types';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { AuthSessionData } from '../types/auth-session.types';
+import { inject } from '@analog-tools/inject';
 
 /**
  * Handles the OAuth callback from the authentication provider.
@@ -14,7 +15,7 @@ import { AuthSessionData } from '../types/auth-session.types';
 const route: AuthRoute = {
   path: 'callback',
   handler: async (event: H3Event) => {
-    const authService = OAuthAuthenticationService.getInstance();
+    const authService = inject(OAuthAuthenticationService);
 
     // Initialize session
     await authService.initSession(event);

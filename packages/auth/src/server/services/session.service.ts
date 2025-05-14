@@ -14,14 +14,7 @@ const SESSION_SECRET =
 const redisStore = new RedisSessionStore<AuthSessionData>(redisConfig);
 
 export class SessionService {
-  private static instance: SessionService;
-
-  static getInstance(): SessionService {
-    if (!SessionService.instance) {
-      SessionService.instance = new SessionService();
-    }
-    return SessionService.instance;
-  }
+  static readonly INJECTABLE = true;
 
   async initSession(event: H3Event): Promise<void> {
     if (!event.context['sessionHandler']) {

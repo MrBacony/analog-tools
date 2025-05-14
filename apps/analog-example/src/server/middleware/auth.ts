@@ -1,5 +1,6 @@
 import { useAnalogAuth, AnalogAuthConfig } from '@analog-tools/auth';
 import { defineEventHandler, H3Event } from 'h3';
+import { ServiceRegistry } from '@analog-tools/inject';
 
 const authConfig: AnalogAuthConfig = {
   issuer: process.env['AUTH_ISSUER'] || '',
@@ -15,5 +16,6 @@ const authConfig: AnalogAuthConfig = {
  * To be used with Analog.js middleware structure
  */
 export default defineEventHandler(async (event: H3Event) => {
+  ServiceRegistry.initialize();
   return useAnalogAuth(authConfig, event);
 });

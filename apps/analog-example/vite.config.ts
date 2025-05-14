@@ -36,6 +36,7 @@ export default defineConfig(({ mode }) => {
           alias: {
             "@analog-tools/auth": resolve(__dirname,"../../packages/auth/src/index.ts"),
             "@analog-tools/session": resolve(__dirname,"../../packages/session/src/index.ts"),
+            "@analog-tools/inject": resolve(__dirname,"../../packages/inject/src/index.ts"),
           },
           routeRules: {
             '/': {

@@ -6,31 +6,22 @@ import {
   SessionWithSave,
 } from '../types/auth-session.types';
 import { AnalogAuthConfig, UserHandler } from '../types/auth.types';
+import { inject } from '@analog-tools/inject';
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
  */
 export class OAuthAuthenticationService {
-  private static instance: OAuthAuthenticationService;
-
-  static getInstance(): OAuthAuthenticationService {
-    if (!this.instance) {
-      this.instance = new OAuthAuthenticationService();
-    }
-    return this.instance;
-  }
+  static readonly INJECTABLE = true;
 
   /**
    * Initialize the authentication service with the provided configuration
    * @param config The OAuth authentication configuration
    */
   static init(config: AnalogAuthConfig): void {
-    if (!this.instance) {
-      this.instance = new OAuthAuthenticationService();
-    }
-
+    const self = inject(OAuthAuthenticationService);
     // Store the configuration in the config object
-    this.instance.config = {
+    self.config = {
       issuer: config.issuer,
       clientId: config.clientId,
       clientSecret: config.clientSecret,
@@ -41,8 +32,8 @@ export class OAuthAuthenticationService {
     };
 
     // Reset the OpenID configuration cache to force a refresh with new issuer
-    this.instance.openIDConfigCache = null;
-    this.instance.configLastFetched = null;
+    self.openIDConfigCache = null;
+    self.configLastFetched = null;
   }
 
   // Config object with default values
@@ -97,8 +88,7 @@ export class OAuthAuthenticationService {
    * Initialize session for the request
    */
   async initSession(event: H3Event): Promise<void> {
-    const sessionService = SessionService.getInstance();
-    await sessionService.initSession(event);
+    return await inject(SessionService).initSession(event);
   }
 
   isUnprotectedRoute(path: string): boolean {
@@ -413,8 +403,7 @@ export class OAuthAuthenticationService {
     let failed = 0;
 
     try {
-      const sessionService = SessionService.getInstance();
-      const activeSessions = await sessionService.getActiveSessions();
+      const activeSessions = await inject(SessionService).getActiveSessions();
 
       const expiringSessionCount = activeSessions.filter(
         (session) =>
@@ -512,13 +501,13 @@ export class OAuthAuthenticationService {
    * Check if user is authenticated
    */
   async isAuthenticated(event: H3Event): Promise<boolean> {
-    const sessionService = SessionService.getInstance();
-    await sessionService.initSession(event);
+    await inject(SessionService).initSession(event);
 
     const sessionHandler = event.context['sessionHandler'];
 
     // Ensure auth object exists in session data
     if (!sessionHandler.data.auth) {
+      // @ts-expect-error any
       sessionHandler.update((data) => ({
         ...data,
         auth: { isAuthenticated: false },
@@ -588,7 +577,7 @@ export class OAuthAuthenticationService {
           );
 
           // Get fresh session data
-          const freshSession = await sessionService.getSession(
+          const freshSession = await inject(SessionService).getSession(
             sessionHandler.id
           );
           if (!freshSession || !freshSession.data.auth?.isAuthenticated) {
@@ -667,8 +656,7 @@ export class OAuthAuthenticationService {
    * Logout user
    */
   async logout(event: H3Event): Promise<string> {
-    const sessionService = SessionService.getInstance();
-    await sessionService.initSession(event);
+    await inject(SessionService).initSession(event);
     const sessionHandler = event.context['sessionHandler'];
     const config = await this.getOpenIDConfiguration();
 

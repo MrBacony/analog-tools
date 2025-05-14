@@ -1,12 +1,13 @@
 import { createError, H3Event, sendRedirect } from 'h3';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { AuthRoute } from '../types/auth.types';
+import { inject } from '@analog-tools/inject';
 
 const route: AuthRoute = {
   path: 'logout',
   handler: async (event: H3Event) => {
     try {
-      const authService = OAuthAuthenticationService.getInstance();
+      const authService = inject(OAuthAuthenticationService);
 
       // Initialize session
       await authService.initSession(event);

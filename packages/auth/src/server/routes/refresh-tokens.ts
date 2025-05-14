@@ -1,6 +1,7 @@
 import { getRequestHeaders, createError, H3Event } from 'h3';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { AuthRoute } from '../types/auth.types';
+import { inject } from '@analog-tools/inject';
 
 const route: AuthRoute = {
   path: 'refresh-tokens',
@@ -25,7 +26,7 @@ const route: AuthRoute = {
     }
 
     try {
-        const authService = OAuthAuthenticationService.getInstance();
+      const authService = inject(OAuthAuthenticationService);
         const result = await authService.refreshExpiringTokens();
 
         // Log the results

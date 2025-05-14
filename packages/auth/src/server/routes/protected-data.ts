@@ -1,12 +1,13 @@
 import { H3Event } from 'h3';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { AuthRoute } from '../types/auth.types';
+import { inject } from '@analog-tools/inject';
 
 
 const route: AuthRoute = {
   path: 'protected-data',
   handler: async (event: H3Event) => {
-    const authService = OAuthAuthenticationService.getInstance();
+    const authService = inject(OAuthAuthenticationService);
 
     // The middleware has already verified authentication and refreshed tokens if needed
     // Now we can get the authenticated user

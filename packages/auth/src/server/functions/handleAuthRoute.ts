@@ -2,6 +2,7 @@ import { createError, H3Event } from 'h3';
 import { registerRoutes } from './registerRoutes';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { getLastPathSegment } from '../utils/getLastPathSegment';
+import { inject } from '@analog-tools/inject';
 
 export async function handleAuthRoute(event: H3Event) {
   if (event.path.includes('/api/auth/')) {
@@ -14,7 +15,7 @@ export async function handleAuthRoute(event: H3Event) {
       });
     }
 
-    const authService = OAuthAuthenticationService.getInstance();
+    const authService = inject(OAuthAuthenticationService);
     await authService.initSession(event);
 
     // Check if the requested path exists in our routes
