@@ -1,8 +1,27 @@
 {
   "name": "@analog-tools/inject",
   "version": "0.0.1",
-  "type": "module",
-  "main": "./index.js",
-  "types": "./index.d.ts",
-  "dependencies": {}
+  "description": "Dependency injection for AnalogJS server-side applications",
+  "main": "./index.cjs",
+  "module": "./index.js",
+  "author": "Gregor Speck <gregor.speck@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrBacony/analog-tools.git"
+  },
+  "keywords": [
+    "analogjs",
+    "di",
+    "nitro",
+    "h3",
+    "dependency-injection",
+    "angular",
+    "server-side",
+    "analog-tools"
+  ],
+  "license": "MIT",
+  "dependencies": {},
+  "publishConfig": {
+    "access": "public"
+  }
 }
