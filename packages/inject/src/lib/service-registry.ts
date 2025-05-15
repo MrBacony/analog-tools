@@ -62,7 +62,8 @@ export class ServiceRegistry {
    * @returns True if the service has the INJECTABLE static property set to true
    */
   public isServiceInjectable<T>(token: InjectionServiceClass<T>): boolean {
-    return (token as unknown as { INJECTABLE?: boolean }).INJECTABLE === true;
+    const injectable = (token as unknown as { INJECTABLE?: boolean }).INJECTABLE;
+    return injectable !== undefined  && injectable;
   }
   /**
    * Clean up all services when the game is being destroyed

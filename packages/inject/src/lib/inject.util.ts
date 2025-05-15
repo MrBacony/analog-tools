@@ -17,6 +17,7 @@ export interface InjectOptions {
 }
 
 // Make InjectionServiceClass generic over constructor args
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface InjectionServiceClass<T, Args extends any[] = any[]> {
   new (...args: Args): T;
 }
@@ -64,6 +65,7 @@ export function inject<T>(
  * @param properties - The constructor parameters for the service class
  */
 // Update registerService to enforce constructor parameter types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerService<T, Args extends any[]>(
   token: InjectionServiceClass<T, Args>,
   ...properties: Args
