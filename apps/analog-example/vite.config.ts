@@ -34,9 +34,22 @@ export default defineConfig(({ mode }) => {
       analog({
         nitro: {
           alias: {
-            "@analog-tools/auth": resolve(__dirname,"../../packages/auth/src/index.ts"),
-            "@analog-tools/session": resolve(__dirname,"../../packages/session/src/index.ts"),
-            "@analog-tools/inject": resolve(__dirname,"../../packages/inject/src/index.ts"),
+            '@analog-tools/auth': resolve(
+              __dirname,
+              '../../packages/auth/src/index.ts'
+            ),
+            '@analog-tools/session': resolve(
+              __dirname,
+              '../../packages/session/src/index.ts'
+            ),
+            '@analog-tools/inject': resolve(
+              __dirname,
+              '../../node_modules/@analog-tools/inject/index.js'
+            ),
+            '@analog-tools/logger': resolve(
+              __dirname,
+              '../../node_modules/@analog-tools/logger/index.js'
+            ),
           },
           routeRules: {
             '/': {
