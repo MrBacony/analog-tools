@@ -31,11 +31,6 @@
       },
       "defaultConfiguration": "production"
     },
-    "nx-release-publish": {
-      "options": {
-        "packageRoot": "node_modules/{projectRoot}"
-      }
-    },
     "lint": {
       "executor": "@nx/eslint:lint"
     }
