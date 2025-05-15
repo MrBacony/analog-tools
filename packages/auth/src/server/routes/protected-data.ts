@@ -3,7 +3,6 @@ import { OAuthAuthenticationService } from '../services/oauth-authentication.ser
 import { AuthRoute } from '../types/auth.types';
 import { inject } from '@analog-tools/inject';
 
-
 const route: AuthRoute = {
   path: 'protected-data',
   handler: async (event: H3Event) => {
@@ -14,10 +13,10 @@ const route: AuthRoute = {
     const user = await authService.getAuthenticatedUser(event);
 
     return {
-        message: 'This is protected data that requires authentication',
-        user,
+      message: 'This is protected data that requires authentication',
+      user,
     };
-},
-}
+  },
+};
 
 export default route;

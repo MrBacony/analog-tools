@@ -6,33 +6,35 @@ import { AuthRoute } from '../types/auth.types';
 import { inject } from '@analog-tools/inject';
 
 const route: AuthRoute = {
-    path: 'login',
-    handler: async (event: H3Event) => {
-      const authService = inject(OAuthAuthenticationService);
+  path: 'login',
+  handler: async (event: H3Event) => {
+    const authService = inject(OAuthAuthenticationService);
 
-        // Initialize session
-        await authService.initSession(event);
+    // Initialize session
+    await authService.initSession(event);
 
-        // Generate state parameter for CSRF protection
-        const state = randomUUID();
+    // Generate state parameter for CSRF protection
+    const state = randomUUID();
 
-        // Store state in session using the sessionHandler
-        event.context['sessionHandler'].update((currentSession: AuthSessionData) => ({
-            ...currentSession,
-            state,
-        }));
-        await event.context['sessionHandler'].save();
+    // Store state in session using the sessionHandler
+    event.context['sessionHandler'].update(
+      (currentSession: AuthSessionData) => ({
+        ...currentSession,
+        state,
+      })
+    );
+    await event.context['sessionHandler'].save();
 
-        // Get redirect URL from query parameters
-        const query = getQuery(event);
-        const redirectUri = query['redirect_uri'] as string;
+    // Get redirect URL from query parameters
+    const query = getQuery(event);
+    const redirectUri = query['redirect_uri'] as string;
 
-        // Get authorization URL
-        const authUrl = await authService.getAuthorizationUrl(state, redirectUri);
+    // Get authorization URL
+    const authUrl = await authService.getAuthorizationUrl(state, redirectUri);
 
-        // Redirect to OAuth provider
-        return sendRedirect(event, authUrl);
-    },
+    // Redirect to OAuth provider
+    return sendRedirect(event, authUrl);
+  },
 };
 
 export default route;

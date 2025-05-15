@@ -7,6 +7,7 @@ import {
 } from '../types/auth-session.types';
 import { AnalogAuthConfig, UserHandler } from '../types/auth.types';
 import { inject } from '@analog-tools/inject';
+import { LoggerService, ILogger } from '@analog-tools/logger';
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
@@ -14,14 +15,13 @@ import { inject } from '@analog-tools/inject';
 export class OAuthAuthenticationService {
   static readonly INJECTABLE = true;
 
-  /**
-   * Initialize the authentication service with the provided configuration
-   * @param config The OAuth authentication configuration
-   */
-  static init(config: AnalogAuthConfig): void {
-    const self = inject(OAuthAuthenticationService);
-    // Store the configuration in the config object
-    self.config = {
+  private logger: ILogger;
+
+  constructor(config: AnalogAuthConfig) {
+    const loggerService = inject(LoggerService);
+    this.logger = loggerService.forContext('OAuthAuthenticationService');
+
+    this.config = {
       issuer: config.issuer,
       clientId: config.clientId,
       clientSecret: config.clientSecret,
@@ -30,10 +30,6 @@ export class OAuthAuthenticationService {
       redirectUri: config.callbackUri,
       userHandler: config.userHandler,
     };
-
-    // Reset the OpenID configuration cache to force a refresh with new issuer
-    self.openIDConfigCache = null;
-    self.configLastFetched = null;
   }
 
   // Config object with default values
@@ -141,7 +137,7 @@ export class OAuthAuthenticationService {
 
     if (!response.ok) {
       const error = await response.json();
-      console.error('Error exchanging code for tokens:', error);
+      this.logger.error('Error exchanging code for tokens', error);
       throw createError({
         statusCode: 401,
         message: 'Failed to exchange authorization code',
@@ -180,7 +176,7 @@ export class OAuthAuthenticationService {
         const error = await response
           .json()
           .catch(() => ({ error: 'Unknown error' }));
-        console.error('Error refreshing token:', error);
+        this.logger.error('Error refreshing token', error);
         throw createError({
           statusCode: 401,
           message: 'Failed to refresh token',
@@ -189,7 +185,7 @@ export class OAuthAuthenticationService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error during token refresh:', error);
+      this.logger.error('Error during token refresh', error);
       throw createError({
         statusCode: 401,
         message: 'Failed to refresh authentication token',
@@ -220,10 +216,10 @@ export class OAuthAuthenticationService {
           const errorData = await response
             .json()
             .catch(() => ({ error: 'Unknown error' }));
-          console.error(
-            `Error getting user info (attempt ${attempt}/${maxRetries}):`,
-            errorData
-          );
+          this.logger.error(`Error getting user info`, errorData, {
+            attempt,
+            maxRetries,
+          });
 
           // Handle different error scenarios
           if (response.status === 401) {
@@ -283,10 +279,10 @@ export class OAuthAuthenticationService {
           error instanceof TypeError ||
           (error instanceof Error && error.name === 'AbortError')
         ) {
-          console.error(
-            `Network error fetching user info (attempt ${attempt}/${maxRetries}):`,
-            error
-          );
+          this.logger.error(`Network error fetching user info`, error, {
+            attempt,
+            maxRetries,
+          });
           if (attempt < maxRetries) {
             // Exponential backoff
             await new Promise((resolve) =>
@@ -298,7 +294,9 @@ export class OAuthAuthenticationService {
 
         // If we're out of retries, rethrow the last error
         if (attempt === maxRetries) {
-          console.error(`Failed to get user info after ${maxRetries} attempts`);
+          this.logger.error(`Failed to get user info after multiple attempts`, {
+            maxRetries,
+          });
           throw createError({
             statusCode: 500,
             message: 'Failed to get user info after multiple attempts',
@@ -358,18 +356,13 @@ export class OAuthAuthenticationService {
 
     // Save session explicitly
     try {
-      console.log(
-        '[@analog-tools/auth][authservice-handleCallback] Saving authentication session data'
-      );
+      this.logger.debug('Saving authentication session data', {
+        sessionId: sessionHandler.id,
+      });
       await sessionHandler.save();
-      console.log(
-        '[@analog-tools/auth][authservice-handleCallback] Session saved successfully'
-      );
+      this.logger.debug('Session saved successfully');
     } catch (error) {
-      console.error(
-        '[@analog-tools/auth][authservice-handleCallback] Failed to save session:',
-        error
-      );
+      this.logger.error('Failed to save session', error);
       throw error;
     }
 
@@ -413,9 +406,10 @@ export class OAuthAuthenticationService {
           this.shouldRefreshToken(session.data.auth.expiresAt)
       ).length;
 
-      console.log(
-        `Found ${expiringSessionCount} sessions with expiring tokens out of ${activeSessions.length} total sessions`
-      );
+      this.logger.debug(`Found sessions with expiring tokens`, {
+        expiringCount: expiringSessionCount,
+        totalCount: activeSessions.length,
+      });
 
       // Create a function to handle token refresh for a session
       const refreshSessionToken = async (
@@ -444,13 +438,14 @@ export class OAuthAuthenticationService {
 
           // Save updated session
           await session.save();
-          console.log(`Proactively refreshed token for session ${session.id}`);
+          this.logger.debug(`Proactively refreshed token for session`, {
+            sessionId: session.id,
+          });
           refreshed++;
         } catch (error) {
-          console.error(
-            `Failed to refresh token for session ${session.id}:`,
-            error
-          );
+          this.logger.error(`Failed to refresh token for session`, error, {
+            sessionId: session.id,
+          });
           // Mark session as unauthenticated on refresh failure using immutable update
           session.update((data) => ({
             ...data,
@@ -492,7 +487,7 @@ export class OAuthAuthenticationService {
       await Promise.allSettled(refreshPromises);
       return { refreshed, failed, total: activeSessions.length };
     } catch (error) {
-      console.error('Error checking and refreshing tokens:', error);
+      this.logger.error('Error checking and refreshing tokens', error);
       return { refreshed, failed, total: 0 };
     }
   }
@@ -548,7 +543,7 @@ export class OAuthAuthenticationService {
 
           return true;
         } catch (error) {
-          console.error('Error refreshing token:', error);
+          this.logger.error('Error refreshing token', error);
           // Clear auth data on refresh token failure
           sessionHandler.update((data: AuthSessionData) => ({
             ...data,
@@ -602,7 +597,7 @@ export class OAuthAuthenticationService {
           // Save session
           await freshSession.save();
         } catch (error) {
-          console.error('Background token refresh failed:', error);
+          this.logger.error('Background token refresh failed', error);
         }
       }, 0);
     }
@@ -665,7 +660,7 @@ export class OAuthAuthenticationService {
       try {
         await this.revokeToken(sessionHandler.data.auth.accessToken);
       } catch (error) {
-        console.error('Failed to revoke access token:', error);
+        this.logger.error('Failed to revoke access token', error);
       }
     }
 
@@ -674,7 +669,7 @@ export class OAuthAuthenticationService {
       try {
         await this.revokeToken(sessionHandler.data.auth.refreshToken);
       } catch (error) {
-        console.error('Failed to revoke refresh token:', error);
+        this.logger.error('Failed to revoke refresh token', error);
       }
     }
 
@@ -731,7 +726,7 @@ export class OAuthAuthenticationService {
 
       return config;
     } catch (error) {
-      console.error('Error fetching OpenID configuration:', error);
+      this.logger.error('Error fetching OpenID configuration', error);
       throw createError({
         statusCode: 500,
         message: 'Failed to fetch OpenID configuration',

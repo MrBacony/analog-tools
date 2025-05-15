@@ -31,7 +31,8 @@
   ],
   "dependencies": {
     "@analog-tools/session": "^0.0.3",
-    "@analog-tools/inject": "^0.0.1"
+    "@analog-tools/inject": "^0.0.1",
+    "@analog-tools/logger": "^0.0.1"
   },
   "peerDependencies": {
     "h3": "^1.15.2",

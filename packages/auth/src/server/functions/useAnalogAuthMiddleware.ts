@@ -6,12 +6,14 @@ import {
   sendRedirect,
 } from 'h3';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
+import { LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
 
 export async function useAnalogAuthMiddleware(event: H3Event) {
   // Skip authentication for public auth routes
   const pathname = getRequestURL(event).pathname;
   const authService = inject(OAuthAuthenticationService);
+  const logger = inject(LoggerService).forContext('AuthMiddleware');
 
   // Public routes that should bypass authentication
   if (
@@ -37,7 +39,7 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
         message: 'Authentication required',
       });
     } else {
-      console.log('Redirecting to login page');
+      logger.debug('Redirecting to login page', { path: pathname });
       // Browser request - redirect to login page
       await sendRedirect(event, '/api/auth/login');
     }

@@ -1,6 +1,8 @@
 import { createError, H3Event } from 'h3';
 import { RedisSessionStore, useSession } from '@analog-tools/session';
 import { AuthSessionData, SessionWithSave } from '../types/auth-session.types';
+import { LoggerService, ILogger } from '@analog-tools/logger';
+import { inject } from '@analog-tools/inject';
 
 const redisConfig = {
   url: process.env['REDIS_URL'],
@@ -15,6 +17,13 @@ const redisStore = new RedisSessionStore<AuthSessionData>(redisConfig);
 
 export class SessionService {
   static readonly INJECTABLE = true;
+
+  private logger: ILogger;
+
+  constructor() {
+    const loggerService = inject(LoggerService);
+    this.logger = loggerService.forContext('SessionService');
+  }
 
   async initSession(event: H3Event): Promise<void> {
     if (!event.context['sessionHandler']) {
@@ -59,7 +68,7 @@ export class SessionService {
         },
       };
     } catch (error) {
-      console.error(`Error retrieving session ${sessionId}:`, error);
+      this.logger.error(`Error retrieving session`, error, { sessionId });
       return null;
     }
   }
@@ -90,7 +99,7 @@ export class SessionService {
         })
       );
     } catch (error) {
-      console.error('Error retrieving active sessions:', error);
+      this.logger.error('Error retrieving active sessions', error);
       return [];
     }
   }
@@ -118,7 +127,7 @@ export class SessionService {
       delete event.context['session'];
       delete event.context['sessionId'];
     } catch (error) {
-      console.error('Session destruction failed:', error);
+      this.logger.error('Session destruction failed', error);
       throw createError({
         statusCode: 500,
         message: 'Session handling failed',
