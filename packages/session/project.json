@@ -15,7 +15,7 @@
   "targets": {
     "nx-release-publish": {
       "options": {
-        "packageRoot": "dist/{projectRoot}"
+        "packageRoot": "node_modules/@analog-tools/{projectRoot}"
       }
     }
   }

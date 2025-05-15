@@ -1,5 +1,21 @@
-// filepath: /Users/gspeck/Develop/Private/whn/libs/libs/h3-session/src/core/session-functions.ts
+import { inject } from '@analog-tools/inject';
+import { LoggerService } from '@analog-tools/logger';
 import { SessionCookie, SessionDataT, SessionStore } from '../types';
+
+// Get a logger instance for the session module
+const getLogger = () => {
+  try {
+    return inject(LoggerService).forContext('@analog-tools/session');
+  } catch (error) {
+    // Fallback if logger service is not available
+    return {
+      debug: (...args: unknown[]) => console.debug('[Session]', ...args),
+      info: (...args: unknown[]) => console.info('[Session]', ...args),
+      warn: (...args: unknown[]) => console.warn('[Session]', ...args),
+      error: (...args: unknown[]) => console.error('[Session]', ...args),
+    };
+  }
+};
 
 /**
  * Session metadata interface to represent internal session state
@@ -38,7 +54,13 @@ export function updateSessionData<T extends SessionDataT = SessionDataT>(
   state: SessionState<T>,
   updater: (data: Readonly<T>) => T | Partial<T>
 ): SessionState<T> {
+  const logger = getLogger();
   const updatedData = updater(state.data);
+
+  logger.debug(`Updating session ${state.id} data`, {
+    sessionId: state.id,
+  });
+
   return {
     ...state,
     data: Object.freeze({
@@ -58,6 +80,12 @@ export function setSessionData<T extends SessionDataT = SessionDataT>(
   state: SessionState<T>,
   newData: T
 ): SessionState<T> {
+  const logger = getLogger();
+
+  logger.debug(`Setting new data for session ${state.id}`, {
+    sessionId: state.id,
+  });
+
   return {
     ...state,
     data: Object.freeze({ ...newData }),
@@ -71,20 +99,20 @@ export function setSessionData<T extends SessionDataT = SessionDataT>(
 export async function saveSession<T extends SessionDataT = SessionDataT>(
   state: SessionState<T>
 ): Promise<void> {
+  const logger = getLogger();
   try {
-    console.log(
-      `[@analog-tools/session] Saving session ${state.id} with data:`,
-      JSON.stringify(state.data)
-    );
+    logger.debug(`Saving session ${state.id} with data`, {
+      sessionId: state.id,
+      data: state.data,
+    });
     await state.store.set(state.id, { ...state.data });
-    console.log(
-      `[@analog-tools/session] Session ${state.id} saved successfully`
-    );
+    logger.debug(`Session ${state.id} saved successfully`, {
+      sessionId: state.id,
+    });
   } catch (error) {
-    console.error(
-      `[@analog-tools/session] Error saving session ${state.id}:`,
-      error
-    );
+    logger.error(`Error saving session ${state.id}`, error, {
+      sessionId: state.id,
+    });
     throw error;
   }
 }
@@ -97,8 +125,17 @@ export async function saveSession<T extends SessionDataT = SessionDataT>(
 export async function reloadSession<T extends SessionDataT = SessionDataT>(
   state: SessionState<T>
 ): Promise<SessionState<T>> {
+  const logger = getLogger();
+  logger.debug(`Reloading session ${state.id}`, { sessionId: state.id });
+
   const freshData =
     (await state.store.get(state.id)) ?? (await state.generator()).data;
+
+  logger.debug(`Session ${state.id} reloaded`, {
+    sessionId: state.id,
+    hasData: !!freshData,
+  });
+
   return {
     ...state,
     data: Object.freeze({ ...freshData }),
@@ -112,8 +149,9 @@ export async function reloadSession<T extends SessionDataT = SessionDataT>(
 export async function destroySession<T extends SessionDataT = SessionDataT>(
   state: SessionState<T>
 ): Promise<void> {
+  const logger = getLogger();
   state.cookie.maxAge = 0;
-  console.log(`[@analog-tools/session] Destroying session ${state.id}`);
+  logger.debug(`Destroying session ${state.id}`, { sessionId: state.id });
   await state.store.destroy(state.id);
 }
 
@@ -125,6 +163,9 @@ export async function destroySession<T extends SessionDataT = SessionDataT>(
 export async function regenerateSession<T extends SessionDataT = SessionDataT>(
   state: SessionState<T>
 ): Promise<SessionState<T>> {
+  const logger = getLogger();
+  logger.debug(`Regenerating session ${state.id}`, { sessionId: state.id });
+
   await state.store.destroy(state.id);
   const { data, id } = await state.generator();
   const newState = {
@@ -132,6 +173,12 @@ export async function regenerateSession<T extends SessionDataT = SessionDataT>(
     data: Object.freeze({ ...data }),
     id,
   };
+
+  logger.debug(`Created new session ${id} to replace ${state.id}`, {
+    oldSessionId: state.id,
+    newSessionId: id,
+  });
+
   await Promise.all([state.cookie.setSessionId(id), saveSession(newState)]);
   return newState;
 }
@@ -152,6 +199,9 @@ export function createSessionState<T extends SessionDataT = SessionDataT>(
   generator: () => Promise<{ data: T; id: string }>,
   cookie: SessionCookie
 ): SessionState<T> {
+  const logger = getLogger();
+  logger.debug(`Creating new session state with ID ${id}`, { sessionId: id });
+
   return {
     id,
     data: Object.freeze({ ...data }),

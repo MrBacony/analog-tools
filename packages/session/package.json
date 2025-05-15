@@ -27,7 +27,8 @@
   "dependencies": {
     "defu": "^6.1.4",
     "uncrypto": "^0.1.3",
-    "unstorage": "^1.16.0"
+    "unstorage": "^1.16.0",
+    "@analog-tools/inject": "^0.0.1"
   },
   "peerDependencies": {
     "h3": "^1.15.2"
