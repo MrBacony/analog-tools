@@ -16,24 +16,19 @@ export interface InjectOptions {
   required?: boolean;
 }
 
-export interface InjectionServiceClass<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  new (...args: any[]): T;
+// Make InjectionServiceClass generic over constructor args
+export interface InjectionServiceClass<T, Args extends any[] = any[]> {
+  new (...args: Args): T;
 }
 
-/**
- * Inject a service from the ServiceRegistry
- * @param token - The injection token for the service
- * @param options - Injection options
- * @returns The requested service instance
- */
-export function inject<T>(
+let _sericeRegistry: ServiceRegistry | null = null;
+
+function innerInjectFunction<T>(
+  registry: ServiceRegistry,
   token: InjectionServiceClass<T>,
   options: InjectOptions = {}
 ): T {
   const { required = true } = options;
-  const registry = ServiceRegistry.getInstance();
-
   // Type assertion to help TypeScript understand the return type
   const service = registry.getService(token) as T | undefined;
 
@@ -44,4 +39,37 @@ export function inject<T>(
   }
 
   return service as T;
+}
+
+/**
+ * Inject a service from the ServiceRegistry
+ * @param token - The injection token for the service
+ * @param options - Injection options
+ * @returns The requested service instance
+ */
+
+export function inject<T>(
+  token: InjectionServiceClass<T>,
+  options: InjectOptions = {}
+): T {
+  if (!_sericeRegistry) {
+    _sericeRegistry = new ServiceRegistry();
+  }
+  return innerInjectFunction(_sericeRegistry, token, options);
+}
+
+/**
+ * Register a service instance with the ServiceRegistry
+ * @param token - The injection token (service class)
+ * @param properties - The constructor parameters for the service class
+ */
+// Update registerService to enforce constructor parameter types
+export function registerService<T, Args extends any[]>(
+  token: InjectionServiceClass<T, Args>,
+  ...properties: Args
+): void {
+  if (!_sericeRegistry) {
+    _sericeRegistry = new ServiceRegistry();
+  }
+  _sericeRegistry.register(token, ...properties);
 }

@@ -5,53 +5,26 @@ import { InjectionServiceClass } from './inject.util';
  * Implements the singleton pattern for central service management.
  */
 export class ServiceRegistry {
-  private static instance: ServiceRegistry;
-
   private serviceMap: Map<InjectionServiceClass<unknown>, unknown> = new Map();
 
   /**
    * Private constructor to prevent direct instantiation
    */
-  private constructor() {
+  constructor() {
     // Initialize services in the correct dependency order
     console.log('Service registry initialized');
   }
 
   /**
-   * Initialize the ServiceRegistry singleton
-   * @returns The ServiceRegistry instance
-   */
-  public static initialize(): ServiceRegistry {
-    if (!ServiceRegistry.instance) {
-      ServiceRegistry.instance = new ServiceRegistry();
-    }
-    return ServiceRegistry.instance;
-  }
-
-  /**
-   * Get the ServiceRegistry instance
-   * @throws Error if the registry hasn't been initialized
-   * @returns The ServiceRegistry instance
-   */
-  public static getInstance(): ServiceRegistry {
-    if (!ServiceRegistry.instance) {
-      throw new Error(
-        'ServiceRegistry not initialized. Call initialize() first.'
-      );
-    }
-    return ServiceRegistry.instance;
-  }
-
-  /**
    * Register a service with a token
    * @param token - The injection token for the service
-   * @param service - The service instance
+   * @param properties - The constructor parameters for the service class
    */
   public register<T>(
     token: InjectionServiceClass<T>,
-    ...properties: unknown[]
+    ...properties: ConstructorParameters<InjectionServiceClass<T>>
   ): void {
-    if (properties === undefined) {
+    if (properties === undefined || properties.length === 0) {
       this.serviceMap.set(token, new token());
       return;
     }

@@ -17,6 +17,16 @@
       "options": {
         "packageRoot": "dist/{projectRoot}"
       }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx run @analog-tools/inject:vite:build --configuration=production"
+        ],
+        "parallel": false
+      },
+      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"]
     }
   }
 }
