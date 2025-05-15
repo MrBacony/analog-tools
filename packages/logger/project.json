@@ -1,0 +1,32 @@
+{
+  "name": "@analog-tools/logger",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/logger/src",
+  "projectType": "library",
+  "release": {
+    "version": {
+      "currentVersionResolver": "git-tag",
+      "fallbackCurrentVersionResolver": "disk",
+      "preserveLocalDependencyProtocols": false,
+      "manifestRootsToUpdate": ["node_modules/{projectRoot}"]
+    }
+  },
+  "tags": [],
+  "targets": {
+    "nx-release-publish": {
+      "options": {
+        "packageRoot": "node_modules/@analog-tools/{projectRoot}"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx run @analog-tools/logger:vite:build --configuration=production"
+        ],
+        "parallel": false
+      },
+      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"]
+    }
+  }
+}
