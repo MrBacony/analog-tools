@@ -1,23 +1,13 @@
 /**
- * Logger service using standard console for logging
+ * Logger service using Pino for structured logging
  * Designed to be used with the @analog-tools/inject package
  */
 
+import pino, { Logger as PinoLogger } from 'pino';
 import { ILogger, LoggerConfig } from './logger.types';
 
-// Log level enumeration to match standard console methods
-enum LogLevel {
-  trace = 0,
-  debug = 1,
-  info = 2,
-  warn = 3,
-  error = 4,
-  fatal = 5,
-  silent = 6
-}
-
 /**
- * Logger service implementation using standard console
+ * Logger service implementation using Pino
  * Can be injected using the @analog-tools/inject package
  */
 export class LoggerService implements ILogger {
@@ -27,19 +17,24 @@ export class LoggerService implements ILogger {
    */
   static INJECTABLE = true;
 
-  private logLevel: LogLevel;
-  private name: string;
-  private childLogger: Record<string, ChildLoggerService> = {};
+  private logger: PinoLogger;
 
   /**
    * Create a new LoggerService
    * @param config The logger configuration
    */
   constructor(private config: LoggerConfig = {}) {
-    this.logLevel = this.getLogLevel(config.level || process.env['LOG_LEVEL'] || 'info');
-    this.name = config.name || 'analog-tools';
+    this.logger = pino({
+      level: config.level || process.env['LOG_LEVEL'] || 'info',
+      name: config.name || 'analog-tools',
+      transport:
+        config.prettyPrint !== false && process.env['NODE_ENV'] !== 'production'
+          ? { target: 'pino-pretty' }
+          : undefined,
+      ...config.transport,
+    });
 
-    console.info(`[${this.name}] Logger initialized`);
+    this.logger.info('Logger initialized');
   }
 
   /**
@@ -48,12 +43,8 @@ export class LoggerService implements ILogger {
    * @returns A new logger instance with the given context
    */
   forContext(context: string): ILogger {
-    if(!this.childLogger[context]) {
-      const isEnabled = this.config.disabledContexts?.includes(context) !== true;
-      this.childLogger[context] = new ChildLoggerService(this.name, context, this.logLevel, isEnabled);
-    }
-
-    return this.childLogger[context];
+    const childLogger = this.logger.child({ context });
+    return new ChildLoggerService(childLogger);
   }
 
   /**
@@ -61,10 +52,8 @@ export class LoggerService implements ILogger {
    * @param message The message to log
    * @param data Additional data to log
    */
-  trace(message: string, ...data: unknown[]): void {
-    if (this.logLevel <= LogLevel.trace) {
-      console.trace(`[${this.name}] ${message}`, ...(data || []));
-    }
+  trace(message: string, data?: Record<string, unknown>): void {
+    this.logger.trace(data || {}, message);
   }
 
   /**
@@ -72,10 +61,8 @@ export class LoggerService implements ILogger {
    * @param message The message to log
    * @param data Additional data to log
    */
-  debug(message: string, ...data: unknown[]): void {
-    if (this.logLevel <= LogLevel.debug) {
-      console.debug(`[${this.name}] ${message}`, ...(data || []));
-    }
+  debug(message: string, data?: Record<string, unknown>): void {
+    this.logger.debug(data || {}, message);
   }
 
   /**
@@ -83,10 +70,8 @@ export class LoggerService implements ILogger {
    * @param message The message to log
    * @param data Additional data to log
    */
-  info(message: string, ...data: unknown[]): void {
-    if (this.logLevel <= LogLevel.info) {
-      console.info(`[${this.name}] ${message}`, ...(data || []));
-    }
+  info(message: string, data?: Record<string, unknown>): void {
+    this.logger.info(data || {}, message);
   }
 
   /**
@@ -94,10 +79,8 @@ export class LoggerService implements ILogger {
    * @param message The message to log
    * @param data Additional data to log
    */
-  warn(message: string, ...data: unknown[]): void {
-    if (this.logLevel <= LogLevel.warn) {
-      console.warn(`[${this.name}] ${message}`, ...(data || []));
-    }
+  warn(message: string, data?: Record<string, unknown>): void {
+    this.logger.warn(data || {}, message);
   }
 
   /**
@@ -109,11 +92,9 @@ export class LoggerService implements ILogger {
   error(
     message: string,
     error?: Error | unknown,
-    ...data: unknown[]
+    data?: Record<string, unknown>
   ): void {
-    if (this.logLevel <= LogLevel.error) {
-      console.error(`[${this.name}] ${message}`, error, ...(data || []));
-    }
+    this.logger.error({ err: error, ...(data || {}) }, message);
   }
 
   /**
@@ -125,30 +106,9 @@ export class LoggerService implements ILogger {
   fatal(
     message: string,
     error?: Error | unknown,
-    ...data: unknown[]
+    data?: Record<string, unknown>
   ): void {
-    if (this.logLevel <= LogLevel.fatal) {
-      console.error(`[${this.name}] FATAL: ${message}`, error, ...(data || []));
-    }
-  }
-
-  /**
-   * Convert string log level to numeric LogLevel
-   * @param level String log level
-   * @returns Numeric LogLevel
-   * @private
-   */
-  private getLogLevel(level: string): LogLevel {
-    switch (level.toLowerCase()) {
-      case 'trace': return LogLevel.trace;
-      case 'debug': return LogLevel.debug;
-      case 'info': return LogLevel.info;
-      case 'warn': return LogLevel.warn;
-      case 'error': return LogLevel.error;
-      case 'fatal': return LogLevel.fatal;
-      case 'silent': return LogLevel.silent;
-      default: return LogLevel.info;
-    }
+    this.logger.fatal({ err: error, ...(data || {}) }, message);
   }
 }
 
@@ -158,52 +118,42 @@ export class LoggerService implements ILogger {
  * @internal
  */
 class ChildLoggerService implements ILogger {
-  constructor(
-    private name: string,
-    private context: string,
-    private logLevel: LogLevel,
-    private isEnabled: boolean
-  ) {}
+  constructor(private logger: PinoLogger) {}
 
   forContext(context: string): ILogger {
-    return new ChildLoggerService(this.name, `${this.context}:${context}`, this.logLevel, this.isEnabled);
+    const childLogger = this.logger.child({ context });
+    return new ChildLoggerService(childLogger);
   }
 
-  trace(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.trace) return;
-    console.trace(`[${this.name}:${this.context}] ${message}`, ...(data || []));
+  trace(message: string, data?: Record<string, unknown>): void {
+    this.logger.trace(data || {}, message);
   }
 
-  debug(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.debug) return;
-    console.debug(`[${this.name}:${this.context}] ${message}`, ...(data || []));
+  debug(message: string, data?: Record<string, unknown>): void {
+    this.logger.debug(data || {}, message);
   }
 
-  info(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.info) return;
-    console.info(`[${this.name}:${this.context}] ${message}`, ...(data || []));
+  info(message: string, data?: Record<string, unknown>): void {
+    this.logger.info(data || {}, message);
   }
 
-  warn(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.warn) return;
-    console.warn(`[${this.name}:${this.context}] ${message}`, ...(data || []));
+  warn(message: string, data?: Record<string, unknown>): void {
+    this.logger.warn(data || {}, message);
   }
 
   error(
     message: string,
     error?: Error | unknown,
-    ...data: unknown[]
+    data?: Record<string, unknown>
   ): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.error) return;
-    console.error(`[${this.name}:${this.context}] ${message}`, error, ...(data || []));
+    this.logger.error({ err: error, ...(data || {}) }, message);
   }
 
   fatal(
     message: string,
     error?: Error | unknown,
-    ...data: unknown[]
+    data?: Record<string, unknown>
   ): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.fatal) return;
-    console.error(`[${this.name}:${this.context}] FATAL: ${message}`, error, ...(data || []));
+    this.logger.fatal({ err: error, ...(data || {}) }, message);
   }
 }
