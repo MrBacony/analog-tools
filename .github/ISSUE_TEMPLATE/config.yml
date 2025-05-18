@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: AnalogTools Discussions
+    url: https://github.com/MrBacony/analog-tools/discussions
+    about: Please ask and answer questions here.
+  - name: AnalogJS Documentation
+    url: https://analogjs.org/
+    about: Check the AnalogJS documentation for help with the base framework.
+  - name: Angular Documentation
+    url: https://angular.dev/
+    about: Check the Angular documentation for general Angular questions.
