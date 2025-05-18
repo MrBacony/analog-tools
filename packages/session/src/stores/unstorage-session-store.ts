@@ -6,6 +6,8 @@ import {
   TTL,
   UnstorageSessionStoreOptions,
 } from '../types';
+import { inject } from '@analog-tools/inject';
+import { LoggerService } from '@analog-tools/logger';
 
 /**
  * Session store implementation using unstorage
@@ -13,6 +15,8 @@ import {
 export class UnstorageSessionStore<T extends SessionDataT = SessionDataT>
   implements SessionStore<T>
 {
+  protected logger = inject(LoggerService).forContext('@analog-tools/session');
+
   storage: Storage<RawSession<T>>;
   prefix: string;
   ttl: TTL<T>;
@@ -47,16 +51,16 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT>
     try {
       const item = await this.storage.getItem(this.getKey(sid));
       if (item) {
-        console.log(
+        this.logger.info(
           `[@analog-tools/session] Retrieved session ${sid}:`,
           JSON.stringify(item)
         );
       } else {
-        console.log(`[@analog-tools/session] No session found for ID ${sid}`);
+        this.logger.info(`[@analog-tools/session] No session found for ID ${sid}`);
       }
       return item as RawSession<T> | undefined;
     } catch (error) {
-      console.error(`[@analog-tools/session] Error getting session: ${error}`);
+      this.logger.error(`[@analog-tools/session] Error getting session: ${error}`);
       return undefined;
     }
   }
@@ -70,14 +74,14 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT>
   async set(sid: string, data: RawSession<T>): Promise<void> {
     const ttl = this.getTTL(data as T);
     if (ttl > 0) {
-      console.log(
+      this.logger.info(
         `[@analog-tools/session] Saving session ${sid} with TTL ${ttl}:`,
         JSON.stringify(data)
       );
       await this.storage.setItem(this.getKey(sid), data, { ttl });
-      console.log(`[@analog-tools/session] Session ${sid} saved successfully`);
+      this.logger.info(`[@analog-tools/session] Session ${sid} saved successfully`);
     } else {
-      console.log(
+      this.logger.info(
         `[@analog-tools/session] Session ${sid} has expired TTL, destroying`
       );
       await this.destroy(sid);
