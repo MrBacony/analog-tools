@@ -1,4 +1,3 @@
-import { Level } from 'pino';
 
 /**
  * Configuration options for the LoggerService
@@ -8,7 +7,7 @@ export interface LoggerConfig {
    * The log level to use (trace, debug, info, warn, error, fatal, silent)
    * @default 'info'
    */
-  level?: Level;
+  level?: string;
 
   /**
    * The name of the logger to use in logs
@@ -26,6 +25,8 @@ export interface LoggerConfig {
    * Custom transport configuration
    */
   transport?: Record<string, unknown>;
+
+  disabledContexts?: string[];
 }
 
 /**
@@ -43,28 +44,28 @@ export interface ILogger {
    * @param message The message to log
    * @param data Additional data to log
    */
-  trace(message: string, data?: Record<string, unknown>): void;
+  trace(message: string , ...data: unknown[]): void;
 
   /**
    * Log a debug message
    * @param message The message to log
    * @param data Additional data to log
    */
-  debug(message: string, data?: Record<string, unknown>): void;
+  debug(message: string , ...data: unknown[]): void;
 
   /**
    * Log an info message
    * @param message The message to log
    * @param data Additional data to log
    */
-  info(message: string, data?: Record<string, unknown>): void;
+  info(message: string , ...data: unknown[]): void;
 
   /**
    * Log a warning message
    * @param message The message to log
    * @param data Additional data to log
    */
-  warn(message: string, data?: Record<string, unknown>): void;
+  warn(message: string, ...data: unknown[]): void;
 
   /**
    * Log an error message
@@ -75,7 +76,7 @@ export interface ILogger {
   error(
     message: string,
     error?: Error | unknown,
-    data?: Record<string, unknown>
+    ...data: unknown[]
   ): void;
 
   /**
@@ -87,6 +88,6 @@ export interface ILogger {
   fatal(
     message: string,
     error?: Error | unknown,
-    data?: Record<string, unknown>
+    ...data: unknown[]
   ): void;
 }

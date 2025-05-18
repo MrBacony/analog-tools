@@ -15,7 +15,7 @@ import { LoggerService } from '../index';
 export function createLoggerMiddleware(namespace = 'api') {
   return defineEventHandler((event) => {
     const logger = inject(LoggerService).forContext(namespace);
-    event.context.logger = logger;
+    event.context['logger'] = logger;
 
     logger.debug('Request received', {
       method: event.method,
@@ -42,7 +42,7 @@ export function withLogging<T extends EventHandlerRequest>(
   const { namespace = 'api', level = 'debug', logResponse = false } = options;
 
   return defineEventHandler(async (event) => {
-    const logger = getLogger(event);
+    const logger = inject(LoggerService).forContext(namespace);;
     const start = Date.now();
 
     try {
