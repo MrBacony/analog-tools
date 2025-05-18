@@ -15,21 +15,18 @@
     "logging",
     "nitro",
     "h3",
-    "pino",
     "angular",
     "server-side",
     "analog-tools"
   ],
   "license": "MIT",
   "dependencies": {
-    "pino": "^8.19.0"
+    "h3": "^1.10.1"
   },
   "peerDependencies": {
     "@analog-tools/inject": "^0.0.1"
   },
   "devDependencies": {
-    "h3": "^1.10.1",
-    "pino-pretty": "^10.3.2"
   },
   "publishConfig": {
     "access": "public"

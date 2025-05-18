@@ -11,11 +11,10 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 ## Features
 
 - 📝 Type-safe log levels: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
-- 🔌 Pluggable transports for console, file, or remote logging
 - 🧩 Seamless integration with @analog-tools/inject for dependency injection
 - 🌳 Context-based logging with child loggers
 - 🔄 Extendable and customizable for different environments
-- 📦 Built on Pino for high-performance logging
+- 🚀 Lightweight implementation using standard console
 
 ## Installation
 
@@ -125,12 +124,12 @@ class LoggerService implements ILogger {
   constructor(config?: LoggerConfig);
 
   forContext(context: string): ILogger;
-  trace(message: string, data?: Record<string, unknown>): void;
-  debug(message: string, data?: Record<string, unknown>): void;
-  info(message: string, data?: Record<string, unknown>): void;
-  warn(message: string, data?: Record<string, unknown>): void;
-  error(message: string, error?: Error | unknown, data?: Record<string, unknown>): void;
-  fatal(message: string, error?: Error | unknown, data?: Record<string, unknown>): void;
+  trace(message: string, ...data: unknown[]): void;
+  debug(message: string, ...data: unknown[]): void;
+  info(message: string, ...data: unknown[]): void;
+  warn(message: string, ...data: unknown[]): void;
+  error(message: string, error?: Error | unknown, ...data: unknown[]): void;
+  fatal(message: string, error?: Error | unknown, ...data: unknown[]): void;
 }
 ```
 
@@ -142,18 +141,18 @@ Configuration options:
 interface LoggerConfig {
   level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'silent';
   name?: string;
-  prettyPrint?: boolean;
-  transport?: Record<string, unknown>;
+  disabledContexts?: string[];
 }
 ```
 
 ## Best Practices
 
-1. **Use structured logging**: Pass structured data as the second parameter instead of string concatenation
+1. **Use structured logging**: Pass structured data as additional parameters instead of string concatenation
 2. **Create context-specific loggers**: Use `forContext()` to create loggers for different parts of your application
 3. **Configure log levels appropriately**: Use `trace` and `debug` for development, `info` and above for production
 4. **Log meaningful errors**: Include the actual Error object in error logs, not just messages
-5. **Use dependency injection**: Leverage @analog-tools/inject for cleaner code organization
+5. **Disable noisy contexts**: Use `disabledContexts` to selectively disable logging for specific contexts
+6. **Use dependency injection**: Leverage @analog-tools/inject for cleaner code organization
 
 ## Contributing
 

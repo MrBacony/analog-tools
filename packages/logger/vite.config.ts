@@ -37,7 +37,7 @@ export default defineConfig(() => ({
       formats: ['es' as const, 'cjs' as const],
     },
     rollupOptions: {
-      external: ['pino', 'pino-pretty'],
+      external: [],
     },
   },
   test: {
