@@ -3,6 +3,7 @@ import redisDriver from 'unstorage/drivers/redis';
 import { SessionDataT, UnstorageSessionStoreOptions } from '../types';
 import { UnstorageSessionStore } from './unstorage-session-store';
 
+
 /**
  * Options for Redis session store
  */
@@ -27,6 +28,7 @@ export interface RedisSessionStoreOptions<T extends SessionDataT = SessionDataT>
  * Redis session store implementation using unstorage/redis driver
  */
 export class RedisSessionStore<T extends SessionDataT = SessionDataT> extends UnstorageSessionStore<T> {
+
   /**
    * Create a new Redis session store
    * @param options Redis and session store configuration options
@@ -75,7 +77,7 @@ export class RedisSessionStore<T extends SessionDataT = SessionDataT> extends Un
       // Convert to object
       return Object.fromEntries(sessionEntries);
     } catch (error) {
-      console.error('Error retrieving all sessions:', error);
+      this.logger.error('Error retrieving all sessions:', error);
       return {};
     }
   }
