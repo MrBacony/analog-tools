@@ -18,8 +18,7 @@ export class OAuthAuthenticationService {
   private logger: ILogger;
 
   constructor(config: AnalogAuthConfig) {
-    const loggerService = inject(LoggerService);
-    this.logger = loggerService.forContext('OAuthAuthenticationService');
+    this.logger = inject(LoggerService).forContext('OAuthAuthenticationService');
 
     this.config = {
       issuer: config.issuer,
@@ -121,6 +120,7 @@ export class OAuthAuthenticationService {
   private async exchangeCodeForTokens(code: string, redirectUri?: string) {
     const config = await this.getOpenIDConfiguration();
 
+
     const response = await fetch(config.token_endpoint, {
       method: 'POST',
       headers: {
@@ -134,7 +134,6 @@ export class OAuthAuthenticationService {
         redirect_uri: redirectUri || this.config.redirectUri,
       }).toString(),
     });
-
     if (!response.ok) {
       const error = await response.json();
       this.logger.error('Error exchanging code for tokens', error);

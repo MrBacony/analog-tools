@@ -52,15 +52,15 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT>
       const item = await this.storage.getItem(this.getKey(sid));
       if (item) {
         this.logger.info(
-          `[@analog-tools/session] Retrieved session ${sid}:`,
+          `Retrieved session ${sid}:`,
           JSON.stringify(item)
         );
       } else {
-        this.logger.info(`[@analog-tools/session] No session found for ID ${sid}`);
+        this.logger.info(`No session found for ID ${sid}`);
       }
       return item as RawSession<T> | undefined;
     } catch (error) {
-      this.logger.error(`[@analog-tools/session] Error getting session: ${error}`);
+      this.logger.error(`Error getting session: ${error}`);
       return undefined;
     }
   }

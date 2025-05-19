@@ -21,8 +21,7 @@ export class SessionService {
   private logger: ILogger;
 
   constructor() {
-    const loggerService = inject(LoggerService);
-    this.logger = loggerService.forContext('SessionService');
+    this.logger = inject(LoggerService).forContext('SessionService');
   }
 
   async initSession(event: H3Event): Promise<void> {

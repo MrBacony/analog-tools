@@ -4,7 +4,6 @@ import { OAuthAuthenticationService } from '../services/oauth-authentication.ser
 import { handleAuthRoute } from './handleAuthRoute';
 import { useAnalogAuthMiddleware } from './useAnalogAuthMiddleware';
 import { registerService } from '@analog-tools/inject';
-import { LoggerService } from '@analog-tools/logger';
 
 /**
  * Configures and initializes the OAuth authentication service
@@ -14,8 +13,6 @@ import { LoggerService } from '@analog-tools/logger';
  * @throws Error if any mandatory configuration values are missing
  */
 export async function useAnalogAuth(config: AnalogAuthConfig, event: H3Event) {
-  registerService(LoggerService, { disabledContexts: ['@analog-tools/session'] });
-
   // Validate mandatory configuration values
   const mandatoryFields: Array<keyof AnalogAuthConfig> = [
     'issuer',
