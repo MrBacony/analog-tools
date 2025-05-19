@@ -30,16 +30,29 @@ export class LoggerService implements ILogger {
   private logLevel: LogLevel;
   private name: string;
   private childLogger: Record<string, ChildLoggerService> = {};
-
+  private disabledContexts: string[] = process.env['LOG_DISABLED_CONTEXTS']?.split(',') || [] ;
   /**
    * Create a new LoggerService
    * @param config The logger configuration
    */
   constructor(private config: LoggerConfig = {}) {
-    this.logLevel = this.getLogLevel(config.level || process.env['LOG_LEVEL'] || 'info');
+    this.logLevel = this.castLoglevel(config.level || process.env['LOG_LEVEL'] || 'info');
     this.name = config.name || 'analog-tools';
+    if(config.disabledContexts) {
+      this.setDisabledContexts(config.disabledContexts);
+    }
+  }
 
-    console.info(`[${this.name}] Logger initialized`);
+  setDisabledContexts(contexts: string[]): void {
+    this.config.disabledContexts = contexts;
+  }
+
+  getLogLevel(): LogLevel {
+    return this.logLevel;
+  }
+
+  getDisabledContexts(): string[] {
+    return this.disabledContexts || [];
   }
 
   /**
@@ -49,8 +62,7 @@ export class LoggerService implements ILogger {
    */
   forContext(context: string): ILogger {
     if(!this.childLogger[context]) {
-      const isEnabled = this.config.disabledContexts?.includes(context) !== true;
-      this.childLogger[context] = new ChildLoggerService(this.name, context, this.logLevel, isEnabled);
+      this.childLogger[context] = new ChildLoggerService(this.name, context, this);
     }
 
     return this.childLogger[context];
@@ -138,7 +150,7 @@ export class LoggerService implements ILogger {
    * @returns Numeric LogLevel
    * @private
    */
-  private getLogLevel(level: string): LogLevel {
+  private castLoglevel(level: string): LogLevel {
     switch (level.toLowerCase()) {
       case 'trace': return LogLevel.trace;
       case 'debug': return LogLevel.debug;
@@ -161,31 +173,30 @@ class ChildLoggerService implements ILogger {
   constructor(
     private name: string,
     private context: string,
-    private logLevel: LogLevel,
-    private isEnabled: boolean
+    private parentLogger: LoggerService
   ) {}
 
-  forContext(context: string): ILogger {
-    return new ChildLoggerService(this.name, `${this.context}:${context}`, this.logLevel, this.isEnabled);
+  isEnabled() {
+    return !this.parentLogger.getDisabledContexts().includes(this.context) ;
   }
 
   trace(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.trace) return;
+    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.trace) return;
     console.trace(`[${this.name}:${this.context}] ${message}`, ...(data || []));
   }
 
   debug(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.debug) return;
+    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.debug) return;
     console.debug(`[${this.name}:${this.context}] ${message}`, ...(data || []));
   }
 
   info(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.info) return;
+    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.info) return;
     console.info(`[${this.name}:${this.context}] ${message}`, ...(data || []));
   }
 
   warn(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.warn) return;
+    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.warn) return;
     console.warn(`[${this.name}:${this.context}] ${message}`, ...(data || []));
   }
 
@@ -194,7 +205,7 @@ class ChildLoggerService implements ILogger {
     error?: Error | unknown,
     ...data: unknown[]
   ): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.error) return;
+    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.error) return;
     console.error(`[${this.name}:${this.context}] ${message}`, error, ...(data || []));
   }
 
@@ -203,7 +214,7 @@ class ChildLoggerService implements ILogger {
     error?: Error | unknown,
     ...data: unknown[]
   ): void {
-    if (!this.isEnabled || this.logLevel > LogLevel.fatal) return;
+    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.fatal) return;
     console.error(`[${this.name}:${this.context}] FATAL: ${message}`, error, ...(data || []));
   }
 }

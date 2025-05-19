@@ -16,16 +16,8 @@ export interface LoggerConfig {
   name?: string;
 
   /**
-   * Whether to use pretty printing in development environments
-   * @default true
+   * The contexts you don't want to log
    */
-  prettyPrint?: boolean;
-
-  /**
-   * Custom transport configuration
-   */
-  transport?: Record<string, unknown>;
-
   disabledContexts?: string[];
 }
 
@@ -33,11 +25,6 @@ export interface LoggerConfig {
  * The interface for a logger instance
  */
 export interface ILogger {
-  /**
-   * Create a child logger with a specific context
-   * @param context The context for the child logger
-   */
-  forContext(context: string): ILogger;
 
   /**
    * Log a trace message
