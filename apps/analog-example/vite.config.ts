@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
       outDir: '../../dist/apps/analog-example/client',
       reportCompressedSize: true,
       target: ['es2020'],
+      sourcemap: true,
     },
     server: {
       fs: {
@@ -44,11 +45,11 @@ export default defineConfig(({ mode }) => {
             ),
             '@analog-tools/inject': resolve(
               __dirname,
-              '../../node_modules/@analog-tools/inject/index.js'
+              '../../packages/inject/src/index.ts'
             ),
             '@analog-tools/logger': resolve(
               __dirname,
-              '../../node_modules/@analog-tools/logger/index.js'
+              '../../packages/logger/src/index.ts'
             ),
           },
           routeRules: {
