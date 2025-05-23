@@ -1,5 +1,5 @@
 export * from './server/functions/useAnalogAuth';
-
+export * from './server/functions/checkAuthentication';
 export {
   type AnalogAuthConfig,
   type CookieSessionConfig,

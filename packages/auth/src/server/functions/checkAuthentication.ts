@@ -2,7 +2,7 @@ import { H3Event } from 'h3';
 import { inject } from '@analog-tools/inject';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 
-export async function checkAuth(event: H3Event) {
+export async function checkAuthentication(event: H3Event) {
   const authService = inject(OAuthAuthenticationService);
 
   await authService.initSession(event);
