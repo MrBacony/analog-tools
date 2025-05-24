@@ -39,6 +39,14 @@ export default defineConfig(({ mode }) => {
               __dirname,
               '../../packages/auth/src/index.ts'
             ),
+            '@analog-tools/auth/trpc': resolve(
+              __dirname,
+              '../../packages/auth/src/trpc/index.ts'
+            ),
+            '@analog-tools/auth/angular': resolve(
+              __dirname,
+              '../../packages/auth-angular/src/trpc/index.ts'
+            ),
             '@analog-tools/session': resolve(
               __dirname,
               '../../packages/session/src/index.ts'

@@ -23,6 +23,7 @@ export default defineConfig(() => ({
     outDir: '../../node_modules/@analog-tools/auth',
     emptyOutDir: true,
     reportCompressedSize: true,
+    sourcemap: true,
     commonjsOptions: {
       transformMixedEsModules: true,
     },
@@ -30,15 +31,22 @@ export default defineConfig(() => ({
       // Could also be a dictionary or array of multiple entry points.
       entry: {
         '.': 'src/index.ts',
+        './trpc': 'src/trpc/index.ts',
       },
       name: 'auth',
-      fileName: (format) => {
+      fileName: (format, entryName) => {
         let prefix = 'js';
         if (format === 'cjs') {
           prefix = 'cjs';
         }
+        if(entryName.startsWith('.')) {
+          entryName = entryName.substring(1);
+        }
+        if(entryName.startsWith('/')) {
+          entryName = entryName.substring(1) + '/';
 
-        return `index.${prefix}`;
+        }
+        return `${entryName}index.${prefix}`;
       },
       // Change this to the formats you want to support.
       // Don't forget to update your package.json as well.
@@ -47,16 +55,20 @@ export default defineConfig(() => ({
     rollupOptions: {
       input: {
         '.': 'src/index.ts',
+        './trpc': 'src/trpc/index.ts',
       },
       // External packages that should not be bundled into your library.
       external: [
         'node:buffer',
         'h3',
         '@analog-tools/session',
+        '@analogjs/router',
         '@angular/core',
         '@angular/router',
         '@angular/common',
         'rxjs',
+        '@trpc/server',
+        '@trpc/client',
       ],
     },
   },
