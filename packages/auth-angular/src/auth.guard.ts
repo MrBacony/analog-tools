@@ -8,7 +8,7 @@ import { AuthService } from './auth.service';
 export const authGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
 
-  if (!authService.isAuthenticatedResource()) {
+  if (!authService.isAuthenticated()) {
     authService.login(state.url);
     return false;
   }
@@ -31,7 +31,7 @@ export const roleGuard: CanActivateFn = (route, state) => {
     return true;
   }
 
-  if (!authService.isAuthenticatedResource()) {
+  if (!authService.isAuthenticated()) {
     authService.login(state.url);
     return false;
   }
