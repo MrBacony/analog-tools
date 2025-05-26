@@ -1,5 +1,4 @@
 import {
-  computed,
   effect,
   inject,
   Injectable,
@@ -43,7 +42,7 @@ export class AuthService implements OnDestroy {
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
 
   // Auth state
-  readonly user = httpResource<AuthUser | null>(
+  readonly userResource = httpResource<AuthUser | null>(
     () => ({
       url: '/api/auth/user',
       method: 'GET',
@@ -58,7 +57,7 @@ export class AuthService implements OnDestroy {
     { defaultValue: null }
   );
 
-  readonly isAuthenticated = httpResource<boolean>(
+  readonly isAuthenticatedResource = httpResource<boolean>(
     () => ({
       url: '/api/auth/authenticated',
       method: 'GET',
@@ -70,25 +69,25 @@ export class AuthService implements OnDestroy {
     }),
     { defaultValue: false }
   );
-  readonly isLoading = computed<boolean>(() => {
-    return this.isAuthenticated.isLoading() || this.user.isLoading();
-  });
+
+  readonly user = this.userResource.asReadonly().value;
+  readonly isAuthenticated = this.isAuthenticatedResource.asReadonly().value;
 
   constructor() {
     // Check authentication status on startup
     if (isPlatformBrowser(this.platformId)) {
-      this.isAuthenticated.reload();
+      this.isAuthenticatedResource.reload();
 
       // Set up periodic check for authentication status
       this.checkAuthInterval = setInterval(() => {
-        this.isAuthenticated.reload();
+        this.isAuthenticatedResource.reload();
       }, 5 * 60 * 1000); // Check every 5 minutes
     }
 
     effect(() => {
       // Automatically fetch user profile when authenticated
-      if (this.isAuthenticated.value()) {
-        this.user.reload();
+      if (this.isAuthenticatedResource.value()) {
+        this.userResource.reload();
       }
     });
   }
@@ -104,10 +103,10 @@ export class AuthService implements OnDestroy {
    */
   private async fetchUserProfile(): Promise<void> {
     try {
-      this.user.reload();
+      this.userResource.reload();
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      this.user.set(null);
+      this.userResource.set(null);
     }
   }
 
@@ -135,7 +134,7 @@ export class AuthService implements OnDestroy {
           '/'
         )}`;
         // Clear local state before redirect
-        this.user.set(null);
+        this.userResource.set(null);
         if (this.checkAuthInterval) {
           clearInterval(this.checkAuthInterval);
         }
@@ -152,7 +151,7 @@ export class AuthService implements OnDestroy {
    * @param roles Array of roles to check
    */
   hasRoles(roles: string[]): boolean {
-    const user = this.user.value();
+    const user = this.userResource.value();
     if (!user || !user.roles) return false;
 
     return roles.some((role) => user.roles?.lastIndexOf(role) !== -1);

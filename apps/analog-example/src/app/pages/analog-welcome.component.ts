@@ -30,7 +30,7 @@ import { AuthService } from '@analog-tools/auth/angular';
             href="https://twitter.com/analogjs"
             >Follow along on Twitter</a
           >
-          <div>Is Logged in: {{isAuth()}} | {{jsonUser()}}</div>
+          <div>Is Logged in: {{ isAuth() }} | {{ jsonUser() }}</div>
           <h1
             class="font-heading font-medium text-3xl sm:text-5xl md:text-6xl lg:text-7xl"
           >
@@ -135,10 +135,10 @@ export class AnalogWelcomeComponent {
   public newNote = '';
 
   public isAuth = this.authClient.isAuthenticated;
-  public user = this.authClient.user
+  public user = this.authClient.user;
 
   jsonUser = computed(() => {
-    const user = this.authClient.user();
+    const user = this.authClient.userResource.value;
     return user ? JSON.stringify(user, null, 2) : 'No user data available';
   });
 
