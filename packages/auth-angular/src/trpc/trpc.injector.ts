@@ -1,10 +1,7 @@
 import { injectRequest } from '@analogjs/router/tokens';
 import { wrapTrpcClientWithErrorHandling } from './index';
 import { HTTPHeaders } from '@trpc/client';
-
-type WritableSignal<HTTPHeaders> = {
-  update: (updateFn: (headers: HTTPHeaders) => void) => void;
-}
+import { WritableSignal } from '@angular/core';
 
 export function createTrpcClientWithAuth<T>(trpcClient: T, TrpcHeaders:  WritableSignal<HTTPHeaders>) {
   const request = injectRequest();
