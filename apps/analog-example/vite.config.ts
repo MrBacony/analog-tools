@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
     cacheDir: `../../node_modules/.vite`,
 
     ssr: {
-      noExternal: ['@analogjs/trpc', '@trpc/server'],
+      noExternal: ['@analogjs/trpc', '@trpc/server', '@analog-tools/auth'],
     },
 
     build: {
@@ -37,15 +37,15 @@ export default defineConfig(({ mode }) => {
           alias: {
             '@analog-tools/auth': resolve(
               __dirname,
-              '../../packages/auth/src/index.ts'
+              '../../node_modules/@analog-tools/auth/index.cjs'
             ),
             '@analog-tools/auth/trpc': resolve(
               __dirname,
-              '../../packages/auth/src/trpc/index.ts'
+              '../../node_modules/@analog-tools/auth/trpc/index.cjs'
             ),
             '@analog-tools/auth/angular': resolve(
               __dirname,
-              '../../packages/auth-angular/src/trpc/index.ts'
+              '../../node_modules/@analog-tools/auth/angular/fesm2022/analog-tools-auth-angular.mjs'
             ),
             '@analog-tools/session': resolve(
               __dirname,

@@ -1,15 +1,18 @@
 import {
   computed,
+  effect,
   inject,
   Injectable,
   OnDestroy,
   PLATFORM_ID,
-  signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { HttpClient, httpResource } from '@angular/common/http';
+import {
+  GenericUserInfo,
+  transformUserFromProvider,
+} from './functions/user-transformer';
 
 export interface AuthUser {
   username: string;
@@ -40,20 +43,54 @@ export class AuthService implements OnDestroy {
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
 
   // Auth state
-  readonly user = signal<AuthUser | null>(null);
-  readonly isAuthenticated = computed(() => this.user() !== null);
-  readonly isLoading = signal<boolean>(true);
+  readonly user = httpResource<AuthUser | null>(
+    () => ({
+      url: '/api/auth/user',
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+      },
+      withCredentials: true,
+      parse: (raw: GenericUserInfo) => {
+        return transformUserFromProvider(raw);
+      },
+    }),
+    { defaultValue: null }
+  );
+
+  readonly isAuthenticated = httpResource<boolean>(
+    () => ({
+      url: '/api/auth/authenticated',
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+      },
+      withCredentials: true,
+      parse: (response: { authenticated: boolean }) => response.authenticated,
+    }),
+    { defaultValue: false }
+  );
+  readonly isLoading = computed<boolean>(() => {
+    return this.isAuthenticated.isLoading() || this.user.isLoading();
+  });
 
   constructor() {
     // Check authentication status on startup
     if (isPlatformBrowser(this.platformId)) {
-      this.checkAuthentication();
+      this.isAuthenticated.reload();
 
       // Set up periodic check for authentication status
       this.checkAuthInterval = setInterval(() => {
-        this.checkAuthentication(true);
+        this.isAuthenticated.reload();
       }, 5 * 60 * 1000); // Check every 5 minutes
     }
+
+    effect(() => {
+      // Automatically fetch user profile when authenticated
+      if (this.isAuthenticated.value()) {
+        this.user.reload();
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -63,49 +100,11 @@ export class AuthService implements OnDestroy {
   }
 
   /**
-   * Check if the user is authenticated by calling the backend
-   * @param silent If true, don't update loading state (for background checks)
-   */
-  async checkAuthentication(silent = false): Promise<boolean> {
-    if (!silent) {
-      this.isLoading.set(true);
-    }
-
-    try {
-      const response = await firstValueFrom(
-        this.http.get<{ authenticated: boolean }>('/api/auth/authenticated')
-      );
-      if (response.authenticated) {
-        // If authenticated, get user data
-        await this.fetchUserProfile();
-        return true;
-      } else {
-        this.user.set(null);
-        return false;
-      }
-    } catch (error) {
-      console.error('Error checking authentication:', error);
-      this.user.set(null);
-      return false;
-    } finally {
-      if (!silent) {
-        this.isLoading.set(false);
-      }
-    }
-  }
-
-  /**
    * Fetch the user profile from the backend
    */
   private async fetchUserProfile(): Promise<void> {
     try {
-      const userData = await firstValueFrom(
-        this.http.get<AuthUser>('/api/auth/user')
-      );
-
-      console.log('USER LOADED');
-
-      this.user.set(userData);
+      this.user.reload();
     } catch (error) {
       console.error('Error fetching user profile:', error);
       this.user.set(null);
@@ -137,7 +136,6 @@ export class AuthService implements OnDestroy {
         )}`;
         // Clear local state before redirect
         this.user.set(null);
-        this.isLoading.set(false);
         if (this.checkAuthInterval) {
           clearInterval(this.checkAuthInterval);
         }
@@ -154,7 +152,7 @@ export class AuthService implements OnDestroy {
    * @param roles Array of roles to check
    */
   hasRoles(roles: string[]): boolean {
-    const user = this.user();
+    const user = this.user.value();
     if (!user || !user.roles) return false;
 
     return roles.some((role) => user.roles?.lastIndexOf(role) !== -1);

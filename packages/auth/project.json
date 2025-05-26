@@ -17,19 +17,17 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "nx run @analog-tools/auth-angular:build --configuration=production",
-          "nx run @analog-tools/auth:vite:build --configuration=production",
+          "nx run @analog-tools/auth-angular:build && nx run @analog-tools/auth:vite:build",
           "mkdir -p node_modules/@analog-tools/auth/angular",
           "cp -R node_modules/@analog-tools/auth-angular/* node_modules/@analog-tools/auth/angular/",
           "node packages/auth/tools/update-package-json.js"
         ],
         "parallel": false
       },
+      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
       "dependsOn": [
-        {
-          "projects": ["auth-angular"],
-          "target": "build"
-        }
+        {"target": "@analog-tools/auth-angular:build"},
+        {"target": "@analog-tools/auth:vite:build"}
       ]
     },
     "nx-release-publish": {

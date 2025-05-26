@@ -5,7 +5,7 @@
 
 A comprehensive authentication and authorization solution for AnalogJS applications, providing OAuth 2.0/OpenID Connect integration with session management.
 
-[![npm version](https://img.shields.io/npm/v/@analog-tools/session.svg)](https://www.npmjs.com/package/@analog-tools/auth)
+[![npm version](https://img.shields.io/npm/v/@analog-tools/auth.svg)](https://www.npmjs.com/package/@analog-tools/auth)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
@@ -31,24 +31,22 @@ Add OAuth authentication to your AnalogJS application in just a few steps:
 
 ```typescript
 // src/server/middleware/auth.ts
-import { defineEventHandler } from 'h3';
-import { useAnalogAuth } from '@analog-tools/auth';
+import { defineEventHandler, H3Event } from 'h3';
+import { useAnalogAuth, AnalogAuthConfig } from '@analog-tools/auth';
 
-export default defineEventHandler(async (event) => {
-  // Configure auth with your OAuth provider details
-  await useAnalogAuth(
-    {
-      issuer: 'https://your-issuer.com',
-      clientId: process.env.AUTH_CLIENT_ID || '',
-      clientSecret: process.env.AUTH_CLIENT_SECRET || '',
-      audience: process.env.AUTH_AUDIENCE || '',
-      scope: 'openid profile email',
-      callbackUri: 'http://localhost:3000/api/auth/callback',
-      // Routes that don't require authentication
-      unprotectedRoutes: ['/api/auth/login', '/api/auth/callback', '/api/public'],
-    },
-    event
-  );
+const authConfig: AnalogAuthConfig = {
+  issuer: process.env['AUTH_ISSUER'] || '',
+  clientId: process.env['AUTH_CLIENT_ID'] || '',
+  clientSecret: process.env['AUTH_CLIENT_SECRET'] || '',
+  audience: process.env['AUTH_AUDIENCE'] || '',
+  scope: process.env['AUTH_SCOPE'] || 'openid profile email',
+  callbackUri: process.env['AUTH_CALLBACK_URL'] || 'http://localhost:3000/api/auth/callback',
+  // Routes that don't require authentication
+  unprotectedRoutes: ['/api/auth/login', '/api/auth/callback', '/api/public'],
+};
+
+export default defineEventHandler(async (event: H3Event) => {
+  return useAnalogAuth(authConfig, event);
 });
 ```
 
@@ -191,10 +189,11 @@ To implement scheduled refresh (recommended for production):
 ```typescript
 // src/server/routes/api/cron/refresh-tokens.ts
 import { defineEventHandler } from 'h3';
+import { inject } from '@analog-tools/inject';
 import { OAuthAuthenticationService } from '@analog-tools/auth';
 
 export default defineEventHandler(async () => {
-  const authService = OAuthAuthenticationService.getInstance();
+  const authService = inject(OAuthAuthenticationService);
   const result = await authService.refreshExpiringTokens();
 
   return {
@@ -211,104 +210,198 @@ The package includes CSRF protection by using the OAuth state parameter. Always 
 
 ### Securing API Routes
 
-The middleware automatically protects all routes except those specified in `unprotectedRoutes`. For manual checks:
+The middleware automatically protects all routes except those specified in `unprotectedRoutes`. For manual authentication checks in your API routes:
+
+```typescript
+// src/server/routes/api/protected-data.ts
+import { defineEventHandler, createError } from 'h3';
+import { checkAuthentication } from '@analog-tools/auth';
+import { inject } from '@analog-tools/inject';
+
+export default defineEventHandler(async (event) => {
+  // Manually check if user is authenticated
+  if (!(await checkAuthentication(event))) {
+    throw createError({
+      statusCode: 401,
+      message: 'Authentication required',
+    });
+  }
+  
+  // Access session data from event context
+  const { session } = event.context;
+  
+  return {
+    message: 'Protected data',
+    user: session.user
+  };
+});
+```
 
 ### Client-Side Authentication
 
-To use authentication in your Angular components:
+The package provides a complete Angular integration through the `@analog-tools/auth/angular` entry point. This integration includes:
+
+- An `AuthService` for managing authentication state
+- Route guards for protecting Angular routes
+- HTTP interceptors for handling 401 responses and authorization headers
+
+#### Setup Angular Integration
+
+First, add the auth providers to your `app.config.ts`:
 
 ```typescript
-// src/app/services/auth.service.ts
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
-import { BehaviorSubject, catchError, map, of, tap } from 'rxjs';
+// src/app/app.config.ts
+import { ApplicationConfig } from '@angular/core';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideFileRouter } from '@analogjs/router';
+import { provideAuthClient, authInterceptor } from '@analog-tools/auth/angular';
 
-@Injectable({
-  providedIn: 'root',
-})
-export class AuthService {
-  private http = inject(HttpClient);
-  private router = inject(Router);
-
-  private userSubject = new BehaviorSubject<any>(null);
-  user$ = this.userSubject.asObservable();
-
-  isAuthenticated$ = this.user$.pipe(map((user) => !!user));
-
-  // Get current user from API
-  fetchUser() {
-    return this.http.get<any>('/api/auth/user').pipe(
-      tap((response) => this.userSubject.next(response.user)),
-      catchError(() => {
-        this.userSubject.next(null);
-        return of({ user: null });
-      })
-    );
-  }
-
-  // Redirect to login
-  login() {
-    this.http.get<any>('/api/auth/login').subscribe((response) => {
-      window.location.href = response.url;
-    });
-  }
-
-  // Handle logout
-  logout() {
-    this.http.get<any>('/api/auth/logout').subscribe((response) => {
-      this.userSubject.next(null);
-      window.location.href = response.url;
-    });
-  }
-}
+export const appConfig: ApplicationConfig = {
+  providers: [
+    // AnalogJS providers
+    provideFileRouter(),
+    
+    // HTTP client with auth interceptor
+    provideHttpClient(
+      withInterceptors([authInterceptor])
+    ),
+    
+    // Auth client provider
+    provideAuthClient(),
+  ],
+};
 ```
 
-Then use in your components:
+#### Using the Auth Service
+
+Inject the provided `AuthService` in your components:
 
 ```typescript
 // src/app/pages/profile.page.ts
-import { Component, inject } from '@angular/core';
+import { Component, inject, effect } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService } from '../services/auth.service';
+import { AuthService } from '@analog-tools/auth/angular';
 
 @Component({
   standalone: true,
   template: `
-    @if (auth.user$ | async; as user) {
-    <div class="profile">
-      <h1>Welcome, {{ user.name }}</h1>
-      <p>Email: {{ user.email }}</p>
-      <button (click)="auth.logout()">Logout</button>
-    </div>
+    @if (auth.isLoading()) {
+      <div>Loading...</div>
+    } @else if (auth.user(); as user) {
+      <div class="profile">
+        <h1>Welcome, {{ user.name }}</h1>
+        <p>Email: {{ user.email }}</p>
+        <button (click)="auth.logout()">Logout</button>
+      </div>
     } @else {
-    <div>Loading...</div>
+      <div>
+        <h1>Please log in</h1>
+        <button (click)="auth.login()">Login</button>
+      </div>
     }
   `,
 })
 export default class ProfilePage {
   auth = inject(AuthService);
-  router = inject(Router);
-
-  constructor() {
-    this.auth.isAuthenticated$.subscribe((isAuthenticated) => {
-      if (!isAuthenticated) {
-        this.router.navigate(['/login']);
-      }
-    });
-  }
 }
+```
+
+#### Using Route Guards
+
+Protect your routes with the built-in auth guards:
+
+```typescript
+// src/app/pages/admin.page.ts
+import { Component } from '@angular/core';
+import { authGuard, roleGuard } from '@analog-tools/auth/angular';
+
+export const routeMeta = {
+  title: 'Admin Page',
+  canActivate: [authGuard], // Requires authentication
+};
+
+@Component({
+  template: `<h1>Admin Page</h1>`,
+})
+export default class AdminPage {}
+```
+
+For role-based access control, use the `roleGuard` with route data:
+
+```typescript
+// src/app/pages/super-admin.page.ts
+import { Component } from '@angular/core';
+import { roleGuard } from '@analog-tools/auth/angular';
+
+export const routeMeta = {
+  title: 'Super Admin Page',
+  canActivate: [roleGuard],
+  data: {
+    roles: ['admin', 'super-admin'], // Requires any of these roles
+  },
+};
+
+@Component({
+  template: `<h1>Super Admin Panel</h1>`,
+})
+export default class SuperAdminPage {}
+```
+
+#### Auth Service API
+
+The `AuthService` provides several key methods and properties:
+
+```typescript
+// Core user state
+user: Signal<AuthUser | null>;       // User data
+isAuthenticated: Signal<boolean>;    // Is user authenticated
+isLoading: Signal<boolean>;          // Auth state loading indicator
+
+// Methods
+login(targetUrl?: string): void;     // Redirect to login, with optional return URL
+logout(): void;                      // Logout and redirect
+checkAuthentication(): Promise<boolean>; // Force auth status check
+hasRoles(roles: string[]): boolean;  // Check if user has specified roles
+```
 ```
 
 ## Security Considerations
 
+### Authentication Best Practices
+
 1. **Environment Variables**: Store sensitive values like `clientSecret` in environment variables
-2. **HTTPS**: Always use HTTPS in production
-3. **Production Setup**:
-   - Set `NODE_ENV=production`
-   - Set a strong `SESSION_SECRET`
-   - Use Redis or another persistent store for sessions
-   - Configure secure cookies
+2. **HTTPS Required**: Always use HTTPS in production environments
+3. **Secure Cookies**: The package configures secure cookies in production automatically
+4. **Token Storage**: Tokens are only stored server-side, never exposed to the client
+5. **Token Validation**: All tokens are properly validated before use
+6. **CSRF Protection**: State parameter validation prevents cross-site request forgery
+
+### Production Setup Checklist
+
+1. Set `NODE_ENV=production` to enable secure defaults
+2. Configure a strong random `SESSION_SECRET` for cookie signing
+3. Use Redis or another persistent store for sessions (in-memory is not suitable for production)
+4. Set up token refresh mechanism (preferably scheduled refresh)
+5. Configure proper CORS settings if your API is on a different domain
+6. Implement rate limiting for auth endpoints to prevent brute force attacks
+
+## Vite Configuration
+
+When using `@analog-tools/auth` with AnalogJS, you need to configure Vite to properly handle the package during server-side rendering. Add the package to the `noExternal` array in your `vite.config.ts`:
+
+```typescript
+// vite.config.ts
+import analog from '@analogjs/platform';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  // ...other config
+  ssr: {
+    noExternal: ['@analogjs/trpc', '@trpc/server', '@analog-tools/auth'],
+  },
+  // ...other config
+});
+```
 
 ## Troubleshooting
 
@@ -344,9 +437,12 @@ DEBUG=analog-auth:*
 For local development, create a `.env` file with the following variables:
 
 ```
+AUTH_ISSUER=https://your-issuer.com
 AUTH_CLIENT_ID=your-client-id
 AUTH_CLIENT_SECRET=your-client-secret
 AUTH_AUDIENCE=your-audience
+AUTH_SCOPE=openid profile email
+AUTH_CALLBACK_URL=http://localhost:3000/api/auth/callback
 SESSION_SECRET=your-session-secret
 REDIS_URL=redis://localhost:6379
 AUTH_LOGOUT_URL=http://localhost:3000
@@ -358,31 +454,57 @@ AUTH_LOGOUT_URL=http://localhost:3000
 
 ```typescript
 // src/server/middleware/auth.ts
-import { defineEventHandler } from 'h3';
-import { useAnalogAuth } from '@analog-tools/auth';
+import { defineEventHandler, H3Event } from 'h3';
+import { useAnalogAuth, AnalogAuthConfig } from '@analog-tools/auth';
 
-export default defineEventHandler(async (event) => {
-  await useAnalogAuth(
-    {
-      issuer: 'https://keycloak.your-domain.com/realms/your-realm',
-      clientId: process.env.AUTH_CLIENT_ID || '',
-      clientSecret: process.env.AUTH_CLIENT_SECRET || '',
-      scope: 'openid profile email',
-      callbackUri: 'http://localhost:3000/api/auth/callback',
-      unprotectedRoutes: ['/your-unprotected-endpoint'],
-      userHandler: {
-        mapUserToLocal: (userInfo) => ({
-          id: userInfo.sub,
-          name: userInfo.name,
-          email: userInfo.email,
-          roles: userInfo.realm_access?.roles || [],
-        }),
-      },
-    },
-    event
-  );
+// Define auth configuration
+const authConfig: AnalogAuthConfig = {
+  issuer: 'https://keycloak.your-domain.com/realms/your-realm',
+  clientId: process.env['AUTH_CLIENT_ID'] || '',
+  clientSecret: process.env['AUTH_CLIENT_SECRET'] || '',
+  scope: 'openid profile email',
+  callbackUri: 'http://localhost:3000/api/auth/callback',
+  unprotectedRoutes: ['/your-unprotected-endpoint'],
+  userHandler: {
+    mapUserToLocal: (userInfo) => ({
+      id: userInfo.sub,
+      name: userInfo.name,
+      email: userInfo.email,
+      roles: userInfo.realm_access?.roles || [],
+    }),
+  },
+};
+
+export default defineEventHandler(async (event: H3Event) => {
+  return useAnalogAuth(authConfig, event);
 });
 ```
+
+## Package Architecture
+
+The `@analog-tools/auth` package is structured as a multi-entry point package:
+
+- **Main Entry Point**: `@analog-tools/auth` 
+  - Server-side OAuth implementation with H3 middleware
+  - Session management integration
+  - API route handlers
+
+- **Angular Entry Point**: `@analog-tools/auth/angular`
+  - Angular-specific authentication services
+  - Route guards and HTTP interceptors
+  - Reactive state management with Angular signals
+
+- **TRPC Entry Point**: `@analog-tools/auth/trpc`
+  - tRPC middleware for protected procedures
+  - Authentication utilities for tRPC routes
+
+### Relationship with Other Packages
+
+This package relies on other `@analog-tools` packages:
+
+- `@analog-tools/session`: For secure session management
+- `@analog-tools/inject`: For dependency injection
+- `@analog-tools/logger`: For structured logging
 
 ## Contributing
 

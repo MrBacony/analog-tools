@@ -1,10 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { AsyncPipe, DatePipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule, NgForm } from '@angular/forms';
 import { shareReplay, Subject, switchMap, take } from 'rxjs';
 import { waitFor } from '@analogjs/trpc';
 import { injectTrpcClient } from '../../trpc-client';
 import { Note } from '../../note';
+import { AuthService } from '@analog-tools/auth/angular';
 
 @Component({
   selector: 'analog-example-analog-welcome',
@@ -29,6 +30,7 @@ import { Note } from '../../note';
             href="https://twitter.com/analogjs"
             >Follow along on Twitter</a
           >
+          <div>Is Logged in: {{isAuth()}} | {{jsonUser()}}</div>
           <h1
             class="font-heading font-medium text-3xl sm:text-5xl md:text-6xl lg:text-7xl"
           >
@@ -124,12 +126,21 @@ import { Note } from '../../note';
 })
 export class AnalogWelcomeComponent {
   private _trpc = injectTrpcClient();
+  private authClient = inject(AuthService);
   public triggerRefresh$ = new Subject<void>();
   public notes$ = this.triggerRefresh$.pipe(
     switchMap(() => this._trpc.note.list.query()),
     shareReplay(1)
   );
   public newNote = '';
+
+  public isAuth = this.authClient.isAuthenticated;
+  public user = this.authClient.user
+
+  jsonUser = computed(() => {
+    const user = this.authClient.user();
+    return user ? JSON.stringify(user, null, 2) : 'No user data available';
+  });
 
   constructor() {
     void waitFor(this.notes$);

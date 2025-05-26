@@ -15,10 +15,6 @@ export default defineConfig(() => ({
       tsconfigPath: path.join(__dirname, 'tsconfig.lib.json'),
     }),
   ],
-  // Uncomment this if you are using workers.
-  // worker: {
-  //  plugins: [ nxViteTsPaths() ],
-  // },
   build: {
     outDir: '../../node_modules/@analog-tools/auth',
     emptyOutDir: true,
@@ -31,7 +27,6 @@ export default defineConfig(() => ({
       // Could also be a dictionary or array of multiple entry points.
       entry: {
         '.': 'src/index.ts',
-        './trpc': 'src/trpc/index.ts',
       },
       name: 'auth',
       fileName: (format, entryName) => {
@@ -53,10 +48,6 @@ export default defineConfig(() => ({
       formats: ['es' as const, 'cjs' as const],
     },
     rollupOptions: {
-      input: {
-        '.': 'src/index.ts',
-        './trpc': 'src/trpc/index.ts',
-      },
       // External packages that should not be bundled into your library.
       external: [
         'node:buffer',
@@ -69,6 +60,7 @@ export default defineConfig(() => ({
         'rxjs',
         '@trpc/server',
         '@trpc/client',
+        /^@angular\/.*/, 'rxjs/operators'
       ],
     },
   },
