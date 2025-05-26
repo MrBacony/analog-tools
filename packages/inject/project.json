@@ -27,6 +27,21 @@
         "parallel": false
       },
       "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"]
+    },
+    "pack": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx run @analog-tools/inject:build",
+          "cd node_modules/@analog-tools/inject && npm pack --pack-destination ~"
+        ],
+        "parallel": false
+      },
+      "dependsOn": [
+        {
+          "target": "build"
+        }
+      ]
     }
   }
 }

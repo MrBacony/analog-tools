@@ -13,6 +13,34 @@
   },
   "tags": [],
   "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx run @analog-tools/session:vite:build --configuration=production"
+        ],
+        "parallel": false
+      },
+      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
+      "dependsOn": [
+        {"target": "@analog-tools/inject:build"},
+        {"target": "@analog-tools/logger:build"}
+      ]
+    },
+    "pack": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "cd node_modules/@analog-tools/logger && npm pack --pack-destination ~"
+        ],
+        "parallel": false
+      },
+      "dependsOn": [
+        {
+          "target": "build"
+        }
+      ]
+    },
     "nx-release-publish": {
       "options": {
         "packageRoot": "node_modules/@analog-tools/{projectRoot}"
