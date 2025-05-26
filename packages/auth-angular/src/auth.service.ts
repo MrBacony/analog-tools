@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { HttpClient, httpResource } from '@angular/common/http';
+import { httpResource } from '@angular/common/http';
 import {
   GenericUserInfo,
   transformUserFromProvider,
@@ -35,7 +35,6 @@ export interface AuthUser {
  */
 @Injectable()
 export class AuthService implements OnDestroy {
-  private http = inject(HttpClient);
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
   private document = inject(DOCUMENT);
@@ -95,18 +94,6 @@ export class AuthService implements OnDestroy {
   ngOnDestroy(): void {
     if (this.checkAuthInterval) {
       clearInterval(this.checkAuthInterval);
-    }
-  }
-
-  /**
-   * Fetch the user profile from the backend
-   */
-  private async fetchUserProfile(): Promise<void> {
-    try {
-      this.userResource.reload();
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      this.userResource.set(null);
     }
   }
 
