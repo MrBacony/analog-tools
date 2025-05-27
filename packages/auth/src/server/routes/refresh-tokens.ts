@@ -8,11 +8,12 @@ const route: AuthRoute = {
   path: 'refresh-tokens',
   handler: async (event: H3Event) => {
     const logger = inject(LoggerService).forContext('TokenRefresh');
-
-    // Verify authorization - this should be a secure API key for scheduled jobs
-    const apiKey = process.env['TOKEN_REFRESH_API_KEY'];
+    const authService = inject(OAuthAuthenticationService);
+    
+    // Verify authorization - use tokenRefreshApiKey from config or fall back to env variable
+    const apiKey = authService.getConfig().tokenRefreshApiKey;
     if (!apiKey) {
-      logger.error('TOKEN_REFRESH_API_KEY not configured');
+      logger.error('Token refresh API key not configured in either AnalogAuthConfig.tokenRefreshApiKey or TOKEN_REFRESH_API_KEY env variable');
       throw createError({
         statusCode: 500,
         message: 'Server configuration error',
@@ -29,7 +30,7 @@ const route: AuthRoute = {
     }
 
     try {
-      const authService = inject(OAuthAuthenticationService);
+      
       const result = await authService.refreshExpiringTokens();
 
       // Log the results

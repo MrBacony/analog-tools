@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RedisSessionStore } from './redis-session-store';
-import { UnstorageSessionStore } from './unstorage-session-store';
 import { createStorage } from 'unstorage';
 import redisDriver from 'unstorage/drivers/redis';
+import { LoggerService } from '@analog-tools/logger';
+import { error } from 'console';
+import { inject } from '@analog-tools/inject';
 
 // Mock dependencies
 vi.mock('unstorage', () => ({
@@ -22,6 +24,8 @@ describe('RedisSessionStore', () => {
     getKeys: vi.fn(),
     getItems: vi.fn()
   };
+
+  const logger = inject(LoggerService).forContext('@analog-tools/session');
 
   // Test session data
   const testSessionData = { userId: 'user123', role: 'admin' };
@@ -151,8 +155,7 @@ describe('RedisSessionStore', () => {
     });
 
     it('should handle errors when retrieving sessions', async () => {
-      // Mock console.error to prevent test output pollution
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(logger, 'error');
 
       mockStorage.getKeys.mockRejectedValue(new Error('Redis connection error'));
 
@@ -167,8 +170,7 @@ describe('RedisSessionStore', () => {
     });
 
     it('should handle errors when getting individual session data', async () => {
-      // Mock console.error to prevent test output pollution
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(logger, 'error');
 
       const keys = ['sess:session1', 'sess:session2'];
       mockStorage.getKeys.mockResolvedValue(keys);

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useSession, validateConfig, SessionHandler } from './use-session';
 import { H3SessionOptions, SessionCookie, SessionDataT } from '../types';
 import { randomUUID } from 'uncrypto';
-import { signCookie, unsignCookie } from '../utils/crypto-utils';
+import { CookieErrorReason, signCookie, unsignCookie } from '../utils/crypto-utils';
 
 // Mock H3 related modules
 vi.mock('h3', () => ({
@@ -71,7 +71,7 @@ describe('use-session', () => {
     vi.mocked(setCookie).mockReset();
     vi.mocked(signCookie).mockReset();
     vi.mocked(unsignCookie).mockReset();
-    vi.mocked(randomUUID).mockReset().mockReturnValue('test-uuid');
+    vi.mocked(randomUUID).mockReset().mockReturnValue('00000000-0000-0000-0000-000000000000');
 
     // Default implementations
     vi.mocked(signCookie).mockResolvedValue('s:signed-cookie-value');
@@ -217,6 +217,7 @@ describe('use-session', () => {
         vi.mocked(getCookie).mockReturnValue('invalid-cookie');
         vi.mocked(unsignCookie).mockResolvedValue({
           success: false,
+          // @ts-expect-error Mocking error
           reason: 'verification_failed'
         });
       });
@@ -292,7 +293,9 @@ describe('use-session', () => {
       it('should regenerate session with new ID', async () => {
         const originalId = sessionHandler.id;
 
+        // @ts-expect-error mock
         mockOptions.genid.mockReturnValue('regenerated-id');
+        // @ts-expect-error mock
         mockOptions.generate.mockReturnValue({ userId: 'regenerated', isLoggedIn: false });
 
         await sessionHandler.regenerate();

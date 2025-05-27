@@ -5,7 +5,7 @@ import {
   SessionWithHandler,
   SessionWithSave,
 } from '../types/auth-session.types';
-import { AnalogAuthConfig, UserHandler } from '../types/auth.types';
+import { AnalogAuthConfig } from '../types/auth.types';
 import { inject } from '@analog-tools/inject';
 import { LoggerService, ILogger } from '@analog-tools/logger';
 
@@ -26,29 +26,21 @@ export class OAuthAuthenticationService {
       clientSecret: config.clientSecret,
       audience: config.audience || '',
       scope: config.scope || 'openid profile email',
-      redirectUri: config.callbackUri,
+      callbackUri: config.callbackUri,
       userHandler: config.userHandler,
+      unprotectedRoutes: config.unprotectedRoutes,
+      tokenRefreshApiKey: config.tokenRefreshApiKey,
     };
   }
 
   // Config object with default values
-  private config: {
-    issuer: string;
-    clientId: string;
-    clientSecret: string;
-    audience: string;
-    scope: string;
-    redirectUri: string;
-    unprotectedRoutes?: string[];
-
-    userHandler?: UserHandler;
-  } = {
+  private config: AnalogAuthConfig = {
     issuer: '',
     clientId: '',
     clientSecret: '',
     audience: '',
     scope: 'openid profile email',
-    redirectUri: '',
+    callbackUri: '',
   };
 
   // OpenID Configuration cache
@@ -68,7 +60,7 @@ export class OAuthAuthenticationService {
       !this.config.issuer ||
       !this.config.clientId ||
       !this.config.clientSecret ||
-      !this.config.redirectUri
+      !this.config.callbackUri
     ) {
       throw new Error(
         'OAuth Authentication Service not properly initialized. ' +
@@ -86,6 +78,16 @@ export class OAuthAuthenticationService {
     return await inject(SessionService).initSession(event);
   }
 
+  getConfig(): AnalogAuthConfig {
+    this.validateConfiguration();
+    return this.config;
+  }
+
+  /**
+   * Check if the route is unprotected
+   * @param path The request path
+   * @returns True if the route is unprotected, false otherwise
+   */
   isUnprotectedRoute(path: string): boolean {
     const unprotectedRoutes = this.config?.unprotectedRoutes || [];
     return unprotectedRoutes.some((route) => path.startsWith(route));
@@ -105,7 +107,7 @@ export class OAuthAuthenticationService {
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: this.config.clientId,
-      redirect_uri: redirectUri || this.config.redirectUri,
+      redirect_uri: redirectUri || this.config.callbackUri,
       scope: this.config.scope,
       audience: this.config.audience,
       state,
@@ -131,7 +133,7 @@ export class OAuthAuthenticationService {
         client_id: this.config.clientId,
         client_secret: this.config.clientSecret,
         code,
-        redirect_uri: redirectUri || this.config.redirectUri,
+        redirect_uri: redirectUri || this.config.callbackUri,
       }).toString(),
     });
     if (!response.ok) {

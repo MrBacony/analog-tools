@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UnstorageSessionStore } from './unstorage-session-store';
 import type { RawSession, TTL } from '../types';
+import { inject } from '@analog-tools/inject';
+import { LoggerService } from '@analog-tools/logger';
 
-describe('UnstorageSessionStore', () => {
+describe('UnstorageSessionStore', () => {  
+    const logger = inject(LoggerService).forContext('@analog-tools/session');
+
   // Mock storage implementation
   const createMockStorage = () => {
     const storage: Record<string, any> = {};
@@ -81,12 +85,14 @@ describe('UnstorageSessionStore', () => {
     });
 
     it('should handle storage errors', async () => {
+      const consoleSpy = vi.spyOn(logger, 'error');
+
       mockStorage.getItem.mockRejectedValue(new Error('Storage error'));
 
       const result = await sessionStore.get('session123');
 
       expect(result).toBeUndefined();
-      expect(console.error).toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalled();
     });
   });
 

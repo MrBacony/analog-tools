@@ -1,5 +1,4 @@
 import {
-  createError,
   getHeader,
   getRequestURL,
   H3Event,

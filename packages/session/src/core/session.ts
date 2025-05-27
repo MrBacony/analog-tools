@@ -1,4 +1,6 @@
+import { inject } from '@analog-tools/inject';
 import { SessionCookie, SessionDataT, SessionStore } from '../types';
+import { LoggerService } from '@analog-tools/logger';
 
 /**
  * Core Session class that manages session data and operations
@@ -9,6 +11,7 @@ export class Session {
   #data: Readonly<SessionDataT>;
   #generate: () => Promise<{ data: SessionDataT; id: string }>;
   #cookie: SessionCookie;
+  #logger = inject(LoggerService).forContext('@analog-tools/session');
 
   constructor(
     id: string,
@@ -93,7 +96,7 @@ export class Session {
    */
   async destroy() {
     this.#cookie.maxAge = 0;
-    console.log(`[@analog-tools/session] Destroying session ${this.#id}`);
+    this.#logger.info(`Destroying session ${this.#id}`);
     await this.#store.destroy(this.#id);
   }
 

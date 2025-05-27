@@ -73,6 +73,8 @@ export type AnalogAuthConfig = {
     audience: string;
     scope: string;
     callbackUri: string;
+    
+    tokenRefreshApiKey?: string;
     unprotectedRoutes?: string[];
 
     /**

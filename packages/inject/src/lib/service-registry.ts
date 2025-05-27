@@ -8,14 +8,6 @@ export class ServiceRegistry {
   private serviceMap: Map<InjectionServiceClass<unknown>, unknown> = new Map();
 
   /**
-   * Private constructor to prevent direct instantiation
-   */
-  constructor() {
-    // Initialize services in the correct dependency order
-    console.log('Service registry initialized');
-  }
-
-  /**
    * Register a service with a token
    * @param token - The injection token for the service
    * @param properties - The constructor parameters for the service class
@@ -30,6 +22,19 @@ export class ServiceRegistry {
     }
 
     this.serviceMap.set(token, new token(...properties));
+  }
+
+  public registerCustomServiceInstance<T>(
+    token: InjectionServiceClass<T>,
+    customObject: Partial<T>
+  ): void {
+    if (this.isServiceInjectable(token)) {
+      this.serviceMap.set(token, customObject);
+    } else {
+      throw new Error(
+        `Service with token ${token.name} is not injectable. Ensure it has the INJECTABLE static property set to true.`
+      );
+    }
   }
 
   /**

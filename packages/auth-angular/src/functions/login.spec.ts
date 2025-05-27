@@ -4,7 +4,6 @@ import * as loginModule from './login';
 
 describe('login function', () => {
   // Store the original document.location
-  const originalLocation = window.document.location;
   let mockLocation: { href: string; origin: string };
   
   beforeEach(() => {

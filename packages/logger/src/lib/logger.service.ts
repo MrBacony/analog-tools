@@ -44,7 +44,7 @@ export class LoggerService implements ILogger {
   }
 
   setDisabledContexts(contexts: string[]): void {
-    this.config.disabledContexts = contexts;
+    this.disabledContexts = contexts;
   }
 
   getLogLevel(): LogLevel {

@@ -75,3 +75,14 @@ export function registerService<T, Args extends any[]>(
   }
   _sericeRegistry.register(token, ...properties);
 }
+
+
+export function registerCustomServiceInstance<T>(
+  token: InjectionServiceClass<T>,
+  customObject: Partial<T>
+): void {
+  if (!_sericeRegistry) {
+    _sericeRegistry = new ServiceRegistry();
+  }
+  _sericeRegistry.registerCustomServiceInstance(token, customObject);
+}
