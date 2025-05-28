@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { getRequestHeaders, createError, H3Event } from 'h3';
 import refreshTokensRoute from './refresh-tokens';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
@@ -54,7 +54,7 @@ describe('refresh-tokens route', () => {
     registerCustomServiceInstance(LoggerService, {forContext: vi.fn().mockReturnValue(mockContextLogger)});
     
     // Mock request headers with correct API key by default
-    (getRequestHeaders as unknown as vi.Mock).mockReturnValue({
+    (getRequestHeaders as unknown as Mock).mockReturnValue({
       authorization: `Bearer ${mockApiKey}`,
     });
   });
@@ -84,7 +84,7 @@ describe('refresh-tokens route', () => {
   
   it('should throw 401 error when API key is missing', async () => {
     // Mock missing authorization header
-    (getRequestHeaders as unknown as vi.Mock).mockReturnValue({
+    (getRequestHeaders as unknown as Mock).mockReturnValue({
       authorization: undefined,
     });
     
@@ -99,7 +99,7 @@ describe('refresh-tokens route', () => {
   
   it('should throw 401 error when API key is incorrect', async () => {
     // Mock incorrect API key
-    (getRequestHeaders as unknown as vi.Mock).mockReturnValue({
+    (getRequestHeaders as unknown as Mock).mockReturnValue({
       authorization: 'Bearer incorrect-api-key',
     });
     

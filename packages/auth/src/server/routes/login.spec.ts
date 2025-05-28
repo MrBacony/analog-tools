@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { getQuery, H3Event, sendRedirect } from 'h3';
 import { randomUUID } from 'uncrypto';
 import loginRoute from './login';
@@ -50,7 +50,7 @@ describe('login route', () => {
     registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
     registerCustomServiceInstance(LoggerService, {forContext: vi.fn()});
     // Mock getQuery to return test values
-    (getQuery as unknown as vi.Mock).mockReturnValue({
+    (getQuery as unknown as Mock).mockReturnValue({
       redirect_uri: 'https://app.example.com/dashboard',
     });
   });

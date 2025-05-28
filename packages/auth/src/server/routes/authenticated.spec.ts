@@ -22,9 +22,8 @@ describe('authenticated route', () => {
       isAuthenticated: vi.fn().mockResolvedValue(true),
     };
     
-
-        registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
-        registerCustomServiceInstance(LoggerService, {forContext: vi.fn()});
+    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
+    registerCustomServiceInstance(LoggerService, {forContext: vi.fn()});
   });
   
   afterEach(() => {
