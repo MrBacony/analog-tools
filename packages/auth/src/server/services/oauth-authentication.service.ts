@@ -18,7 +18,9 @@ export class OAuthAuthenticationService {
   private logger: ILogger;
 
   constructor(config: AnalogAuthConfig) {
-    this.logger = inject(LoggerService).forContext('OAuthAuthenticationService');
+    this.logger = inject(LoggerService).forContext(
+      'OAuthAuthenticationService'
+    );
 
     this.config = {
       issuer: config.issuer,
@@ -30,6 +32,7 @@ export class OAuthAuthenticationService {
       userHandler: config.userHandler,
       unprotectedRoutes: config.unprotectedRoutes,
       tokenRefreshApiKey: config.tokenRefreshApiKey,
+      logoutUrl: config.logoutUrl,
     };
   }
 
@@ -84,13 +87,50 @@ export class OAuthAuthenticationService {
   }
 
   /**
+   * Safely access a configuration value
+   * @param key The configuration key to retrieve
+   * @param fallbackValue Optional fallback value if the config value doesn't exist
+   * @returns The configuration value or fallback value
+   * @throws Error if the configuration value doesn't exist and no fallback is provided
+   */
+  getConfigValue<K extends keyof AnalogAuthConfig>(
+    key: K,
+    fallbackValue?: AnalogAuthConfig[K]
+  ): AnalogAuthConfig[K] {
+    const value = this.config[key];
+    // Check if value is undefined or empty string
+    if (value === undefined || (typeof value === 'string' && value === '')) {
+      if (fallbackValue !== undefined) {
+        return fallbackValue;
+      }
+
+      // These config values are optional and should return a safe default if missing
+      if (key === 'userHandler' || key === 'logoutUrl') {
+        return undefined as AnalogAuthConfig[K];
+      }
+      if (key === 'unprotectedRoutes') {
+        return [] as string[] as AnalogAuthConfig[K];
+      }
+
+      throw new Error(`Configuration value for '${key}' doesn't exist`);
+    }
+    return value;
+  }
+
+  /**
    * Check if the route is unprotected
    * @param path The request path
    * @returns True if the route is unprotected, false otherwise
    */
   isUnprotectedRoute(path: string): boolean {
-    const unprotectedRoutes = this.config?.unprotectedRoutes || [];
-    return unprotectedRoutes.some((route) => path.startsWith(route));
+    const unprotectedRoutes = this.getConfigValue(
+      'unprotectedRoutes',
+      [] as string[]
+    );
+    return (
+      Array.isArray(unprotectedRoutes) &&
+      unprotectedRoutes.some((route) => path.startsWith(route))
+    );
   }
 
   /**
@@ -106,10 +146,10 @@ export class OAuthAuthenticationService {
 
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: this.config.clientId,
-      redirect_uri: redirectUri || this.config.callbackUri,
-      scope: this.config.scope,
-      audience: this.config.audience,
+      client_id: this.getConfigValue('clientId'),
+      redirect_uri: redirectUri || this.getConfigValue('callbackUri'),
+      scope: this.getConfigValue('scope'),
+      audience: this.getConfigValue('audience'),
       state,
     });
 
@@ -122,7 +162,6 @@ export class OAuthAuthenticationService {
   private async exchangeCodeForTokens(code: string, redirectUri?: string) {
     const config = await this.getOpenIDConfiguration();
 
-
     const response = await fetch(config.token_endpoint, {
       method: 'POST',
       headers: {
@@ -130,10 +169,10 @@ export class OAuthAuthenticationService {
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        client_id: this.config.clientId,
-        client_secret: this.config.clientSecret,
+        client_id: this.getConfigValue('clientId'),
+        client_secret: this.getConfigValue('clientSecret'),
         code,
-        redirect_uri: redirectUri || this.config.callbackUri,
+        redirect_uri: redirectUri || this.getConfigValue('callbackUri'),
       }).toString(),
     });
     if (!response.ok) {
@@ -167,8 +206,8 @@ export class OAuthAuthenticationService {
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
-          client_id: this.config.clientId,
-          client_secret: this.config.clientSecret,
+          client_id: this.getConfigValue('clientId'),
+          client_secret: this.getConfigValue('clientSecret'),
           refresh_token: refreshToken,
         }).toString(),
       });
@@ -334,7 +373,7 @@ export class OAuthAuthenticationService {
     const userData = await this.getUserInfo(access_token);
 
     // Store user in database
-    const userHandler = this.config.userHandler;
+    const userHandler = this.getConfigValue('userHandler', undefined);
 
     let user = userData;
     if (userHandler && 'createOrUpdateUser' in userHandler) {
@@ -415,7 +454,7 @@ export class OAuthAuthenticationService {
       // Create a function to handle token refresh for a session
       const refreshSessionToken = async (
         session: SessionWithHandler
-      ): Promise<void> => {
+      ): Promise<{ success: boolean }> => {
         try {
           const refreshToken = session.data.auth?.refreshToken;
           if (!refreshToken) {
@@ -442,7 +481,7 @@ export class OAuthAuthenticationService {
           this.logger.debug(`Proactively refreshed token for session`, {
             sessionId: session.id,
           });
-          refreshed++;
+          return { success: true };
         } catch (error) {
           this.logger.error(`Failed to refresh token for session`, error, {
             sessionId: session.id,
@@ -456,7 +495,7 @@ export class OAuthAuthenticationService {
             },
           }));
           await session.save();
-          failed++;
+          return { success: false };
         }
       };
 
@@ -481,11 +520,29 @@ export class OAuthAuthenticationService {
         );
       };
 
-      const refreshPromises = activeSessions
-        .filter(hasValidAuthWithRefreshToken)
-        .map(refreshSessionToken);
+      // Get the sessions to refresh
+      const sessionsToRefresh = activeSessions.filter(
+        hasValidAuthWithRefreshToken
+      );
 
-      await Promise.allSettled(refreshPromises);
+      // Execute the refresh operations and track results
+      const results = await Promise.allSettled(
+        sessionsToRefresh.map(refreshSessionToken)
+      );
+
+      // Count successes and failures
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          if (result.value.success) {
+            refreshed++;
+          } else {
+            failed++;
+          }
+        } else {
+          failed++;
+        }
+      });
+
       return { refreshed, failed, total: activeSessions.length };
     } catch (error) {
       this.logger.error('Error checking and refreshing tokens', error);
@@ -617,7 +674,7 @@ export class OAuthAuthenticationService {
 
     const sessionHandler = event.context['sessionHandler'];
 
-    const userHandler = this.config.userHandler;
+    const userHandler = this.getConfigValue('userHandler', undefined);
 
     if (userHandler && 'mapUserToLocal' in userHandler) {
       return userHandler.mapUserToLocal?.(sessionHandler.data.auth.userInfo);
@@ -637,8 +694,8 @@ export class OAuthAuthenticationService {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        client_id: this.config.clientId,
-        client_secret: this.config.clientSecret,
+        client_id: this.getConfigValue('clientId'),
+        client_secret: this.getConfigValue('clientSecret'),
         token,
       }),
     });
@@ -676,10 +733,13 @@ export class OAuthAuthenticationService {
 
     // Get OAuth logout URL
     const logoutUrl = new URL(config.end_session_endpoint);
-    logoutUrl.searchParams.append('client_id', this.config.clientId);
+    logoutUrl.searchParams.append('client_id', this.getConfigValue('clientId'));
 
     // Add returnTo parameter if configured
-    const returnTo = process.env['AUTH_LOGOUT_URL'];
+    const returnTo = this.getConfigValue(
+      'logoutUrl'
+    );
+
     if (returnTo) {
       logoutUrl.searchParams.append('returnTo', returnTo);
     }
@@ -712,7 +772,7 @@ export class OAuthAuthenticationService {
 
     try {
       const response = await fetch(
-        `${this.config.issuer}/.well-known/openid-configuration`
+        `${this.getConfigValue('issuer')}/.well-known/openid-configuration`
       );
 
       if (!response.ok) {
