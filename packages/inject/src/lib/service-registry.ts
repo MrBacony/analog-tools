@@ -6,7 +6,6 @@ import { InjectionServiceClass } from './inject.util';
  */
 export class ServiceRegistry {
   private serviceMap: Map<InjectionServiceClass<unknown>, unknown> = new Map();
-  private lockedServices: Set<InjectionServiceClass<unknown>> = new Set();
   /**
    * Register a service with a token
    * @param token - The injection token for the service
@@ -16,9 +15,6 @@ export class ServiceRegistry {
     token: InjectionServiceClass<T>,
     ...properties: ConstructorParameters<InjectionServiceClass<T>>
   ): void {
-    if (this.lockedServices.has(token)) {
-      return;
-    }
     if (properties === undefined || properties.length === 0) {
       this.serviceMap.set(token, new token());
       return;
@@ -29,14 +25,10 @@ export class ServiceRegistry {
 
   public registerCustomServiceInstance<T>(
     token: InjectionServiceClass<T>,
-    customObject: Partial<T>,
-    config?: { locked?: boolean }
+    customObject: Partial<T>
   ): void {
     if (this.isServiceInjectable(token)) {
-      if (!this.lockedServices.has(token) && !this.serviceMap.has(token)) {
-        if (config?.locked) {
-          this.lockedServices.add(token);
-        }
+      if (!this.serviceMap.has(token)) {
         this.serviceMap.set(token, customObject);
       }
     } else {
@@ -85,6 +77,5 @@ export class ServiceRegistry {
    */
   public destroy(): void {
     this.serviceMap.clear();
-    this.lockedServices.clear();
   }
 }

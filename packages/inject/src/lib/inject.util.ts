@@ -78,13 +78,12 @@ export function registerService<T, Args extends any[]>(
 
 export function registerCustomServiceInstance<T>(
   token: InjectionServiceClass<T>,
-  customObject: Partial<T>,
-  config?: { locked?: boolean }
+  customObject: Partial<T>
 ): void {
   if (!_serviceRegistry) {
     _serviceRegistry = new ServiceRegistry();
   }
-  _serviceRegistry.registerCustomServiceInstance(token, customObject, config);
+  _serviceRegistry.registerCustomServiceInstance(token, customObject);
 }
 
 export function resetAllInjections(): void {

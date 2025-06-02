@@ -15,7 +15,8 @@ A lightweight yet powerful dependency injection system for H3-based server appli
 - 📦 Singleton pattern implementation for services
 - 🔄 Automatic lazy initialization of services
 - 🛠️ Support for service registration with constructor parameters
-- 🧪 Easy to test with mock implementations
+- 🧪 Easy to test with custom service implementations and mocks
+- 🔁 Complete test lifecycle support with registry reset functions
 
 ## Installation
 
@@ -52,7 +53,7 @@ class UserService {
 
   private logger = inject(LoggerService);
 
-  getUserInfo(userId: string): void {
+  getUserInfo(userId: string) {
     this.logger.log(`Getting info for user: ${userId}`);
     // Implementation...
     return { id: userId, name: 'Example User' };
@@ -180,6 +181,17 @@ Registers a service with optional constructor parameters:
 - `token`: The class/constructor function of the service to register
 - `properties`: Any typesafe constructor parameters the service requires
 
+### `registerCustomServiceInstance<T>(token: InjectionServiceClass<T>, customObject: Partial<T>): void`
+
+Registers a custom implementation of a service:
+
+- `token`: The class/constructor function of the service to register
+- `customObject`: A custom object that will be used as the service instance
+
+### `resetAllInjections(): void`
+
+Clears all registered services from the registry. Useful for testing to ensure a clean state between tests.
+
 ### Making a Class Injectable
 
 For a class to be injectable, it needs the `INJECTABLE` static property:
@@ -192,12 +204,88 @@ class MyService {
 }
 ```
 
+### TypeScript Type Safety
+
+The `registerCustomServiceInstance` function accepts `Partial<T>` objects, making it easy to create partial implementations with only the methods you need:
+
+```typescript
+interface Logger {
+  info(message: string): void;
+  error(message: string, error?: Error): void;
+  debug(message: string): void;
+}
+
+class LoggerService implements Logger {
+  static INJECTABLE = true;
+  info(message: string): void { /* ... */ }
+  error(message: string, error?: Error): void { /* ... */ }
+  debug(message: string): void { /* ... */ }
+}
+
+// Only need to implement the methods you use in your tests
+registerCustomServiceInstance(LoggerService, {
+  info: vi.fn(),
+  error: vi.fn()
+  // debug is optional since we're using Partial<T>
+});
+```
+
+## Testing with @analog-tools/inject
+
+The `@analog-tools/inject` package provides several utilities to make testing easier:
+
+### Mocking Services with Custom Implementations
+
+```typescript
+import { registerCustomServiceInstance, resetAllInjections } from '@analog-tools/inject';
+import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
+
+// Service we want to test
+class UserService {
+  static INJECTABLE = true;
+  private logger = inject(LoggerService);
+  
+  createUser(userData: any) {
+    this.logger.info(`Creating user: ${userData.name}`);
+    // Implementation...
+  }
+}
+
+// Test suite
+describe('UserService', () => {
+  // Mock logger for testing
+  const mockLogger = {
+    info: vi.fn(),
+    error: vi.fn()
+  };
+  
+  beforeEach(() => {
+    // Register mock implementation before each test
+    registerCustomServiceInstance(LoggerService, mockLogger);
+  });
+  
+  afterEach(() => {
+    // Clean up after each test
+    resetAllInjections();
+    vi.clearAllMocks();
+  });
+  
+  it('should log user creation', () => {
+    const userService = inject(UserService);
+    userService.createUser({ name: 'Test User' });
+    
+    expect(mockLogger.info).toHaveBeenCalledWith('Creating user: Test User');
+  });
+});
+```
+
 ## Best Practices
 
 1. **Keep services focused**: Each service should have a single responsibility
 2. **Use dependency injection**: Instead of creating service instances directly
 3. **Add proper typing**: Leverage TypeScript's type system for better safety
 4. **Unit test services**: Use dependency injection to mock service dependencies
+5. **Clean test state**: Use `resetAllInjections()` in test teardown to ensure tests don't affect each other
 
 ## Contributing
 

@@ -20,14 +20,8 @@ describe('checkAuthentication', () => {
       initSession: vi.fn().mockResolvedValue(undefined),
       isAuthenticated: vi.fn().mockResolvedValue(true),
     };
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService, {
-      locked: true,
-    });
-    registerCustomServiceInstance(
-      LoggerService,
-      { forContext: vi.fn() },
-      { locked: true }
-    );
+    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
+    registerCustomServiceInstance(LoggerService, { forContext: vi.fn() });
     mockEvent = {} as H3Event;
   });
   afterEach(() => {
