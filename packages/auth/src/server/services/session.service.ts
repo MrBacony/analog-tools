@@ -1,8 +1,13 @@
 import { createError, H3Event } from 'h3';
-import { RedisSessionStore, useSession } from '@analog-tools/session';
+import {
+  getStore,
+  UnstorageSessionStore,
+  useSession,
+} from '@analog-tools/session';
 import { AuthSessionData, SessionWithSave } from '../types/auth-session.types';
-import { LoggerService, ILogger } from '@analog-tools/logger';
+import { ILogger, LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
+import { type SessionStorageConfig } from '../types/auth.types';
 
 const redisConfig = {
   url: process.env['REDIS_URL'],
@@ -13,36 +18,47 @@ const redisConfig = {
 // Session configuration
 const SESSION_SECRET =
   process.env['SESSION_SECRET'] || 'change-me-in-production';
-const redisStore = new RedisSessionStore<AuthSessionData>(redisConfig);
 
 export class SessionService {
   static readonly INJECTABLE = true;
-
+  private readonly storageType: SessionStorageConfig['type'];
+  private readonly storageConfig: SessionStorageConfig['config'];
+  private store!: UnstorageSessionStore<AuthSessionData>;
   private logger: ILogger;
 
-  constructor() {
+  constructor({ type, config }: SessionStorageConfig) {
+    this.storageConfig = config;
+    this.storageType = type;
+
     this.logger = inject(LoggerService).forContext('SessionService');
   }
 
   async initSession(event: H3Event): Promise<void> {
-    if (!event.context['sessionHandler']) {
-      await useSession<AuthSessionData>(event, {
-        store: redisStore,
-        secret: SESSION_SECRET,
-        name: 'auth.session',
-        cookie: {
-          httpOnly: true,
-          secure: process.env['NODE_ENV'] === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 60 * 24, // 24 hours
-        },
-        // Initialize default session structure with auth property
-        generate: () => ({
-          auth: {
-            isAuthenticated: false,
+    if (!this.store) {
+      this.store = getStore<AuthSessionData>(
+        this.storageType,
+        this.storageConfig
+      );
+
+      if (!event.context['sessionHandler']) {
+        await useSession<AuthSessionData>(event, {
+          store: this.store,
+          secret: SESSION_SECRET,
+          name: 'auth.session',
+          cookie: {
+            httpOnly: true,
+            secure: process.env['NODE_ENV'] === 'production',
+            sameSite: 'lax',
+            maxAge: 60 * 60 * 24, // 24 hours
           },
-        }),
-      });
+          // Initialize default session structure with auth property
+          generate: () => ({
+            auth: {
+              isAuthenticated: false,
+            },
+          }),
+        });
+      }
     }
   }
 
@@ -53,7 +69,7 @@ export class SessionService {
    */
   async getSession(sessionId: string): Promise<SessionWithSave | null> {
     try {
-      const sessionData = await redisStore.get(sessionId);
+      const sessionData = await this.store.get(sessionId);
       if (!sessionData) {
         return null;
       }
@@ -62,8 +78,8 @@ export class SessionService {
       return {
         id: sessionId,
         data: sessionData,
-        async save() {
-          await redisStore.set(sessionId, sessionData);
+        save: async () => {
+          await this.store.set(sessionId, sessionData);
         },
       };
     } catch (error) {
@@ -79,7 +95,7 @@ export class SessionService {
   async getActiveSessions(): Promise<SessionWithSave[]> {
     try {
       // Get all session keys from Redis with the configured prefix
-      const sessionKeys = await redisStore.getAll();
+      const sessionKeys = await this.store.all();
 
       // Map keys to session objects
       return Promise.all(
@@ -91,8 +107,8 @@ export class SessionService {
           return {
             id: sessionId,
             data: sessionData,
-            async save() {
-              await redisStore.set(sessionId, sessionData);
+            save: async () => {
+              await this.store.set(sessionId, sessionData);
             },
           };
         })

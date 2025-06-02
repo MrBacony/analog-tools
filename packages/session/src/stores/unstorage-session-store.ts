@@ -51,10 +51,7 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT>
     try {
       const item = await this.storage.getItem(this.getKey(sid));
       if (item) {
-        this.logger.info(
-          `Retrieved session ${sid}:`,
-          JSON.stringify(item)
-        );
+        this.logger.info(`Retrieved session ${sid}:`, JSON.stringify(item));
       } else {
         this.logger.info(`No session found for ID ${sid}`);
       }
@@ -79,7 +76,9 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT>
         JSON.stringify(data)
       );
       await this.storage.setItem(this.getKey(sid), data, { ttl });
-      this.logger.info(`[@analog-tools/session] Session ${sid} saved successfully`);
+      this.logger.info(
+        `[@analog-tools/session] Session ${sid} saved successfully`
+      );
     } else {
       this.logger.info(
         `[@analog-tools/session] Session ${sid} has expired TTL, destroying`
@@ -108,12 +107,21 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT>
   /**
    * Fetch all saved sessions.
    */
-  async all(): Promise<RawSession<T>[]> {
-    const keys = await this.getAllKeys();
-    const values = await this.storage.getItems(keys);
-    return values.map(({ value }) => {
-      return value as RawSession<T>;
-    });
+  async all(): Promise<Record<string, RawSession<T>>> {
+    try {
+      const keys = await this.getAllKeys();
+
+      const values = await this.storage.getItems(keys);
+
+      return values.reduce((acc, { key, value }) => {
+        // Extract session ID from the storage key by removing prefix
+        acc[key] = value as RawSession<T>;
+        return acc;
+      }, {} as Record<string, RawSession<T>>);
+    } catch (error) {
+      this.logger.error('Error retrieving all sessions:', error);
+      return {};
+    }
   }
 
   /**

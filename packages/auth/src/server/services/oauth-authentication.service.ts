@@ -6,8 +6,8 @@ import {
   SessionWithSave,
 } from '../types/auth-session.types';
 import { AnalogAuthConfig } from '../types/auth.types';
-import { inject } from '@analog-tools/inject';
-import { LoggerService, ILogger } from '@analog-tools/logger';
+import { inject, registerService } from '@analog-tools/inject';
+import { ILogger, LoggerService } from '@analog-tools/logger';
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
@@ -21,30 +21,12 @@ export class OAuthAuthenticationService {
     this.logger = inject(LoggerService).forContext(
       'OAuthAuthenticationService'
     );
-
-    this.config = {
-      issuer: config.issuer,
-      clientId: config.clientId,
-      clientSecret: config.clientSecret,
-      audience: config.audience || '',
-      scope: config.scope || 'openid profile email',
-      callbackUri: config.callbackUri,
-      userHandler: config.userHandler,
-      unprotectedRoutes: config.unprotectedRoutes,
-      tokenRefreshApiKey: config.tokenRefreshApiKey,
-      logoutUrl: config.logoutUrl,
-    };
+    registerService(SessionService, config.sessionStorage);
+    this.config = config;
   }
 
   // Config object with default values
-  private config: AnalogAuthConfig = {
-    issuer: '',
-    clientId: '',
-    clientSecret: '',
-    audience: '',
-    scope: 'openid profile email',
-    callbackUri: '',
-  };
+  private readonly config!: AnalogAuthConfig;
 
   // OpenID Configuration cache
   private openIDConfigCache: OpenIDConfiguration | null = null;
@@ -144,14 +126,18 @@ export class OAuthAuthenticationService {
 
     const config = await this.getOpenIDConfiguration();
 
-    const params = new URLSearchParams({
+    const audience = this.getConfigValue('audience');
+
+    const searchparams = {
       response_type: 'code',
       client_id: this.getConfigValue('clientId'),
       redirect_uri: redirectUri || this.getConfigValue('callbackUri'),
       scope: this.getConfigValue('scope'),
-      audience: this.getConfigValue('audience'),
       state,
-    });
+      ...(audience ? { audience } : {}),
+    };
+
+    const params = new URLSearchParams(searchparams);
 
     return `${config.authorization_endpoint}?${params.toString()}`;
   }
@@ -525,6 +511,8 @@ export class OAuthAuthenticationService {
         hasValidAuthWithRefreshToken
       );
 
+      await this.getOpenIDConfiguration();
+
       // Execute the refresh operations and track results
       const results = await Promise.allSettled(
         sessionsToRefresh.map(refreshSessionToken)
@@ -736,9 +724,7 @@ export class OAuthAuthenticationService {
     logoutUrl.searchParams.append('client_id', this.getConfigValue('clientId'));
 
     // Add returnTo parameter if configured
-    const returnTo = this.getConfigValue(
-      'logoutUrl'
-    );
+    const returnTo = this.getConfigValue('logoutUrl');
 
     if (returnTo) {
       logoutUrl.searchParams.append('returnTo', returnTo);

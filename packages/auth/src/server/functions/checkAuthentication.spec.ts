@@ -1,6 +1,9 @@
-import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { checkAuthentication } from './checkAuthentication';
-import { registerCustomServiceInstance } from '@analog-tools/inject';
+import {
+  registerCustomServiceInstance,
+  resetAllInjections,
+} from '@analog-tools/inject';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import type { H3Event } from 'h3';
 import { LoggerService } from '@analog-tools/logger';
@@ -17,9 +20,18 @@ describe('checkAuthentication', () => {
       initSession: vi.fn().mockResolvedValue(undefined),
       isAuthenticated: vi.fn().mockResolvedValue(true),
     };
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
-    registerCustomServiceInstance(LoggerService, { forContext: vi.fn() });
+    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService, {
+      locked: true,
+    });
+    registerCustomServiceInstance(
+      LoggerService,
+      { forContext: vi.fn() },
+      { locked: true }
+    );
     mockEvent = {} as H3Event;
+  });
+  afterEach(() => {
+    resetAllInjections();
   });
 
   it('should initialize session and check authentication', async () => {

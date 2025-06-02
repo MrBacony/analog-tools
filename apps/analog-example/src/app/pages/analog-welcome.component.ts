@@ -138,7 +138,7 @@ export class AnalogWelcomeComponent {
   public user = this.authClient.user;
 
   jsonUser = computed(() => {
-    const user = this.authClient.userResource.value;
+    const user = this.authClient.userResource.value();
     return user ? JSON.stringify(user, null, 2) : 'No user data available';
   });
 

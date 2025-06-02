@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UnstorageSessionStore } from './unstorage-session-store';
-import type { RawSession, TTL } from '../types';
+import type { TTL } from '../types';
 import { inject } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 
-describe('UnstorageSessionStore', () => {  
-    const logger = inject(LoggerService).forContext('@analog-tools/session');
+describe('UnstorageSessionStore', () => {
+  const logger = inject(LoggerService).forContext('@analog-tools/session');
 
   // Mock storage implementation
   const createMockStorage = () => {
@@ -23,15 +23,17 @@ describe('UnstorageSessionStore', () => {
       }),
       getKeys: vi.fn((prefix?: string) => {
         return Promise.resolve(
-          Object.keys(storage).filter(key => !prefix || key.startsWith(prefix))
+          Object.keys(storage).filter(
+            (key) => !prefix || key.startsWith(prefix)
+          )
         );
       }),
       getItems: vi.fn((keys: string[]) => {
         return Promise.resolve(
-          keys.map(key => ({ key, value: storage[key] }))
+          keys.map((key) => ({ key, value: storage[key] }))
         );
       }),
-      _raw: storage // For test inspection
+      _raw: storage, // For test inspection
     };
   };
 
@@ -43,7 +45,7 @@ describe('UnstorageSessionStore', () => {
     mockStorage = createMockStorage();
     sessionStore = new UnstorageSessionStore(mockStorage as any, {
       prefix: 'test-sess',
-      ttl: 3600 // 1 hour
+      ttl: 3600, // 1 hour
     });
   });
 
@@ -55,10 +57,10 @@ describe('UnstorageSessionStore', () => {
     });
 
     it('should use provided configuration values', () => {
-      const customTTL: TTL<any> = (data) => data.userId ? 7200 : 3600;
+      const customTTL: TTL<any> = (data) => (data.userId ? 7200 : 3600);
       const store = new UnstorageSessionStore(mockStorage as any, {
         prefix: 'custom',
-        ttl: customTTL
+        ttl: customTTL,
       });
 
       expect(store.prefix).toBe('custom');
@@ -108,7 +110,7 @@ describe('UnstorageSessionStore', () => {
     });
 
     it('should use TTL function when provided', async () => {
-      const customTTL: TTL<any> = (data) => data.userId ? 7200 : 3600;
+      const customTTL: TTL<any> = (data) => (data.userId ? 7200 : 3600);
       sessionStore.ttl = customTTL;
 
       await sessionStore.set('session123', testSessionData);
@@ -135,7 +137,9 @@ describe('UnstorageSessionStore', () => {
     it('should remove session data', async () => {
       await sessionStore.destroy('session123');
 
-      expect(mockStorage.removeItem).toHaveBeenCalledWith('test-sess:session123');
+      expect(mockStorage.removeItem).toHaveBeenCalledWith(
+        'test-sess:session123'
+      );
     });
   });
 
@@ -153,7 +157,7 @@ describe('UnstorageSessionStore', () => {
     it('should remove all sessions', async () => {
       mockStorage.getKeys.mockResolvedValue([
         'test-sess:session1',
-        'test-sess:session2'
+        'test-sess:session2',
       ]);
 
       await sessionStore.clear();
@@ -172,7 +176,7 @@ describe('UnstorageSessionStore', () => {
 
       mockStorage.getKeys.mockResolvedValue([
         'test-sess:session1',
-        'test-sess:session2'
+        'test-sess:session2',
       ]);
 
       mockStorage.getItems.mockResolvedValue([
@@ -185,9 +189,57 @@ describe('UnstorageSessionStore', () => {
       expect(mockStorage.getKeys).toHaveBeenCalled();
       expect(mockStorage.getItems).toHaveBeenCalledWith([
         'test-sess:session1',
-        'test-sess:session2'
+        'test-sess:session2',
       ]);
-      expect(result).toEqual([session1, session2]);
+      expect(result).toEqual({
+        'test-sess:session1': session1,
+        'test-sess:session2': session2,
+      });
+    });
+
+    it('should handle errors when getting individual session data', async () => {
+      const consoleSpy = vi.spyOn(logger, 'error');
+
+      mockStorage.getKeys.mockRejectedValueOnce(
+        new Error('Failed to get session')
+      );
+
+      const result = await sessionStore.all();
+      expect(mockStorage.getKeys).toHaveBeenCalled();
+
+      // When any promise in Promise.all rejects, the catch block returns an empty object
+      expect(result).toEqual({});
+
+      // Check that the error was caught and logged
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error retrieving all sessions:',
+        expect.any(Error)
+      );
+    });
+
+    it('should return empty object when no sessions exist', async () => {
+      mockStorage.getKeys.mockResolvedValue([]);
+
+      const result = await sessionStore.all();
+
+      expect(mockStorage.getKeys).toHaveBeenCalled();
+      expect(mockStorage.getItem).not.toHaveBeenCalled();
+      expect(result).toEqual({});
+    });
+
+    it('should handle errors when retrieving sessions', async () => {
+      const consoleSpy = vi.spyOn(logger, 'error');
+
+      mockStorage.getKeys.mockRejectedValue(new Error('connection error'));
+
+      const result = await sessionStore.all();
+
+      expect(mockStorage.getKeys).toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error retrieving all sessions:',
+        expect.any(Error)
+      );
+      expect(result).toEqual({});
     });
   });
 
@@ -195,7 +247,7 @@ describe('UnstorageSessionStore', () => {
     it('should return the number of sessions', async () => {
       mockStorage.getKeys.mockResolvedValue([
         'test-sess:session1',
-        'test-sess:session2'
+        'test-sess:session2',
       ]);
 
       const result = await sessionStore.length();
@@ -225,7 +277,7 @@ describe('UnstorageSessionStore', () => {
       });
 
       it('should calculate TTL if ttl is a function', () => {
-        sessionStore.ttl = (data: any) => data.userId ? 7200 : 3600;
+        sessionStore.ttl = (data: any) => (data.userId ? 7200 : 3600);
 
         // Access protected method via any type
         const result = (sessionStore as any).getTTL(testSessionData);

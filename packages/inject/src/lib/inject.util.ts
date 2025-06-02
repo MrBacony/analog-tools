@@ -22,7 +22,7 @@ export interface InjectionServiceClass<T, Args extends any[] = any[]> {
   new (...args: Args): T;
 }
 
-let _sericeRegistry: ServiceRegistry | null = null;
+let _serviceRegistry: ServiceRegistry | null = null;
 
 function innerInjectFunction<T>(
   registry: ServiceRegistry,
@@ -53,10 +53,10 @@ export function inject<T>(
   token: InjectionServiceClass<T>,
   options: InjectOptions = {}
 ): T {
-  if (!_sericeRegistry) {
-    _sericeRegistry = new ServiceRegistry();
+  if (!_serviceRegistry) {
+    _serviceRegistry = new ServiceRegistry();
   }
-  return innerInjectFunction(_sericeRegistry, token, options);
+  return innerInjectFunction(_serviceRegistry, token, options);
 }
 
 /**
@@ -70,19 +70,26 @@ export function registerService<T, Args extends any[]>(
   token: InjectionServiceClass<T, Args>,
   ...properties: Args
 ): void {
-  if (!_sericeRegistry) {
-    _sericeRegistry = new ServiceRegistry();
+  if (!_serviceRegistry) {
+    _serviceRegistry = new ServiceRegistry();
   }
-  _sericeRegistry.register(token, ...properties);
+  _serviceRegistry.register(token, ...properties);
 }
-
 
 export function registerCustomServiceInstance<T>(
   token: InjectionServiceClass<T>,
-  customObject: Partial<T>
+  customObject: Partial<T>,
+  config?: { locked?: boolean }
 ): void {
-  if (!_sericeRegistry) {
-    _sericeRegistry = new ServiceRegistry();
+  if (!_serviceRegistry) {
+    _serviceRegistry = new ServiceRegistry();
   }
-  _sericeRegistry.registerCustomServiceInstance(token, customObject);
+  _serviceRegistry.registerCustomServiceInstance(token, customObject, config);
+}
+
+export function resetAllInjections(): void {
+  if (!_serviceRegistry) {
+    _serviceRegistry = new ServiceRegistry();
+  }
+  _serviceRegistry.destroy();
 }

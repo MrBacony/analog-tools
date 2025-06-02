@@ -3,8 +3,10 @@ import { handleAuthRoute } from './handleAuthRoute';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { getLastPathSegment } from '../utils/getLastPathSegment';
 import { createError, H3Event } from 'h3';
-import * as injectModule from '@analog-tools/inject';
-import { registerCustomServiceInstance } from '@analog-tools/inject';
+import {
+  registerCustomServiceInstance,
+  resetAllInjections,
+} from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 
 // Mock dependencies
@@ -51,6 +53,7 @@ describe('handleAuthRoute', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    resetAllInjections();
   });
 
   it('should not handle routes that do not include "/api/auth/"', async () => {
@@ -108,7 +111,6 @@ describe('handleAuthRoute', () => {
 
     const result = await handleAuthRoute(mockEvent as H3Event);
 
-    
     expect(mockAuthService.initSession).toHaveBeenCalledWith(mockEvent);
     expect(result).toBe('callback-handler-result');
   });

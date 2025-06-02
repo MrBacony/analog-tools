@@ -63,6 +63,7 @@ The `useAnalogAuth` function accepts a configuration object with the following o
 | `scope`             | string               | OAuth scopes to request (defaults to 'openid profile email') | No       |
 | `callbackUri`       | string               | The callback URL registered with your OAuth provider         | Yes      |
 | `unprotectedRoutes` | string[]             | Array of routes that don't require authentication            | No       |
+| `logoutUrl`         | string               | URL to redirect to after logout                              | No       |
 | `sessionStorage`    | SessionStorageConfig | Session storage configuration (see below)                    | No       |
 | `userHandler`       | UserHandler          | Callbacks for user data processing (see below)               | No       |
 
@@ -173,7 +174,7 @@ You can customize the package behavior with these environment variables:
 
 - `SESSION_SECRET`: Secret used for signing session cookies (required in production)
 - `REDIS_URL`: Redis connection URL for session storage
-- `AUTH_LOGOUT_URL`: URL to redirect to after logout
+- `AUTH_LOGOUT_URL`: URL to redirect to after logout (can also be set via `logoutUrl` in config)
 - `NODE_ENV`: Set to 'production' for secure cookie settings
 
 ### Token Refresh Strategy
