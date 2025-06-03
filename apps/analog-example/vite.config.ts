@@ -37,15 +37,15 @@ export default defineConfig(({ mode }) => {
           alias: {
             '@analog-tools/auth': resolve(
               __dirname,
-              '../../node_modules/@analog-tools/auth/index.cjs'
+              '../../packages/auth/src/index.ts'
             ),
             '@analog-tools/auth/trpc': resolve(
               __dirname,
-              '../../node_modules/@analog-tools/auth/trpc/index.cjs'
+              '../../packages/auth-angular/src/trpc/index.ts'
             ),
             '@analog-tools/auth/angular': resolve(
               __dirname,
-              '../../node_modules/@analog-tools/auth/angular/fesm2022/analog-tools-auth-angular.mjs'
+              '../../packages/auth-angular/src/index.ts'
             ),
             '@analog-tools/session': resolve(
               __dirname,
