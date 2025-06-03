@@ -3,26 +3,8 @@
  * Provides type-safe service injection throughout the application
  */
 
-import { ServiceRegistry } from './service-registry';
-
-/**
- * Service injection options
- */
-export interface InjectOptions {
-  /**
-   * Whether to throw an error if the service is not found
-   * @default true
-   */
-  required?: boolean;
-}
-
-// Make InjectionServiceClass generic over constructor args
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface InjectionServiceClass<T, Args extends any[] = any[]> {
-  new (...args: Args): T;
-}
-
-let _serviceRegistry: ServiceRegistry | null = null;
+import { getServiceRegistry, ServiceRegistry } from './service-registry';
+import { InjectionServiceClass, InjectOptions } from './inject.types';
 
 function innerInjectFunction<T>(
   registry: ServiceRegistry,
@@ -53,10 +35,7 @@ export function inject<T>(
   token: InjectionServiceClass<T>,
   options: InjectOptions = {}
 ): T {
-  if (!_serviceRegistry) {
-    _serviceRegistry = new ServiceRegistry();
-  }
-  return innerInjectFunction(_serviceRegistry, token, options);
+  return innerInjectFunction(getServiceRegistry(), token, options);
 }
 
 /**
@@ -70,25 +49,15 @@ export function registerService<T, Args extends any[]>(
   token: InjectionServiceClass<T, Args>,
   ...properties: Args
 ): void {
-  if (!_serviceRegistry) {
-    _serviceRegistry = new ServiceRegistry();
-  }
-  _serviceRegistry.register(token, ...properties);
+  getServiceRegistry().register(token, ...properties);
 }
 
-export function registerCustomServiceInstance<T>(
-  token: InjectionServiceClass<T>,
-  customObject: Partial<T>
+/**
+ * Register a service as undefined in the ServiceRegistry
+ * @param token - The injection token for the service
+ */
+export function registerServiceAsUndefined<T>(
+  token: InjectionServiceClass<T>
 ): void {
-  if (!_serviceRegistry) {
-    _serviceRegistry = new ServiceRegistry();
-  }
-  _serviceRegistry.registerCustomServiceInstance(token, customObject);
-}
-
-export function resetAllInjections(): void {
-  if (!_serviceRegistry) {
-    _serviceRegistry = new ServiceRegistry();
-  }
-  _serviceRegistry.destroy();
+  getServiceRegistry().registerAsUndefined(token);
 }

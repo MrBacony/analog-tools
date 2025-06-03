@@ -1,4 +1,16 @@
-import { InjectionServiceClass } from './inject.util';
+import { InjectionServiceClass } from './inject.types';
+
+/**
+ * Service injection options
+ */
+
+export let _serviceRegistry: ServiceRegistry | null = null;
+export function getServiceRegistry(): ServiceRegistry {
+  if (!_serviceRegistry) {
+    _serviceRegistry = new ServiceRegistry();
+  }
+  return _serviceRegistry;
+}
 
 /**
  * Service registry that provides access to all service singletons.
@@ -15,12 +27,29 @@ export class ServiceRegistry {
     token: InjectionServiceClass<T>,
     ...properties: ConstructorParameters<InjectionServiceClass<T>>
   ): void {
-    if (properties === undefined || properties.length === 0) {
-      this.serviceMap.set(token, new token());
-      return;
-    }
+    if (this.isServiceInjectable(token)) {
+      if (
+        !this.serviceMap.has(token) ||
+        this.serviceMap.get(token) === undefined
+      ) {
+        if (properties === undefined || properties.length === 0) {
+          this.serviceMap.set(token, new token());
+          return;
+        }
 
-    this.serviceMap.set(token, new token(...properties));
+        this.serviceMap.set(token, new token(...properties));
+      }
+    }
+  }
+
+  public registerAsUndefined<T>(token: InjectionServiceClass<T>): void {
+    if (this.isServiceInjectable(token)) {
+      this.serviceMap.set(token, undefined);
+    } else {
+      throw new Error(
+        `Service with token ${token.name} is not injectable. Ensure it has the INJECTABLE static property set to true.`
+      );
+    }
   }
 
   public registerCustomServiceInstance<T>(
@@ -28,9 +57,7 @@ export class ServiceRegistry {
     customObject: Partial<T>
   ): void {
     if (this.isServiceInjectable(token)) {
-      if (!this.serviceMap.has(token)) {
-        this.serviceMap.set(token, customObject);
-      }
+      this.serviceMap.set(token, customObject);
     } else {
       throw new Error(
         `Service with token ${token.name} is not injectable. Ensure it has the INJECTABLE static property set to true.`

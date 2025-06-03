@@ -181,9 +181,17 @@ Registers a service with optional constructor parameters:
 - `token`: The class/constructor function of the service to register
 - `properties`: Any typesafe constructor parameters the service requires
 
-### `registerCustomServiceInstance<T>(token: InjectionServiceClass<T>, customObject: Partial<T>): void`
+### `registerServiceAsUndefined<T>(token: InjectionServiceClass<T>): void`
 
-Registers a custom implementation of a service:
+Registers a service as undefined in the registry:
+
+- `token`: The class/constructor function of the service to register
+
+Useful for testing scenarios where you want to verify correct handling of missing services.
+
+### `registerMockService<T>(token: InjectionServiceClass<T>, customObject: Partial<T>): void`
+
+Registers a custom implementation of a service for testing:
 
 - `token`: The class/constructor function of the service to register
 - `customObject`: A custom object that will be used as the service instance
@@ -223,7 +231,7 @@ class LoggerService implements Logger {
 }
 
 // Only need to implement the methods you use in your tests
-registerCustomServiceInstance(LoggerService, {
+registerMockService(LoggerService, {
   info: vi.fn(),
   error: vi.fn()
   // debug is optional since we're using Partial<T>
@@ -237,7 +245,7 @@ The `@analog-tools/inject` package provides several utilities to make testing ea
 ### Mocking Services with Custom Implementations
 
 ```typescript
-import { registerCustomServiceInstance, resetAllInjections } from '@analog-tools/inject';
+import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
 
 // Service we want to test
@@ -261,7 +269,7 @@ describe('UserService', () => {
   
   beforeEach(() => {
     // Register mock implementation before each test
-    registerCustomServiceInstance(LoggerService, mockLogger);
+    registerMockService(LoggerService, mockLogger);
   });
   
   afterEach(() => {
