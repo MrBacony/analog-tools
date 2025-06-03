@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createError, H3Event } from 'h3';
 import userRoute from './user';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
-import {
-  registerCustomServiceInstance,
-  resetAllInjections,
-} from '@analog-tools/inject';
+import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 
 // Mock dependencies
@@ -36,8 +33,8 @@ describe('user route', () => {
       getAuthenticatedUser: vi.fn().mockResolvedValue(mockUserData),
     };
 
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
-    registerCustomServiceInstance(LoggerService, { forContext: vi.fn() });
+    registerMockService(OAuthAuthenticationService, mockAuthService);
+    registerMockService(LoggerService, { forContext: vi.fn() });
   });
 
   afterEach(() => {

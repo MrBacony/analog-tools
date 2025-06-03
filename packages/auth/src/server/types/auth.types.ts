@@ -16,10 +16,13 @@ export type AuthRoute = {
   handler: (event: H3Event) => Promise<any> | any;
 };
 
+type StorageBasicConfig = {
+  ttl?: number; // Time to live in seconds
+  prefix?: string; // Prefix for session keys
+};
+
 type RedisBasicConfig = {
   tls?: boolean;
-  keyPrefix?: string;
-  maxAge?: number; // TTL in seconds
 };
 
 type RedisConnectionConfig = {
@@ -37,20 +40,18 @@ type RedisUrlConfig = {
 /**
  * Redis session storage configuration
  */
-export type RedisSessionConfig = RedisBasicConfig &
+export type RedisSessionConfig = StorageBasicConfig & RedisBasicConfig &
   (RedisUrlConfig | RedisConnectionConfig);
 
 /**
  * Memory session storage configuration
  */
-export type MemorySessionConfig = {
-  maxAge?: number; // TTL in seconds
-};
+export type MemorySessionConfig = StorageBasicConfig;
 
 /**
  * Cookie session storage configuration
  */
-export type CookieSessionConfig = {
+export type CookieSessionConfig = StorageBasicConfig &{
   maxAge?: number; // TTL in seconds
   secure?: boolean;
   sameSite?: 'strict' | 'lax' | 'none';

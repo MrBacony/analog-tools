@@ -3,10 +3,7 @@ import { handleAuthRoute } from './handleAuthRoute';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { getLastPathSegment } from '../utils/getLastPathSegment';
 import { createError, H3Event } from 'h3';
-import {
-  registerCustomServiceInstance,
-  resetAllInjections,
-} from '@analog-tools/inject';
+import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 
 // Mock dependencies
@@ -46,8 +43,8 @@ describe('handleAuthRoute', () => {
     mockAuthService = {
       initSession: vi.fn().mockResolvedValue(undefined),
     };
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
-    registerCustomServiceInstance(LoggerService, { forContext: vi.fn() });
+    registerMockService(OAuthAuthenticationService, mockAuthService);
+    registerMockService(LoggerService, { forContext: vi.fn() });
     vi.mocked(getLastPathSegment).mockReturnValue('login');
   });
 
@@ -75,7 +72,7 @@ describe('handleAuthRoute', () => {
     });
 
     // inject should not be called when path is empty as we throw before getting there
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
+    registerMockService(OAuthAuthenticationService, mockAuthService);
 
     expect(createError).toHaveBeenCalledWith({
       statusCode: 400,

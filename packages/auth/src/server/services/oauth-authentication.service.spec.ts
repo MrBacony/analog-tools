@@ -10,7 +10,7 @@ import {
 import { H3Event } from 'h3';
 import {
   inject,
-  registerCustomServiceInstance,
+  registerMockService,
   registerService,
   resetAllInjections,
 } from '@analog-tools/inject';
@@ -189,12 +189,8 @@ describe('OAuthAuthenticationService', () => {
     });
 
     // Create service instance with mock config
-    registerCustomServiceInstance(SessionService, mockSessionService, {
-      locked: true,
-    });
-    registerCustomServiceInstance(LoggerService, mockLoggerService, {
-      locked: true,
-    });
+    registerMockService(SessionService, mockSessionService);
+    registerMockService(LoggerService, mockLoggerService);
     registerService(OAuthAuthenticationService, mockConfig);
     service = inject(OAuthAuthenticationService);
   });
@@ -716,10 +712,14 @@ describe('OAuthAuthenticationService', () => {
     });
 
     it('should include returnTo parameter in logout URL if AUTH_LOGOUT_URL is set', async () => {
-      registerService(OAuthAuthenticationService, {
-        ...mockConfig,
-        logoutUrl: 'https://example.com/after-logout',
-      });
+      registerMockService(
+        OAuthAuthenticationService,
+        new OAuthAuthenticationService({
+          ...mockConfig,
+          logoutUrl: 'https://example.com/after-logout',
+        })
+      );
+
       service = inject(OAuthAuthenticationService);
       // Set the environment variable for this test
       const logoutUrl = await service.logout(mockEvent as H3Event);

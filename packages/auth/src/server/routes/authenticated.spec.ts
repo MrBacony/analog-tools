@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { H3Event } from 'h3';
 import authenticatedRoute from './authenticated';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
-import {
-  registerCustomServiceInstance,
-  resetAllInjections,
-} from '@analog-tools/inject';
+import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 
 describe('authenticated route', () => {
@@ -24,10 +21,10 @@ describe('authenticated route', () => {
       isAuthenticated: vi.fn().mockResolvedValue(true),
     };
 
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService, {
+    registerMockService(OAuthAuthenticationService, mockAuthService, {
       locked: true,
     });
-    registerCustomServiceInstance(LoggerService, { forContext: vi.fn() });
+    registerMockService(LoggerService, { forContext: vi.fn() });
   });
 
   afterEach(() => {

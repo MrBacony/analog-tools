@@ -4,10 +4,7 @@ import refreshTokensRoute from './refresh-tokens';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { LoggerService } from '@analog-tools/logger';
 import { AnalogAuthConfig } from '../types/auth.types';
-import {
-  registerCustomServiceInstance,
-  resetAllInjections,
-} from '@analog-tools/inject';
+import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 
 // Mock dependencies
 vi.mock('h3', () => ({
@@ -51,8 +48,8 @@ describe('refresh-tokens route', () => {
     mockLoggerService = {
       forContext: vi.fn().mockReturnValue(mockContextLogger),
     };
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
-    registerCustomServiceInstance(LoggerService, {
+    registerMockService(OAuthAuthenticationService, mockAuthService);
+    registerMockService(LoggerService, {
       forContext: vi.fn().mockReturnValue(mockContextLogger),
     });
 

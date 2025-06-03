@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { useAnalogAuthMiddleware } from './useAnalogAuthMiddleware';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { LoggerService } from '@analog-tools/logger';
-import {
-  registerCustomServiceInstance,
-  resetAllInjections,
-} from '@analog-tools/inject';
+import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import * as checkAuthenticationModule from './checkAuthentication';
 import * as h3Module from 'h3';
 import { H3Event, sendRedirect } from 'h3';
@@ -76,8 +73,8 @@ describe('useAnalogAuthMiddleware', () => {
     };
 
     // Register mocks
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
-    registerCustomServiceInstance(LoggerService, mockLogger);
+    registerMockService(OAuthAuthenticationService, mockAuthService);
+    registerMockService(LoggerService, mockLogger);
 
     // Create mock event
     mockEvent = {} as H3Event;

@@ -4,10 +4,7 @@ import { randomUUID } from 'uncrypto';
 import loginRoute from './login';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { AuthSessionData } from '../types/auth-session.types';
-import {
-  registerCustomServiceInstance,
-  resetAllInjections,
-} from '@analog-tools/inject';
+import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 
 // Mock dependencies
@@ -51,8 +48,8 @@ describe('login route', () => {
         .mockResolvedValue('https://auth.example.com/authorize'),
     };
 
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
-    registerCustomServiceInstance(LoggerService, { forContext: vi.fn() });
+    registerMockService(OAuthAuthenticationService, mockAuthService);
+    registerMockService(LoggerService, { forContext: vi.fn() });
     // Mock getQuery to return test values
     (getQuery as unknown as Mock).mockReturnValue({
       redirect_uri: 'https://app.example.com/dashboard',

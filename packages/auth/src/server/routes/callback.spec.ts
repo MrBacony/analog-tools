@@ -3,10 +3,7 @@ import { getQuery, H3Event, sendRedirect } from 'h3';
 import callbackRoute from './callback';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { AuthSessionData } from '../types/auth-session.types';
-import {
-  registerCustomServiceInstance,
-  resetAllInjections,
-} from '@analog-tools/inject';
+import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 
 // Mock dependencies
 vi.mock('h3', () => ({
@@ -66,7 +63,7 @@ describe('callback route', () => {
       handleCallback: vi.fn().mockResolvedValue(undefined),
     };
 
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
+    registerMockService(OAuthAuthenticationService, mockAuthService);
     //registerCustomServiceInstance(LoggerService, {forContext: vi.fn().mockReturnValue(mockContextLogger)});
 
     // Mock getQuery to return code and state

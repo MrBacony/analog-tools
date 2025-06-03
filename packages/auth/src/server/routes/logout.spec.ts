@@ -3,10 +3,7 @@ import { createError, H3Event, sendRedirect } from 'h3';
 import logoutRoute from './logout';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { LoggerService } from '@analog-tools/logger';
-import {
-  registerCustomServiceInstance,
-  resetAllInjections,
-} from '@analog-tools/inject';
+import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 
 // Mock dependencies
 vi.mock('h3', () => ({
@@ -37,8 +34,8 @@ describe('logout route', () => {
       initSession: vi.fn().mockResolvedValue(undefined),
       logout: vi.fn().mockResolvedValue('https://auth.example.com/logout'),
     };
-    registerCustomServiceInstance(OAuthAuthenticationService, mockAuthService);
-    registerCustomServiceInstance(LoggerService, {
+    registerMockService(OAuthAuthenticationService, mockAuthService);
+    registerMockService(LoggerService, {
       forContext: vi.fn().mockReturnValue(mockContextLogger),
     });
   });

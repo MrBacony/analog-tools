@@ -7,10 +7,7 @@ import {
   UnstorageSessionStore,
   useSession,
 } from '@analog-tools/session';
-import {
-  registerCustomServiceInstance,
-  resetAllInjections,
-} from '@analog-tools/inject';
+import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 import { SessionStorageConfig } from '../types/auth.types';
 
@@ -116,7 +113,7 @@ describe('SessionService', () => {
     };
 
     // Register services
-    registerCustomServiceInstance(LoggerService, mockLogger);
+    registerMockService(LoggerService, mockLogger);
 
     // Mock getStore to return our mockStore
     vi.mocked(getStore).mockReturnValue(

@@ -39,26 +39,26 @@ export class SessionService {
         this.storageType,
         this.storageConfig
       );
+    }
 
-      if (!event.context['sessionHandler']) {
-        await useSession<AuthSessionData>(event, {
-          store: this.store,
-          secret: SESSION_SECRET,
-          name: 'auth.session',
-          cookie: {
-            httpOnly: true,
-            secure: process.env['NODE_ENV'] === 'production',
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24, // 24 hours
+    if (!event.context['sessionHandler']) {
+      await useSession<AuthSessionData>(event, {
+        store: this.store,
+        secret: SESSION_SECRET,
+        name: 'auth.session',
+        cookie: {
+          httpOnly: true,
+          secure: process.env['NODE_ENV'] === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24, // 24 hours
+        },
+        // Initialize default session structure with auth property
+        generate: () => ({
+          auth: {
+            isAuthenticated: false,
           },
-          // Initialize default session structure with auth property
-          generate: () => ({
-            auth: {
-              isAuthenticated: false,
-            },
-          }),
-        });
-      }
+        }),
+      });
     }
   }
 
