@@ -20,6 +20,11 @@ const route: AuthRoute = {
     // Initialize session
     await authService.initSession(event);
 
+    if(await authService.isAuthenticated(event)) {
+      // If already authenticated, redirect to the home page
+      return sendRedirect(event, '/');
+    }
+
     // Get code and state from query parameters
     const query = getQuery(event);
     const code = query['code'] as string;
