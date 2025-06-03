@@ -4,9 +4,10 @@ import {
   Injectable,
   OnDestroy,
   PLATFORM_ID,
+  DOCUMENT
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { isPlatformBrowser } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import {
   GenericUserInfo,
