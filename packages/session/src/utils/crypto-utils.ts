@@ -233,7 +233,7 @@ export async function unsignCookie(
 ): Promise<UnsignCookieResult> {
   const parseResult = parseCookieValue(value);
 
-  if (!parseResult.success) {
+  if (parseResult.success === false) {
     return { success: false, reason: parseResult.reason };
   }
 
