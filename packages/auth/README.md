@@ -231,6 +231,152 @@ The package provides a complete Angular integration through the `@analog-tools/a
 - Route guards for protecting Angular routes
 - HTTP interceptors for handling 401 responses and authorization headers
 
+### TRPC Integration
+
+The `@analog-tools/auth/angular` package provides seamless integration with tRPC for Angular applications, handling authentication automatically.
+
+#### 1. TRPC Client Setup
+
+Use the `createTrpcClientWithAuth` function to wrap your TRPC client with authentication support:
+
+```typescript
+// src/trpc-client.ts
+import { AppRouter } from './server/trpc/routers';
+import { createTrpcClient } from '@analogjs/trpc';
+import { inject } from '@angular/core';
+import { SuperJSON } from 'superjson';
+import { createTrpcClientWithAuth } from '@analog-tools/auth-angular';
+import { injectRequest } from '@analogjs/router/tokens';
+
+// Create the TRPC client with AnalogJS
+export const { provideTrpcClient, TrpcClient, TrpcHeaders } =
+  createTrpcClient<AppRouter>({
+    url: '/api/trpc',
+    options: {
+      transformer: SuperJSON,
+    },
+  });
+
+// Create a function to inject the authenticated TRPC client
+export function injectTrpcClient() {
+  return createTrpcClientWithAuth(inject(TrpcClient), injectRequest(), TrpcHeaders);
+}
+```
+
+#### 2. TRPC Context Configuration
+
+Set up your TRPC context to pass the H3 event:
+
+```typescript
+// src/server/trpc/context.ts
+import { inferAsyncReturnType } from '@trpc/server';
+import type { H3Event } from 'h3';
+
+export const createContext = (event: H3Event) => {
+  // Pass the H3 event to tRPC context so we can access session data
+  return { event };
+};
+
+export type Context = inferAsyncReturnType<typeof createContext>;
+```
+
+#### 3. Authentication Middleware
+
+Create an authentication middleware for protected routes:
+
+```typescript
+// src/server/trpc/trpc.ts
+import { initTRPC, TRPCError } from '@trpc/server';
+import { Context } from './context';
+import { SuperJSON } from 'superjson';
+import { checkAuthentication } from '@analog-tools/auth';
+
+const t = initTRPC.context<Context>().create({
+  transformer: SuperJSON,
+});
+
+// Middleware to check if user is authenticated
+const isAuthenticated = t.middleware(async ({ ctx, next }) => {
+  if (!(await checkAuthentication(ctx.event))) {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'User is not authenticated',
+    });
+  }
+
+  return next({
+    ctx: {
+      ...ctx,
+      // You could add user info here if needed
+    },
+  });
+});
+
+// Unprotected procedure - can be accessed without authentication
+export const publicProcedure = t.procedure;
+
+// Protected procedure - requires authentication
+export const protectedProcedure = t.procedure.use(isAuthenticated);
+
+export const router = t.router;
+export const middleware = t.middleware;
+```
+
+#### Using Protected TRPC Routes
+
+Define your TRPC router with protected routes:
+
+```typescript
+// src/server/trpc/routers/my-router.ts
+import { protectedProcedure, publicProcedure, router } from '../trpc';
+
+export const myRouter = router({
+  // Public route - no authentication required
+  public: publicProcedure.query(() => {
+    return { message: 'This is public data' };
+  }),
+  
+  // Protected route - requires authentication
+  protected: protectedProcedure.query(() => {
+    return { message: 'This is protected data' };
+  }),
+});
+```
+
+#### Error Handling
+
+The auth-angular package automatically handles authentication errors from TRPC calls. The `wrapTrpcClientWithErrorHandling` function adds error handling for auth-related errors:
+
+```typescript
+// In your component
+import { Component } from '@angular/core';
+import { injectTrpcClient } from '../trpc-client';
+
+@Component({
+  selector: 'app-my-component',
+  template: `
+    <button (click)="fetchProtectedData()">Fetch Protected Data</button>
+    <div *ngIf="data">{{ data | json }}</div>
+  `,
+})
+export class MyComponent {
+  private trpc = injectTrpcClient();
+  data: any;
+
+  fetchProtectedData() {
+    // Will automatically handle auth errors
+    this.trpc.my.protected.query().subscribe({
+      next: (result) => {
+        this.data = result;
+      },
+      error: (err) => {
+        console.error('Error fetching data:', err);
+      },
+    });
+  }
+}
+```
+
 #### Setup Angular Integration
 
 First, add the auth providers to your `app.config.ts`:
