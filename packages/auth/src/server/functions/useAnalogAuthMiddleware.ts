@@ -1,9 +1,4 @@
-import {
-  getHeader,
-  getRequestURL,
-  H3Event,
-  sendRedirect,
-} from 'h3';
+import { getHeader, getRequestURL, H3Event, sendRedirect } from 'h3';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
@@ -20,16 +15,20 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
   if (
     pathname.startsWith('/api/auth/login') ||
     pathname.startsWith('/api/auth/callback') ||
-    pathname.startsWith('/api/auth/authenticated') ||
-    pathname.startsWith('/api/trpc') ||
-    authService.isUnprotectedRoute(pathname)
+    pathname.startsWith('/api/auth/authenticated')
   ) {
     return;
   }
 
+  if (
+    authService.isUnprotectedRoute(pathname) ||
+    pathname.startsWith('/api/trpc')
+  ) {
+    return;
+  }
 
   const fetchHeader = getHeader(event, 'fetch');
-  if(getHeader(event, 'ssr') !== 'true') {
+  if (getHeader(event, 'ssr') !== 'true') {
     // Initialize session
     await authService.initSession(event);
     // Check authentication with token refresh capability
@@ -37,7 +36,7 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
       // Check if this is an API fetch request (from our HTTP interceptor)
       if (fetchHeader === 'true') {
         // API request with fetch header - respond with 401 status
-        throw new TRPCError( {
+        throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: 'User is not authenticated',
         });
@@ -53,8 +52,8 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
     return {
       name: 'TrpcError',
       code: 'NOT_IMPLEMENTED',
-      message: 'SSR is not supported for this route'
+      message: 'SSR is not supported for this route',
     };
   }
-  return ;
+  return;
 }

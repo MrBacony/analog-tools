@@ -1,6 +1,11 @@
-import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
-import { EMPTY, catchError } from 'rxjs';
+import {
+  HttpErrorResponse,
+  HttpHeaders,
+  HttpInterceptorFn,
+} from '@angular/common/http';
+import { catchError, EMPTY } from 'rxjs';
 import { login } from './functions/login';
+import { injectRequest } from '@analogjs/router/tokens';
 
 /**
  * HTTP interceptor that:
@@ -10,17 +15,30 @@ import { login } from './functions/login';
  * This handles cases where a session has expired on the server-side.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  // Skip interceptor for auth-related endpoints to prevent redirect loops
-  if (req.url.includes('/api/auth/')) {
-    return next(req);
-  }
-
   // Clone the request and add the fetch=true header
-  const modifiedReq = req.clone({
-    setHeaders: {
-      fetch: 'true',
-    },
-  });
+  const request = injectRequest();
+
+  let modifiedReq;
+
+  if (request) {
+    let headers = new HttpHeaders();
+    Object.entries(request.headers).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && typeof value === 'string') {
+        headers = headers.set(key, value);
+      }
+    });
+    headers = headers.set('fetch', 'true');
+
+    modifiedReq = req.clone({
+      headers: headers,
+      withCredentials: true,
+    });
+  } else {
+    modifiedReq = req.clone({
+      headers: req.headers.set('fetch', 'true'),
+      withCredentials: true,
+    });
+  }
 
   // Use the modified request with the added header
   return next(modifiedReq).pipe(

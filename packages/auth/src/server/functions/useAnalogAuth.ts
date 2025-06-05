@@ -1,4 +1,4 @@
-import { getMethod, H3Event, setResponseHeaders, setResponseStatus } from 'h3';
+import { H3Event } from 'h3';
 import { AnalogAuthConfig } from '../types/auth.types';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { handleAuthRoute } from './handleAuthRoute';

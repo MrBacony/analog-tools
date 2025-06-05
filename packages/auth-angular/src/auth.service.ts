@@ -1,10 +1,10 @@
 import {
+  DOCUMENT,
   effect,
   inject,
   Injectable,
   OnDestroy,
   PLATFORM_ID,
-  DOCUMENT
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { isPlatformBrowser } from '@angular/common';
@@ -43,17 +43,22 @@ export class AuthService implements OnDestroy {
 
   // Auth state
   readonly userResource = httpResource<AuthUser | null>(
-    () => ({
-      url: '/api/auth/user',
-      method: 'GET',
-      headers: {
-        accept: 'application/json',
-      },
-      withCredentials: true,
-      parse: (raw: GenericUserInfo) => {
-        return transformUserFromProvider(raw);
-      },
-    }),
+    () => {
+      if (this.isAuthenticated()) {
+        return {
+          url: '/api/auth/user',
+          method: 'GET',
+          headers: {
+            accept: 'application/json',
+          },
+          withCredentials: true,
+          parse: (raw: GenericUserInfo) => {
+            return transformUserFromProvider(raw);
+          },
+        };
+      }
+      return;
+    },
     { defaultValue: null }
   );
 
@@ -65,9 +70,13 @@ export class AuthService implements OnDestroy {
         accept: 'application/json',
       },
       withCredentials: true,
-      parse: (response: { authenticated: boolean }) => response.authenticated,
     }),
-    { defaultValue: false }
+    {
+      defaultValue: false,
+      parse: (value: unknown) => {
+        return (value as { authenticated: boolean }).authenticated;
+      },
+    }
   );
 
   readonly user = this.userResource.asReadonly().value;
