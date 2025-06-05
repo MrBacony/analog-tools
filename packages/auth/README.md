@@ -23,6 +23,7 @@ A comprehensive authentication and authorization solution for AnalogJS applicati
 npm install @analog-tools/auth
 ```
 
+
 ## Quick Start
 
 Add OAuth authentication to your AnalogJS application in just a few steps:
@@ -38,11 +39,12 @@ const authConfig: AnalogAuthConfig = {
   issuer: process.env['AUTH_ISSUER'] || '',
   clientId: process.env['AUTH_CLIENT_ID'] || '',
   clientSecret: process.env['AUTH_CLIENT_SECRET'] || '',
+  // Optional audience for providers like Auth0
   audience: process.env['AUTH_AUDIENCE'] || '',
   scope: process.env['AUTH_SCOPE'] || 'openid profile email',
   callbackUri: process.env['AUTH_CALLBACK_URL'] || 'http://localhost:3000/api/auth/callback',
   // Routes that don't require authentication
-  unprotectedRoutes: ['/api/auth/login', '/api/auth/callback', '/api/public'],
+  unprotectedRoutes: ['/imprint', '/help'],
 };
 
 export default defineEventHandler(async (event: H3Event) => {
@@ -62,6 +64,7 @@ The `useAnalogAuth` function accepts a configuration object with the following o
 | `audience`          | string               | The API audience (needed for certain providers like Auth0)   | No       |
 | `scope`             | string               | OAuth scopes to request (defaults to 'openid profile email') | No       |
 | `callbackUri`       | string               | The callback URL registered with your OAuth provider         | Yes      |
+| `tokenRefreshApiKey`| string               | API key for securing token refresh endpoints                 | No       |
 | `unprotectedRoutes` | string[]             | Array of routes that don't require authentication            | No       |
 | `logoutUrl`         | string               | URL to redirect to after logout                              | No       |
 | `sessionStorage`    | SessionStorageConfig | Session storage configuration (see below)                    | No       |
@@ -85,6 +88,7 @@ useAnalogAuth(
         tls: false,
         keyPrefix: 'auth-session:',
         maxAge: 86400, // 24 hours in seconds
+        sessionSecret: 'your-session-secret',
       },
     },
   },
@@ -97,27 +101,17 @@ Alternative storage options:
 **Memory Storage** (not recommended for production):
 
 ```typescript
-sessionStorage: {
-  type: 'memory',
-  config: {
-    maxAge: 86400  // 24 hours in seconds
-  }
-}
-```
-
-**Cookie Storage** (for simple use cases):
-
-```typescript
-sessionStorage: {
-  type: 'cookie',
-  config: {
-    maxAge: 86400,  // 24 hours in seconds
-    secure: true,   // Require HTTPS
-    sameSite: 'lax',
-    domain: 'your-domain.com',
-    path: '/'
-  }
-}
+useAnalogAuth(
+  {
+    // ...other optionssessionStorage: {
+    type: 'memory',
+    config: {
+      sessionSecret: 'your-session-secret',
+      maxAge: 86400  // 24 hours in seconds
+    }
+  }, 
+  event
+);
 ```
 
 ### User Data Handling
@@ -167,15 +161,6 @@ useAnalogAuth(
 ```
 
 ## Advanced Usage
-
-### Custom Environment Variables
-
-You can customize the package behavior with these environment variables:
-
-- `SESSION_SECRET`: Secret used for signing session cookies (required in production)
-- `REDIS_URL`: Redis connection URL for session storage
-- `AUTH_LOGOUT_URL`: URL to redirect to after logout (can also be set via `logoutUrl` in config)
-- `NODE_ENV`: Set to 'production' for secure cookie settings
 
 ### Token Refresh Strategy
 
@@ -348,6 +333,43 @@ export const routeMeta = {
 export default class SuperAdminPage {}
 ```
 
+#### User Authentication Management
+
+The package automatically handles user data transformation from various OAuth providers into a standardized format through the `AuthService`:
+
+```typescript
+// src/app/services/user.service.ts
+import { Injectable, inject } from '@angular/core';
+import { AuthService, AuthUser } from '@analog-tools/auth/angular';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class UserService {
+  private authService = inject(AuthService);
+  
+  // The AuthService automatically handles user data transformation
+  getCurrentUser(): AuthUser | null {
+    return this.authService.user();
+  }
+  
+  hasAdminAccess(): boolean {
+    return this.authService.hasRoles(['admin']);
+  }
+}
+```
+
+##### Supported Identity Providers
+
+The package automatically handles user data from various OAuth providers:
+
+- **Auth0**: Properly handles Auth0 user profile data and roles
+- **Keycloak**: Correctly maps realm and client roles
+- **Generic OIDC**: Supports standard OpenID Connect claims
+
+The `AuthService` internally handles all the transformation logic, so you don't need to worry about the specifics of each provider.
+```
+
 #### Auth Service API
 
 The `AuthService` provides several key methods and properties:
@@ -363,7 +385,6 @@ login(targetUrl?: string): void;     // Redirect to login, with optional return 
 logout(): void;                      // Logout and redirect
 checkAuthentication(): Promise<boolean>; // Force auth status check
 hasRoles(roles: string[]): boolean;  // Check if user has specified roles
-```
 ```
 
 ## Security Considerations
@@ -451,7 +472,11 @@ AUTH_LOGOUT_URL=http://localhost:3000
 
 ## Examples
 
-### Integration with Keycloak
+### Complete Integration Example
+
+This example shows how to set up a comprehensive authentication solution with the merged package:
+
+#### Server-side Setup
 
 ```typescript
 // src/server/middleware/auth.ts
@@ -465,7 +490,17 @@ const authConfig: AnalogAuthConfig = {
   clientSecret: process.env['AUTH_CLIENT_SECRET'] || '',
   scope: 'openid profile email',
   callbackUri: 'http://localhost:3000/api/auth/callback',
-  unprotectedRoutes: ['/your-unprotected-endpoint'],
+  unprotectedRoutes: ['/api/public', '/api/auth/login', '/api/auth/callback'],
+  // Configure Redis session storage for production
+  sessionStorage: {
+    type: 'redis',
+    config: {
+      url: process.env['REDIS_URL'] || 'redis://localhost:6379',
+      ttl: 86400, // 24 hours
+      sessionSecret: process.env['SESSION_SECRET'] || 'your-session-secret',
+    },
+  },
+  // Custom user data handling
   userHandler: {
     mapUserToLocal: (userInfo) => ({
       id: userInfo.sub,
@@ -473,6 +508,11 @@ const authConfig: AnalogAuthConfig = {
       email: userInfo.email,
       roles: userInfo.realm_access?.roles || [],
     }),
+    createOrUpdateUser: async (user) => {
+      // Store or update user in your database
+      console.log('User authenticated:', user);
+      return user;
+    },
   },
 };
 
@@ -481,9 +521,68 @@ export default defineEventHandler(async (event: H3Event) => {
 });
 ```
 
+#### Angular Client Setup
+
+```typescript
+// src/app/app.config.ts
+import { ApplicationConfig } from '@angular/core';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideFileRouter, requestContextInterceptor } from '@analogjs/router';
+import { provideClientHydration } from '@angular/platform-browser';
+import { 
+  provideAuthClient, 
+  authInterceptor 
+} from '@analog-tools/auth/angular';
+import { provideTrpcClient } from '../trpc-client';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideFileRouter(),
+    provideClientHydration(),
+    
+    // Auth configuration
+    provideAuthClient(),
+    
+    // HTTP configuration with auth interceptor
+    provideHttpClient(
+      withInterceptors([
+        requestContextInterceptor, 
+        authInterceptor
+      ])
+    ),
+    
+    // TRPC client with auth integration
+    provideTrpcClient(),
+  ],
+};
+```
+
+#### Protected Route Example
+
+```typescript
+// src/app/pages/protected.page.ts
+import { Component } from '@angular/core';
+import { authGuard } from '@analog-tools/auth/angular';
+
+export const routeMeta = {
+  title: 'Protected Page',
+  canActivate: [authGuard],
+};
+
+@Component({
+  template: `
+    <div class="p-4">
+      <h1 class="text-2xl font-bold mb-4">Protected Content</h1>
+      <p>This page is only visible to authenticated users.</p>
+    </div>
+  `,
+})
+export default class ProtectedPage {}
+```
+
 ## Package Architecture
 
-The `@analog-tools/auth` package is structured as a multi-entry point package:
+The `@analog-tools/auth` package is structured as a multi-entry point package that provides a comprehensive authentication solution:
 
 - **Main Entry Point**: `@analog-tools/auth` 
   - Server-side OAuth implementation with H3 middleware
@@ -494,10 +593,10 @@ The `@analog-tools/auth` package is structured as a multi-entry point package:
   - Angular-specific authentication services
   - Route guards and HTTP interceptors
   - Reactive state management with Angular signals
-
-- **TRPC Entry Point**: `@analog-tools/auth/trpc`
+  - User transformation utilities for different providers (Auth0, Keycloak, etc.)
   - tRPC middleware for protected procedures
   - Authentication utilities for tRPC routes
+  - Error handling for authentication failures
 
 ### Relationship with Other Packages
 

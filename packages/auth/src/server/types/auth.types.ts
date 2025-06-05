@@ -19,6 +19,7 @@ export type AuthRoute = {
 type StorageBasicConfig = {
   ttl?: number; // Time to live in seconds
   prefix?: string; // Prefix for session keys
+  sessionSecret?: string; // Secret key for session encryption
 };
 
 type RedisBasicConfig = {

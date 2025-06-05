@@ -9,16 +9,6 @@ import { ILogger, LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
 import { type SessionStorageConfig } from '../types/auth.types';
 
-const redisConfig = {
-  url: process.env['REDIS_URL'],
-  prefix: 'auth-session',
-  ttl: 60 * 60 * 24, // 24 hours
-};
-
-// Session configuration
-const SESSION_SECRET =
-  process.env['SESSION_SECRET'] || 'change-me-in-production';
-
 export class SessionService {
   static readonly INJECTABLE = true;
   private readonly storageType: SessionStorageConfig['type'];
@@ -44,7 +34,7 @@ export class SessionService {
     if (!event.context['sessionHandler']) {
       await useSession<AuthSessionData>(event, {
         store: this.store,
-        secret: SESSION_SECRET,
+        secret: this.storageConfig.sessionSecret || 'change-me-in-production',
         name: 'auth.session',
         cookie: {
           httpOnly: true,
@@ -101,7 +91,7 @@ export class SessionService {
       return Promise.all(
         Object.keys(sessionKeys).map(async (key) => {
           // Extract session ID from the key (remove prefix)
-          const sessionId = key.replace(`${redisConfig.prefix}:`, '');
+          const sessionId = key.replace(`${this.storageConfig.prefix}:`, '');
           const sessionData = sessionKeys[key] as AuthSessionData;
 
           return {
