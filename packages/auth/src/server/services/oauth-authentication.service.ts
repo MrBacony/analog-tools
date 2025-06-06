@@ -116,6 +116,19 @@ export class OAuthAuthenticationService {
   }
 
   /**
+   * Check if route protection is enabled
+   * @returns True if non-empty unprotected routes exist, false otherwise
+   */
+  isRouteProtectionEnabled(): boolean {
+    const unprotectedRoutes = this.getConfigValue(
+      'unprotectedRoutes',
+      [] as string[]
+    );
+    // If there are no unprotected routes, protection is disabled
+    return Array.isArray(unprotectedRoutes) && unprotectedRoutes.length > 0;
+  }
+
+  /**
    * Get OAuth authorization URL for login
    */
   async getAuthorizationUrl(

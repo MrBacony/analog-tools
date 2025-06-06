@@ -21,6 +21,7 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
   }
 
   if (
+    authService.isRouteProtectionEnabled() === false ||
     authService.isUnprotectedRoute(pathname) ||
     pathname.startsWith('/api/trpc')
   ) {

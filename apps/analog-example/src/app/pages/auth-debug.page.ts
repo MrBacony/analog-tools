@@ -3,7 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { map, interval, switchMap, startWith } from 'rxjs';
+import { interval, startWith, switchMap } from 'rxjs';
+import { authGuard } from '@analog-tools/auth/angular';
+
+export const routeMeta = {
+  title: 'Protected Page',
+  canActivate: [authGuard],
+};
 
 @Component({
   standalone: true,
