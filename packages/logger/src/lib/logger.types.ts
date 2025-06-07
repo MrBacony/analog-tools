@@ -19,6 +19,12 @@ export interface LoggerConfig {
    * The contexts you don't want to log
    */
   disabledContexts?: string[];
+  
+  /**
+   * Whether to use colors in the console output
+   * @default true
+   */
+  useColors?: boolean;
 }
 
 /**
