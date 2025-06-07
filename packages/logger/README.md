@@ -11,6 +11,7 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 ## Features
 
 - 📝 Type-safe log levels: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`
+- 🎨 Colorized console output with color-coding by log level
 - 🧩 Seamless integration with @analog-tools/inject for dependency injection
 - 🌳 Context-based logging with child loggers
 - 🔧 Configurable via environment variables
@@ -191,6 +192,8 @@ class LoggerService implements ILogger {
   getLogLevel(): LogLevel;
   getDisabledContexts(): string[];
   setDisabledContexts(contexts: string[]): void;
+  setUseColors(enabled: boolean): void;
+  getUseColors(): boolean;
   
   // Logging methods
   trace(message: string, ...data: unknown[]): void;
@@ -216,6 +219,9 @@ interface LoggerConfig {
 
   // Contexts to disable logging for
   disabledContexts?: string[];
+  
+  // Whether to use colored output (default: true in non-test environments)
+  useColors?: boolean;
 }
 ```
 
@@ -295,6 +301,37 @@ describe('MyService', () => {
 });
 ```
 
+## Colored Console Output
+
+The logger automatically applies different colors to log messages based on their log level, making it easier to identify different types of logs in the console:
+
+- `trace`: Gray
+- `debug`: Cyan
+- `info`: Green
+- `warn`: Yellow
+- `error`: Red
+- `fatal`: Bright Red
+
+Colors are automatically disabled in test environments to ensure consistent test output. You can also manually control the color settings:
+
+```typescript
+// Disable colors
+logger.setUseColors(false);
+
+// Enable colors
+logger.setUseColors(true);
+
+// Check if colors are enabled
+const usingColors = logger.getUseColors();
+
+// Disable colors via constructor
+const noColorLogger = new LoggerService({
+  level: 'info',
+  name: 'my-app',
+  useColors: false
+});
+```
+
 ## Best Practices
 
 1. **Use structured logging**: Pass structured data as additional parameters instead of string concatenation
@@ -312,7 +349,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Future Plans
 
-- Add colored console output for better readability
 - Support for custom transports (file, HTTP, etc.)
 - Support for log rotation and compression
 - Structured JSON logging format option
