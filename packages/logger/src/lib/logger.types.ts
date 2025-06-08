@@ -31,6 +31,19 @@ export interface LoggerConfig {
  * The interface for a logger instance
  */
 export interface ILogger {
+  /**
+   * Start a new log group with the given name
+   * All subsequent log messages will be indented
+   * @param groupName The name of the group
+   */
+  group(groupName: string): void;
+  
+  /**
+   * End a log group with the given name
+   * Subsequent log messages will no longer be indented
+   * @param groupName The name of the group
+   */
+  groupEnd(groupName?: string): void;
 
   /**
    * Log a trace message

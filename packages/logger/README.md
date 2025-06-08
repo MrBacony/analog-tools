@@ -56,6 +56,25 @@ logger.fatal('Fatal error', new Error('Critical failure'));
 // Create a context-specific logger
 const authLogger = logger.forContext('auth');
 authLogger.info('User authenticated');
+
+// Group related log messages
+logger.group('API Request');
+logger.info('Processing request to /users');
+logger.debug('Validating request body');
+logger.info('Request processed successfully');
+logger.groupEnd('API Request');
+
+// Nested groups
+logger.group('Database Operations');
+logger.info('Starting transaction');
+
+logger.group('Query Execution');
+logger.debug('Executing SQL: SELECT * FROM users');
+logger.debug('Query completed in 15ms');
+logger.groupEnd('Query Execution');
+
+logger.info('Transaction committed');
+logger.groupEnd('Database Operations');
 ```
 
 ## Usage with @analog-tools/inject
@@ -331,6 +350,45 @@ const noColorLogger = new LoggerService({
   useColors: false
 });
 ```
+
+## Log Grouping
+
+The logger provides methods to visually group related log messages in the console output:
+
+```typescript
+// Start a group
+logger.group('Process Name');
+
+// All logs after this will be visually grouped until groupEnd is called
+logger.info('First step');
+logger.debug('Details about first step');
+logger.info('Second step');
+
+// End the group
+logger.groupEnd('Process Name');
+
+// Nested groups
+logger.group('Parent Process');
+logger.info('Parent process started');
+
+logger.group('Child Process');
+logger.debug('Child process details');
+logger.groupEnd('Child Process');
+
+logger.info('Parent process continued');
+logger.groupEnd('Parent Process');
+
+// End a group without specifying name (ends most recent group)
+logger.group('Another Group');
+logger.info('Some info');
+logger.groupEnd(); // Ends 'Another Group'
+```
+
+Groups are particularly useful for:
+- Organizing related log messages (e.g., HTTP request/response cycles)
+- Tracking multi-step processes
+- Debugging complex operations with multiple sub-operations
+- Improving readability of logs with many entries
 
 ## Best Practices
 
