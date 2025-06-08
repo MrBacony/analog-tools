@@ -9,9 +9,13 @@ describe('LoggerService Grouping', () => {
     logger = new LoggerService({ level: 'debug', name: 'test-logger', useColors: false });
     
     // Mock console methods
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     vi.spyOn(console, 'debug').mockImplementation(() => {});
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     vi.spyOn(console, 'info').mockImplementation(() => {});
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     vi.spyOn(console, 'group').mockImplementation(() => {});
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
   });
   
