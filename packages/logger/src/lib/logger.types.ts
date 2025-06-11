@@ -1,4 +1,3 @@
-
 /**
  * Configuration options for the LoggerService
  */
@@ -19,81 +18,10 @@ export interface LoggerConfig {
    * The contexts you don't want to log
    */
   disabledContexts?: string[];
-  
+
   /**
    * Whether to use colors in the console output
    * @default true
    */
   useColors?: boolean;
-}
-
-/**
- * The interface for a logger instance
- */
-export interface ILogger {
-  /**
-   * Start a new log group with the given name
-   * All subsequent log messages will be indented
-   * @param groupName The name of the group
-   */
-  group(groupName: string): void;
-  
-  /**
-   * End a log group with the given name
-   * Subsequent log messages will no longer be indented
-   * @param groupName The name of the group
-   */
-  groupEnd(groupName?: string): void;
-
-  /**
-   * Log a trace message
-   * @param message The message to log
-   * @param data Additional data to log
-   */
-  trace(message: string , ...data: unknown[]): void;
-
-  /**
-   * Log a debug message
-   * @param message The message to log
-   * @param data Additional data to log
-   */
-  debug(message: string , ...data: unknown[]): void;
-
-  /**
-   * Log an info message
-   * @param message The message to log
-   * @param data Additional data to log
-   */
-  info(message: string , ...data: unknown[]): void;
-
-  /**
-   * Log a warning message
-   * @param message The message to log
-   * @param data Additional data to log
-   */
-  warn(message: string, ...data: unknown[]): void;
-
-  /**
-   * Log an error message
-   * @param message The message to log
-   * @param error The error that occurred
-   * @param data Additional data to log
-   */
-  error(
-    message: string,
-    error?: Error | unknown,
-    ...data: unknown[]
-  ): void;
-
-  /**
-   * Log a fatal message
-   * @param message The message to log
-   * @param error The error that occurred
-   * @param data Additional data to log
-   */
-  fatal(
-    message: string,
-    error?: Error | unknown,
-    ...data: unknown[]
-  ): void;
 }

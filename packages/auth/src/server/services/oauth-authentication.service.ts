@@ -7,7 +7,7 @@ import {
 } from '../types/auth-session.types';
 import { AnalogAuthConfig } from '../types/auth.types';
 import { inject, registerService } from '@analog-tools/inject';
-import { ILogger, LoggerService } from '@analog-tools/logger';
+import { LoggerService } from '@analog-tools/logger';
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
@@ -15,7 +15,7 @@ import { ILogger, LoggerService } from '@analog-tools/logger';
 export class OAuthAuthenticationService {
   static readonly INJECTABLE = true;
 
-  private logger: ILogger;
+  private logger: LoggerService;
 
   constructor(config: AnalogAuthConfig) {
     this.logger = inject(LoggerService).forContext(

@@ -5,7 +5,7 @@ import {
   useSession,
 } from '@analog-tools/session';
 import { AuthSessionData, SessionWithSave } from '../types/auth-session.types';
-import { ILogger, LoggerService } from '@analog-tools/logger';
+import { LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
 import { type SessionStorageConfig } from '../types/auth.types';
 
@@ -14,7 +14,7 @@ export class SessionService {
   private readonly storageType: SessionStorageConfig['type'];
   private readonly storageConfig: SessionStorageConfig['config'];
   private store!: UnstorageSessionStore<AuthSessionData>;
-  private logger: ILogger;
+  private logger: LoggerService;
 
   constructor({ type, config }: SessionStorageConfig) {
     this.storageConfig = config;
