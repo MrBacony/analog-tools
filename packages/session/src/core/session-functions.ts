@@ -101,10 +101,7 @@ export async function saveSession<T extends SessionDataT = SessionDataT>(
 ): Promise<void> {
   const logger = getLogger();
   try {
-    logger.debug(`Saving session ${state.id} with data`, {
-      sessionId: state.id,
-      data: state.data,
-    });
+    logger.debug(`Saving session ${state.id} with data`);
     await state.store.set(state.id, { ...state.data });
     logger.debug(`Session ${state.id} saved successfully`, {
       sessionId: state.id,
