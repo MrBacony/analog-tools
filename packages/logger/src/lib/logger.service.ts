@@ -3,7 +3,7 @@
  * Designed to be used with the @analog-tools/inject package
  */
 
-import { ILogger, LoggerConfig } from './logger.types';
+import { LoggerConfig } from './logger.types';
 
 // Log level enumeration to match standard console methods
 enum LogLevel {
@@ -69,8 +69,9 @@ const LogLevelColors: Record<keyof typeof LogLevel, string> = {
 /**
  * Logger service implementation using standard console
  * Can be injected using the @analog-tools/inject package
+ * Serves as both the main logger and child logger with context
  */
-export class LoggerService implements ILogger {
+export class LoggerService {
   /**
    * Mark this service as injectable
    * This is required for the @analog-tools/inject package to recognize it
@@ -79,41 +80,82 @@ export class LoggerService implements ILogger {
 
   private logLevel: LogLevel;
   private name: string;
-  private childLogger: Record<string, ChildLoggerService> = {};
+  private childLoggers: Record<string, LoggerService> = {};
   private disabledContexts: string[] = [];
   private useColors: boolean;
   // Track active groups for indentation
   private activeGroups: string[] = [];
-  private readonly INDENT_SIZE = 4;
+
+  // Properties for child loggers
+  private context?: string;
+  private parentLogger?: LoggerService;
 
   /**
    * Create a new LoggerService
    * @param config The logger configuration
+   * @param context Optional context for child logger
+   * @param parent Optional parent logger for child logger
    */
-  constructor(private config: LoggerConfig = {}) {
-    this.logLevel = this.castLoglevel(
-      config.level || process.env['LOG_LEVEL'] || 'info'
-    );
-    this.name = config.name || 'analog-tools';
-    // Detect test environment and disable colors in tests
-    const isTestEnvironment =
-      process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
-    this.useColors = isTestEnvironment ? false : config.useColors !== false;
-    this.setDisabledContexts(
-      config.disabledContexts ??
-        process.env['LOG_DISABLED_CONTEXTS']?.split(',') ??
-        []
-    );
+  constructor(
+    private config: LoggerConfig = {},
+    context?: string,
+    parent?: LoggerService
+  ) {
+    if (parent) {
+      // Child logger setup
+      this.parentLogger = parent;
+      this.name = parent.name;
+      this.context = context;
+      // Inherit settings from parent
+      this.logLevel = parent.getLogLevel();
+      this.disabledContexts = parent.getDisabledContexts();
+      this.useColors = parent.getUseColors();
+    } else {
+      // Root logger setup
+      this.logLevel = this.castLoglevel(
+        config.level || process.env['LOG_LEVEL'] || 'info'
+      );
+      this.name = config.name || 'analog-tools';
+      // Detect test environment and disable colors in tests
+      const isTestEnvironment =
+        process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
+      this.useColors = isTestEnvironment ? false : config.useColors !== false;
+      this.setDisabledContexts(
+        config.disabledContexts ??
+          process.env['LOG_DISABLED_CONTEXTS']?.split(',') ??
+          []
+      );
+    }
   }
 
+  /**
+   * Check if this logger's context is enabled
+   * Always returns true for root logger
+   */
+  isContextEnabled(): boolean {
+    return this.context ? !this.disabledContexts.includes(this.context) : true;
+  }
+
+  /**
+   * Set disabled contexts for this logger
+   * @param contexts Array of context names to disable
+   */
   setDisabledContexts(contexts: string[]): void {
     this.disabledContexts = contexts;
   }
 
+  /**
+   * Get the current log level
+   * @returns The current log level
+   */
   getLogLevel(): LogLevel {
     return this.logLevel;
   }
 
+  /**
+   * Get disabled contexts
+   * @returns Array of disabled context names
+   */
   getDisabledContexts(): string[] {
     return this.disabledContexts || [];
   }
@@ -139,16 +181,12 @@ export class LoggerService implements ILogger {
    * @param context The context for the child logger
    * @returns A new logger instance with the given context
    */
-  forContext(context: string): ILogger {
-    if (!this.childLogger[context]) {
-      this.childLogger[context] = new ChildLoggerService(
-        this.name,
-        context,
-        this
-      );
+  forContext(context: string): LoggerService {
+    if (!this.childLoggers[context]) {
+      this.childLoggers[context] = new LoggerService({}, context, this);
     }
 
-    return this.childLogger[context];
+    return this.childLoggers[context];
   }
 
   /**
@@ -157,7 +195,12 @@ export class LoggerService implements ILogger {
    * @param groupName The name of the group
    */
   group(groupName: string): void {
-    this.activeGroups.push(groupName);
+    if (!this.isContextEnabled()) return;
+
+    // Use parent's active groups for child loggers
+    const groups = this.parentLogger?.activeGroups || this.activeGroups;
+    groups.push(groupName);
+
     console.group(
       `${this.formatMessage(LogLevel.info, `Group: ${groupName}`)} ▼`
     );
@@ -169,23 +212,26 @@ export class LoggerService implements ILogger {
    * @param groupName The name of the group (optional, will end the most recent group if not provided)
    */
   groupEnd(groupName?: string): void {
+    if (!this.isContextEnabled()) return;
+
+    // Use parent's active groups for child loggers
+    const groups = this.parentLogger?.activeGroups || this.activeGroups;
+
     if (groupName) {
       // Find the specific group to end
-      const index = this.activeGroups.lastIndexOf(groupName);
+      const index = groups.lastIndexOf(groupName);
       if (index !== -1) {
         // Remove this group and all nested groups after it
-        const removed = this.activeGroups.splice(index);
+        const removed = groups.splice(index);
         for (let i = 0; i < removed.length; i++) {
           console.groupEnd();
-
           console.log('');
         }
       }
-    } else if (this.activeGroups.length > 0) {
+    } else if (groups.length > 0) {
       // End the most recent group
-      this.activeGroups.pop();
+      groups.pop();
       console.groupEnd();
-
       console.log('');
     }
   }
@@ -196,12 +242,8 @@ export class LoggerService implements ILogger {
    * @param data Additional data to log
    */
   trace(message: string, ...data: unknown[]): void {
-    if (this.logLevel <= LogLevel.trace) {
-      console.trace(
-        this.formatMessage(LogLevel.trace, message),
-        ...(data || [])
-      );
-    }
+    if (!this.isContextEnabled() || this.logLevel > LogLevel.trace) return;
+    console.trace(this.formatMessage(LogLevel.trace, message), ...(data || []));
   }
 
   /**
@@ -210,12 +252,8 @@ export class LoggerService implements ILogger {
    * @param data Additional data to log
    */
   debug(message: string, ...data: unknown[]): void {
-    if (this.logLevel <= LogLevel.debug) {
-      console.debug(
-        this.formatMessage(LogLevel.debug, message),
-        ...(data || [])
-      );
-    }
+    if (!this.isContextEnabled() || this.logLevel > LogLevel.debug) return;
+    console.debug(this.formatMessage(LogLevel.debug, message), ...(data || []));
   }
 
   /**
@@ -224,9 +262,21 @@ export class LoggerService implements ILogger {
    * @param data Additional data to log
    */
   info(message: string, ...data: unknown[]): void {
-    if (this.logLevel <= LogLevel.info) {
-      console.info(this.formatMessage(LogLevel.info, message), ...(data || []));
-    }
+    if (!this.isContextEnabled() || this.logLevel > LogLevel.info) return;
+    console.info(this.formatMessage(LogLevel.info, message), ...(data || []));
+  }
+
+  /**
+   * Log an alternative info message (with magenta color)
+   * @param message The message to log
+   * @param data Additional data to log
+   */
+  info2(message: string, ...data: unknown[]): void {
+    if (!this.isContextEnabled() || this.logLevel > LogLevel.info) return;
+    console.info(
+      this.formatMessage(LogLevel.info, message, Colors.fg.magenta),
+      ...(data || [])
+    );
   }
 
   /**
@@ -235,9 +285,8 @@ export class LoggerService implements ILogger {
    * @param data Additional data to log
    */
   warn(message: string, ...data: unknown[]): void {
-    if (this.logLevel <= LogLevel.warn) {
-      console.warn(this.formatMessage(LogLevel.warn, message), ...(data || []));
-    }
+    if (!this.isContextEnabled() || this.logLevel > LogLevel.warn) return;
+    console.warn(this.formatMessage(LogLevel.warn, message), ...(data || []));
   }
 
   /**
@@ -247,13 +296,12 @@ export class LoggerService implements ILogger {
    * @param data Additional data to log
    */
   error(message: string, error?: Error | unknown, ...data: unknown[]): void {
-    if (this.logLevel <= LogLevel.error) {
-      console.error(
-        this.formatMessage(LogLevel.error, message),
-        error,
-        ...(data || [])
-      );
-    }
+    if (!this.isContextEnabled() || this.logLevel > LogLevel.error) return;
+    console.error(
+      this.formatMessage(LogLevel.error, message),
+      error,
+      ...(data || [])
+    );
   }
 
   /**
@@ -263,13 +311,12 @@ export class LoggerService implements ILogger {
    * @param data Additional data to log
    */
   fatal(message: string, error?: Error | unknown, ...data: unknown[]): void {
-    if (this.logLevel <= LogLevel.fatal) {
-      console.error(
-        this.formatMessage(LogLevel.fatal, `FATAL: ${message}`),
-        error,
-        ...(data || [])
-      );
-    }
+    if (!this.isContextEnabled() || this.logLevel > LogLevel.fatal) return;
+    console.error(
+      this.formatMessage(LogLevel.fatal, `FATAL: ${message}`),
+      error,
+      ...(data || [])
+    );
   }
 
   /**
@@ -328,140 +375,27 @@ export class LoggerService implements ILogger {
    * Format a log message with color and proper prefix
    * @param level Log level for the message
    * @param message The message to format
+   * @param overrideColor Optional color override for the message
    * @returns Formatted message with color
    * @private
    */
-  private formatMessage(level: LogLevel, message: string): string {
+  private formatMessage(
+    level: LogLevel,
+    message: string,
+    overrideColor?: string
+  ): string {
+    const prefix = this.context
+      ? `[${this.name}:${this.context}]`
+      : `[${this.name}]`;
+
     if (this.useColors) {
-      const color = this.getColorForLevel(level);
-      return `${color}[${this.name}] ${message}${Colors.reset}`;
+      let color = this.getColorForLevel(level);
+      if (overrideColor) {
+        color = overrideColor;
+      }
+      return `${color}${prefix} ${message}${Colors.reset}`;
     } else {
-      return `[${this.name}] ${message}`;
+      return `${prefix} ${message}`;
     }
-  }
-}
-
-/**
- * Child logger service implementation
- * Created by the LoggerService.forContext method
- * @internal
- */
-class ChildLoggerService implements ILogger {
-  constructor(
-    private name: string,
-    private context: string,
-    private parentLogger: LoggerService
-  ) {}
-
-  isEnabled() {
-    return !this.parentLogger.getDisabledContexts().includes(this.context);
-  }
-
-  /**
-   * Start a new log group with the given name
-   * All subsequent log messages will be indented
-   * @param groupName The name of the group
-   */
-  group(groupName: string): void {
-    if (!this.isEnabled()) return;
-    console.group(
-      `${this.formatMessage(LogLevel.info, `Group: ${groupName}`)} ▼`
-    );
-  }
-
-  /**
-   * End a log group with the given name
-   * Subsequent log messages will no longer be indented
-   * @param groupName The name of the group (optional) - not used in child logger
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  groupEnd(groupName?: string): void {
-    if (!this.isEnabled()) return;
-    console.groupEnd();
-  }
-
-  /**
-   * Format a log message with color and proper prefix for child logger
-   * @param level Log level for the message
-   * @param message The message to format
-   * @returns Formatted message with color
-   * @private
-   */
-  private formatMessage(level: LogLevel, message: string): string {
-    if (this.parentLogger.getUseColors()) {
-      const color = this.getColorForLevel(level);
-      return `${color}[${this.name}:${this.context}] ${message}${Colors.reset}`;
-    } else {
-      return `[${this.name}:${this.context}] ${message}`;
-    }
-  }
-
-  /**
-   * Get color for a specific log level
-   * @param level The log level
-   * @returns ANSI color code for the log level
-   * @private
-   */
-  private getColorForLevel(level: LogLevel): string {
-    switch (level) {
-      case LogLevel.trace:
-        return LogLevelColors.trace;
-      case LogLevel.debug:
-        return LogLevelColors.debug;
-      case LogLevel.info:
-        return LogLevelColors.info;
-      case LogLevel.warn:
-        return LogLevelColors.warn;
-      case LogLevel.error:
-        return LogLevelColors.error;
-      case LogLevel.fatal:
-        return LogLevelColors.fatal;
-      default:
-        return Colors.reset;
-    }
-  }
-
-  trace(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.trace)
-      return;
-    console.trace(this.formatMessage(LogLevel.trace, message), ...(data || []));
-  }
-
-  debug(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.debug)
-      return;
-    console.debug(this.formatMessage(LogLevel.debug, message), ...(data || []));
-  }
-
-  info(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.info)
-      return;
-    console.info(this.formatMessage(LogLevel.info, message), ...(data || []));
-  }
-
-  warn(message: string, ...data: unknown[]): void {
-    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.warn)
-      return;
-    console.warn(this.formatMessage(LogLevel.warn, message), ...(data || []));
-  }
-
-  error(message: string, error?: Error | unknown, ...data: unknown[]): void {
-    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.error)
-      return;
-    console.error(
-      this.formatMessage(LogLevel.error, message),
-      error,
-      ...(data || [])
-    );
-  }
-
-  fatal(message: string, error?: Error | unknown, ...data: unknown[]): void {
-    if (!this.isEnabled() || this.parentLogger.getLogLevel() > LogLevel.fatal)
-      return;
-    console.error(
-      this.formatMessage(LogLevel.fatal, `FATAL: ${message}`),
-      error,
-      ...(data || [])
-    );
   }
 }
