@@ -1,7 +1,5 @@
 import { redisStore } from './redis/redis-session-store';
 import { memoryStore } from './memory/memory-session-store';
-import { SessionDataT } from '../types';
-import { UnstorageSessionStore } from './unstorage-session-store';
 
 /**
  * Factory function to get a session store based on type
@@ -9,15 +7,17 @@ import { UnstorageSessionStore } from './unstorage-session-store';
  * @param config Configuration options for the store
  * @returns A configured session store instance
  */
-export function getStore<T extends SessionDataT = SessionDataT>(
+export function registerStorage(
   type: 'redis' | 'memory' | 'cookie',
   config: any
-): UnstorageSessionStore<T> {
+) {
   switch (type) {
     case 'redis':
-      return redisStore(config);
+      redisStore(config);
+      break;
     case 'memory':
-      return memoryStore(config);
+      memoryStore(config);
+      break;
     case 'cookie':
       //return cookieStore(config);
       throw new Error('Cookie store is not implemented yet.');

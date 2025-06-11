@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getStore } from './getStore';
+import { registerStorage } from './registerStorage';
 import { redisStore } from './redis/redis-session-store';
 import { memoryStore } from './memory/memory-session-store';
 
@@ -19,7 +19,7 @@ vi.mock('./memory/memory-session-store', () => {
 describe('getStore', () => {
   it('should return redis store when type is redis', () => {
     const config = { prefix: 'test-prefix' };
-    const store = getStore('redis', config);
+    const store = registerStorage('redis', config);
 
     expect(redisStore).toHaveBeenCalledWith(config);
     expect(store).toEqual({ type: 'redis-store' });
@@ -27,7 +27,7 @@ describe('getStore', () => {
 
   it('should return memory store when type is memory', () => {
     const config = { prefix: 'test-prefix' };
-    const store = getStore('memory', config);
+    const store = registerStorage('memory', config);
 
     expect(memoryStore).toHaveBeenCalledWith(config);
     expect(store).toEqual({ type: 'memory-store' });
@@ -36,7 +36,7 @@ describe('getStore', () => {
   it('should throw error for cookie store', () => {
     const config = { prefix: 'test-prefix' };
 
-    expect(() => getStore('cookie', config)).toThrow(
+    expect(() => registerStorage('cookie', config)).toThrow(
       'Cookie store is not implemented yet.'
     );
   });
