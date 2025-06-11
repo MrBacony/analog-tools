@@ -51,7 +51,7 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT>
     try {
       const item = await this.storage.getItem(this.getKey(sid));
       if (item) {
-        this.logger.info(`Retrieved session ${sid}:`, JSON.stringify(item));
+        this.logger.info(`Retrieved session ${sid}`);
       } else {
         this.logger.info(`No session found for ID ${sid}`);
       }
@@ -72,8 +72,7 @@ export class UnstorageSessionStore<T extends SessionDataT = SessionDataT>
     const ttl = this.getTTL(data as T);
     if (ttl > 0) {
       this.logger.info(
-        `[@analog-tools/session] Saving session ${sid} with TTL ${ttl}:`,
-        JSON.stringify(data)
+        `[@analog-tools/session] Saving session ${sid} with TTL ${ttl}`
       );
       await this.storage.setItem(this.getKey(sid), data, { ttl });
       this.logger.info(
