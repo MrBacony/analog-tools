@@ -1,9 +1,5 @@
 import { createError, H3Event } from 'h3';
-import {
-  getStore,
-  UnstorageSessionStore,
-  useSession,
-} from '@analog-tools/session';
+import { UnstorageSessionStore, useSession } from '@analog-tools/session';
 import { AuthSessionData, SessionWithSave } from '../types/auth-session.types';
 import { LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
@@ -11,29 +7,23 @@ import { type SessionStorageConfig } from '../types/auth.types';
 
 export class SessionService {
   static readonly INJECTABLE = true;
-  private readonly storageType: SessionStorageConfig['type'];
   private readonly storageConfig: SessionStorageConfig['config'];
-  private store!: UnstorageSessionStore<AuthSessionData>;
+  private store: UnstorageSessionStore<AuthSessionData> = inject(
+    UnstorageSessionStore
+  );
   private logger: LoggerService;
 
-  constructor({ type, config }: SessionStorageConfig) {
+  constructor( config : SessionStorageConfig['config']) {
     this.storageConfig = config;
-    this.storageType = type;
 
     this.logger = inject(LoggerService).forContext('SessionService');
   }
 
   async initSession(event: H3Event): Promise<void> {
-    if (!this.store) {
-      this.store = getStore<AuthSessionData>(
-        this.storageType,
-        this.storageConfig
-      );
-    }
-
     if (!event.context['sessionHandler']) {
+      this.logger.info('Creating new session handler');
       await useSession<AuthSessionData>(event, {
-        store: this.store,
+        store: inject(UnstorageSessionStore),
         secret: this.storageConfig.sessionSecret || 'change-me-in-production',
         name: 'auth.session',
         cookie: {
@@ -49,6 +39,10 @@ export class SessionService {
           },
         }),
       });
+    } else {
+      this.logger.debug(
+        'Session handler already exists, skipping initialization'
+      );
     }
   }
 
