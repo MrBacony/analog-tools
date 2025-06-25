@@ -254,6 +254,8 @@ export default defineEventHandler(async (event) => {
 - **RedisSessionStore**: When performance is critical and Redis is your preferred storage solution.
 - **Memory**: For development environments or stateless applications where session persistence isn't required.
 
+> **⚠️ KNOWN ISSUE**: The Memory storage option is currently broken and not functioning properly. Please use Redis or another storage backend until this issue is resolved.
+
 ### Memory Store Example
 
 ```typescript

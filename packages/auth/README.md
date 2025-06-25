@@ -103,16 +103,20 @@ Alternative storage options:
 ```typescript
 useAnalogAuth(
   {
-    // ...other optionssessionStorage: {
-    type: 'memory',
-    config: {
-      sessionSecret: 'your-session-secret',
-      maxAge: 86400  // 24 hours in seconds
+    // ...other options
+    sessionStorage: {
+      type: 'memory',
+      config: {
+        sessionSecret: 'your-session-secret',
+        maxAge: 86400  // 24 hours in seconds
+      }
     }
   }, 
   event
 );
 ```
+
+> **⚠️ KNOWN ISSUE**: The Memory storage option is currently broken and not functioning properly. Please use Redis or another storage backend until this issue is resolved.
 
 ### User Data Handling
 
