@@ -13,11 +13,9 @@ export function registerStorage(
 ) {
   switch (type) {
     case 'redis':
-      redisStore(config);
-      break;
+      return redisStore(config);
     case 'memory':
-      memoryStore(config);
-      break;
+      return memoryStore(config);
     case 'cookie':
       //return cookieStore(config);
       throw new Error('Cookie store is not implemented yet.');
