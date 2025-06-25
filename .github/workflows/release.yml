@@ -21,21 +21,45 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
-      - name: Build all packages
+      - name: Build inject
+        run: |
+          npx nx build inject
+
+      - name: Publish @analog-tools/inject
+        working-directory: node_modules/@analog-tools/inject
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+
+      - name: Build logger
+        run: |
+          npx nx build logger
+
+      - name: Publish @analog-tools/logger
+        working-directory: node_modules/@analog-tools/logger  
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+
+      - name: Build session
         run: |
           npx nx build session
           npx nx build auth
 
       - name: Publish @analog-tools/session
-        working-directory: dist/packages/session
+        working-directory: node_modules/@analog-tools/session
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
+      - name: Build auth
+        run: |
+          npx nx build auth
+
       - name: Publish @analog-tools/auth
-        working-directory: dist/packages/auth
+        working-directory: node_modules/@analog-tools/auth
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
