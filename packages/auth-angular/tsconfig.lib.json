@@ -7,7 +7,7 @@
     "inlineSources": true,
     "types": [],
     "module": "es2015",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "sourceMap": true,
     "experimentalDecorators": true,
     "importHelpers": true,
