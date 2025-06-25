@@ -30,17 +30,17 @@
     "analog-tools"
   ],
   "dependencies": {
-    "@analog-tools/session": "^0.0.3",
-    "@analog-tools/inject": "^0.0.1",
-    "@analog-tools/logger": "^0.0.1"
+    "@analog-tools/session": "^0.0.4",
+    "@analog-tools/inject": "^0.0.4",
+    "@analog-tools/logger": "^0.0.4"
   },
   "peerDependencies": {
     "h3": "^1.15.2",
     "uncrypto": "^0.1.3",
     "@analogjs/router": "^1.16.1",
-    "@angular/core": "^17.0.0 || ^18.0.0 || ^19.0.0",
-    "@angular/common": "^17.0.0 || ^18.0.0 || ^19.0.0",
-    "@angular/router": "^17.0.0 || ^18.0.0 || ^19.0.0",
+    "@angular/core": "^17.0.0 || ^18.0.0 || ^19.0.0 || ^20.0.0",
+    "@angular/common": "^17.0.0 || ^18.0.0 || ^19.0.0 || ^20.0.0",
+    "@angular/router": "^17.0.0 || ^18.0.0 || ^19.0.0 || ^20.0.0",
     "@trpc/client": "^10.25.0",
     "rxjs": "^7.8.0"
   },
