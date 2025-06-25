@@ -1,5 +1,9 @@
 import { createError, H3Event } from 'h3';
-import { UnstorageSessionStore, useSession } from '@analog-tools/session';
+import {
+  registerStorage,
+  UnstorageSessionStore,
+  useSession,
+} from '@analog-tools/session';
 import { AuthSessionData, SessionWithSave } from '../types/auth-session.types';
 import { LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
@@ -7,13 +11,11 @@ import { type SessionStorageConfig } from '../types/auth.types';
 
 export class SessionService {
   static readonly INJECTABLE = true;
-  private readonly storageConfig: SessionStorageConfig['config'];
-  private store: UnstorageSessionStore<AuthSessionData> = inject(
-    UnstorageSessionStore
-  );
+  private readonly storageConfig: SessionStorageConfig;
+  private store!: UnstorageSessionStore<AuthSessionData>;
   private logger: LoggerService;
 
-  constructor( config : SessionStorageConfig['config']) {
+  constructor(config: SessionStorageConfig) {
     this.storageConfig = config;
 
     this.logger = inject(LoggerService).forContext('SessionService');
@@ -22,9 +24,14 @@ export class SessionService {
   async initSession(event: H3Event): Promise<void> {
     if (!event.context['sessionHandler']) {
       this.logger.info('Creating new session handler');
+      this.store = registerStorage(
+        this.storageConfig.type,
+        this.storageConfig.config
+      );
       await useSession<AuthSessionData>(event, {
-        store: inject(UnstorageSessionStore),
-        secret: this.storageConfig.sessionSecret || 'change-me-in-production',
+        store: this.store,
+        secret:
+          this.storageConfig.config.sessionSecret || 'change-me-in-production',
         name: 'auth.session',
         cookie: {
           httpOnly: true,
@@ -85,7 +92,10 @@ export class SessionService {
       return Promise.all(
         Object.keys(sessionKeys).map(async (key) => {
           // Extract session ID from the key (remove prefix)
-          const sessionId = key.replace(`${this.storageConfig.prefix}:`, '');
+          const sessionId = key.replace(
+            `${this.storageConfig.config.prefix}:`,
+            ''
+          );
           const sessionData = sessionKeys[key] as AuthSessionData;
 
           return {
