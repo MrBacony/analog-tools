@@ -9,21 +9,27 @@ AnalogTools is a collection of utilities and libraries designed to enhance and e
 
 ## Available Packages
 
-| Package                 | Description                                                                                                               |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `@analog-tools/auth`    | Authentication utilities for AnalogJS applications, including OAuth integration, session management, and protected routes |
-| `@analog-tools/session` | Session management system with pluggable storage backends (including Redis and Unstorage support)                         |
+| Package                   | Description                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `@analog-tools/auth`      | Authentication utilities for AnalogJS applications, including OAuth integration, session management, protected routes, and Angular-specific components |
+| `@analog-tools/inject`    | Dependency injection utilities for AnalogJS server-side applications                                                      |
+| `@analog-tools/logger`    | Logging utility for AnalogJS applications                                                                                |
+| `@analog-tools/session`   | Session management system with pluggable storage backends (including Redis and Unstorage support)                         |
 
 ## Installation & Usage
 
 Each package can be installed separately:
 
 ```sh
-# Install auth package
+# Authentication
 npm install @analog-tools/auth
 
-# Install session package
+# Session management
 npm install @analog-tools/session
+
+# Utilities
+npm install @analog-tools/inject
+npm install @analog-tools/logger
 ```
 
 Refer to each package's README for detailed usage instructions.
