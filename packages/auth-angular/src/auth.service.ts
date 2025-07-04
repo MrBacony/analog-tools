@@ -8,11 +8,13 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { isPlatformBrowser } from '@angular/common';
-import { httpResource } from '@angular/common/http';
+import { HttpClient, httpResource } from '@angular/common/http';
 import {
   GenericUserInfo,
   transformUserFromProvider,
 } from './functions/user-transformer';
+import { lastValueFrom } from 'rxjs/internal/lastValueFrom';
+import { map } from 'rxjs';
 
 export interface AuthUser {
   username: string;
@@ -39,6 +41,7 @@ export class AuthService implements OnDestroy {
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
   private document = inject(DOCUMENT);
+  private httpClient = inject(HttpClient);
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
 
   // Auth state
@@ -153,4 +156,14 @@ export class AuthService implements OnDestroy {
 
     return roles.some((role) => user.roles?.lastIndexOf(role) !== -1);
   }
+
+  async isAuthenticatedAsync(): Promise<boolean> {
+    return lastValueFrom(this.httpClient.get<{ authenticated: boolean }>('/api/auth/authenticated', {
+      headers: {
+        accept: 'application/json',
+      },
+      withCredentials: true,
+    }).pipe(map((value) => value.authenticated)));
+  }
+  
 }

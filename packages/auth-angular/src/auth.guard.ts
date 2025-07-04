@@ -8,12 +8,18 @@ import { AuthService } from './auth.service';
 export const authGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
 
-  if (!authService.isAuthenticated()) {
-    authService.login(state.url);
-    return false;
-  }
+  
 
-  return true;
+  return authService.isAuthenticatedAsync().then((isAuthenticated) => {
+    if (isAuthenticated) {
+      // User is authenticated, allow access
+      return true;
+    } else {
+      // User is not authenticated, redirect to login
+      authService.login(state.url);
+      return false;
+    }
+  });
 };
 
 /**
