@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoggerService } from '../lib/logger.service';
+import { LogLevel } from './logger.types';
 
 // Mock console methods
 const mockConsole = {
@@ -148,8 +149,7 @@ describe('LoggerService', () => {
     
     expect(mockConsole.warn).not.toHaveBeenCalled();
     expect(mockConsole.error).toHaveBeenCalledWith(
-      '[env-logger] This should be logged',
-      undefined
+      '[env-logger] This should be logged'
     );
   });
 
@@ -222,8 +222,7 @@ describe('LoggerService', () => {
       '[parent:child] Warning message'
     );
     expect(mockConsole.error).toHaveBeenCalledWith(
-      '[parent:child] Error message',
-      undefined
+      '[parent:child] Error message'
     );
   });
 
@@ -248,7 +247,7 @@ describe('LoggerService', () => {
     
     for (const levelConfig of levels) {
       vi.clearAllMocks();
-      const logger = new LoggerService({ level: levelConfig.level, name: 'level-test' });
+      const logger = new LoggerService({ level: levelConfig.level as LogLevel, name: 'level-test' });
       
       logger.trace('trace message');
       logger.debug('debug message');
@@ -295,12 +294,10 @@ describe('LoggerService', () => {
         // We need to check both error and fatal messages which both use console.error
         expect(mockConsole.error).toHaveBeenCalledTimes(2);
         expect(mockConsole.error).toHaveBeenCalledWith(
-          '[level-test] error message',
-          undefined
+          '[level-test] error message'
         );
         expect(mockConsole.error).toHaveBeenCalledWith(
-          '[level-test] FATAL: fatal message',
-          undefined
+          '[level-test] FATAL: fatal message'
         );
       } else {
         expect(mockConsole.error).not.toHaveBeenCalled();

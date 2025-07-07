@@ -5,6 +5,7 @@
 import { EventHandler, defineEventHandler, EventHandlerRequest } from 'h3';
 import { inject } from '@analog-tools/inject';
 import { LoggerService } from '../index';
+import { LogLevel } from './logger.types';
 
 /**
  * Creates a logger middleware for Nitro
@@ -35,7 +36,7 @@ export function withLogging<T extends EventHandlerRequest>(
   handler: EventHandler<T>,
   options: {
     namespace?: string;
-    level?: 'debug' | 'info';
+    level?: LogLevel;
     logResponse?: boolean;
   } = {}
 ): EventHandler<T> {
@@ -49,14 +50,26 @@ export function withLogging<T extends EventHandlerRequest>(
       const result = await handler(event);
 
       const duration = Date.now() - start;
-      const logMethod = level === 'debug' ? logger.debug : logger.info;
-
-      logMethod.call(logger, `Request completed in ${duration}ms`, {
-        method: event.method,
-        path: event.path,
-        duration,
-        ...(logResponse && result ? { response: result } : {}),
-      });
+      
+      // Map LogLevel to LoggerService method name
+      const logMethodMap: Record<LogLevel, keyof LoggerService | undefined> = {
+        trace: 'trace',
+        debug: 'debug',
+        info: 'info',
+        warn: 'warn',
+        error: 'error',
+        fatal: 'fatal',
+        silent: undefined, // do not log for silent
+      };
+      const method = logMethodMap[level];
+      if (method && typeof logger[method] === 'function') {
+        (logger[method] as typeof logger.debug).call(logger, `Request completed in ${duration}ms`, {
+          method: event.method,
+          path: event.path,
+          duration,
+          ...(logResponse && result ? { response: result } : {}),
+        });
+      }
 
       return result;
     } catch (error) {

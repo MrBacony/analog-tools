@@ -17,6 +17,7 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 - [Installation](#installation)
 - [30-Second Quickstart](#30-second-quickstart)
 - [Quick Start](#quick-start)
+- [Type Safety](#type-safety)
 - [Usage with @analog-tools/inject (Optional)](#usage-with-analog-toolsinject-optional)
 - [Usage in AnalogJS API Routes](#usage-in-analogjs-api-routes)
 - [Context-Based Logging](#context-based-logging)
@@ -36,7 +37,10 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 
 ## Features
 
-- 📝 Type-safe log levels: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`
+- 📝 **Type-safe log levels** with `LogLevel` union type: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`
+- 🛡️ **Compile-time type checking** for log level configuration
+- ⚠️ **Runtime validation** with graceful fallback for invalid log levels
+- 🎯 **IntelliSense support** for log level auto-completion
 - 🎨 Colorized console output with color-coding by log level
 - 🧩 Seamless integration with @analog-tools/inject for dependency injection
 - 🌳 Context-based logging with child loggers
@@ -134,6 +138,122 @@ logger.groupEnd('Query Execution');
 
 logger.info('Transaction committed');
 logger.groupEnd('Database Operations');
+```
+
+## Type Safety
+
+@analog-tools/logger provides comprehensive type safety through TypeScript, ensuring compile-time validation and excellent developer experience.
+
+### LogLevelString Type
+
+The logger uses a string union type `LogLevel` for log levels, providing compile-time validation and IntelliSense support:
+
+```typescript
+import { LoggerConfig, LogLevel, isValidLogLevel } from '@analog-tools/logger';
+
+// ✅ Valid log levels with IntelliSense support
+const validLevels: LogLevel[] = [
+  'trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'
+];
+
+// ✅ Type-safe configuration
+const config: LoggerConfig = {
+  level: 'debug', // ← IntelliSense shows valid options
+  name: 'my-app'
+};
+
+// ❌ TypeScript error for invalid levels
+const invalidConfig: LoggerConfig = {
+  level: 'verbose', // ← TypeScript error: Type '"verbose"' is not assignable
+  name: 'my-app'
+};
+```
+
+### Runtime Validation
+
+The logger provides graceful runtime validation for scenarios where log levels come from external sources:
+
+```typescript
+import { LoggerService, isValidLogLevel } from '@analog-tools/logger';
+
+// Runtime validation function
+if (isValidLogLevel(externalLevel)) {
+  // Safe to use
+  const logger = new LoggerService({ level: externalLevel });
+} else {
+  // Handle invalid level
+  console.warn(`Invalid log level: ${externalLevel}`);
+}
+
+// Automatic fallback with warning
+const logger = new LoggerService({ 
+  level: 'INVALID' as LogLevel, // Runtime error
+  name: 'my-app' 
+});
+// Console output: [LoggerService] Invalid log level "INVALID". Falling back to "info"...
+```
+
+### LogLevel Enum
+
+For scenarios where you need numeric log level values:
+
+```typescript
+import { LogLevelEnum } from '@analog-tools/logger';
+
+console.log(LogLevelEnum.trace);  // 0
+console.log(LogLevelEnum.debug);  // 1
+console.log(LogLevelEnum.info);   // 2
+console.log(LogLevelEnum.warn);   // 3
+console.log(LogLevelEnum.error);  // 4
+console.log(LogLevelEnum.fatal);  // 5
+console.log(LogLevelEnum.silent); // 6
+
+// Useful for custom log level comparisons
+if (currentLogLevel >= LogLevelEnum.warn) {
+  // Log warning and above
+}
+```
+
+### Type-Safe Nitro Integration
+
+The Nitro integration also supports type-safe log levels:
+
+```typescript
+import { withLogging, LogLevel } from '@analog-tools/logger';
+
+// ✅ Type-safe Nitro middleware
+export default withLogging(myHandler, {
+  namespace: 'api',
+  level: 'debug' as LogLevel, // ← IntelliSense support
+  logResponse: true
+});
+
+// ❌ TypeScript error for invalid levels
+export default withLogging(myHandler, {
+  level: 'verbose' // ← TypeScript error
+});
+```
+
+### Migration from String Types
+
+If you're migrating from a version that used generic `string` types:
+
+```typescript
+// Before (generic string)
+interface OldConfig {
+  level?: string; // ❌ No type safety
+}
+
+// After (type-safe)
+interface NewConfig {
+  level?: LogLevel; // ✅ Compile-time validation
+}
+
+// Migration strategy
+const config: LoggerConfig = {
+  level: process.env.LOG_LEVEL as LogLevel, // Runtime validation will handle invalid values
+  name: 'my-app'
+};
 ```
 
 ## Usage with @analog-tools/inject (Optional)
