@@ -20,15 +20,16 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 - [Type Safety](#type-safety)
 - [Usage with @analog-tools/inject (Optional)](#usage-with-analog-toolsinject-optional)
 - [Usage in AnalogJS API Routes](#usage-in-analogjs-api-routes)
+- [Enhanced Error Handling](#enhanced-error-handling)
 - [Context-Based Logging](#context-based-logging)
 - [API Reference](#api-reference)
 - [Environment Variables](#environment-variables)
 - [Testing with MockLoggerService](#testing-with-mockloggerservice)
 - [Colored Console Output](#colored-console-output)
 - [Log Grouping](#log-grouping)
-- [Error Handling](#error-handling)
 - [Performance Considerations](#performance-considerations)
 - [Troubleshooting](#troubleshooting)
+- [Migration Guide](#migration-guide)
 - [Best Practices](#best-practices)
 - [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
@@ -49,6 +50,10 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 - 🌐 Nitro middleware and request handler integration
 - 🧪 Mock logger implementation for testing
 - 🚀 Lightweight implementation using standard console
+- 🔥 **Enhanced Error Handling** with multiple overloads and type safety
+- 🛡️ **Structured Error Serialization** with circular reference protection
+- 📊 **LogMetadata Support** for structured logging
+- 🔄 **Backwards Compatibility** with existing error logging patterns
 
 ## Prerequisites
 
@@ -714,48 +719,121 @@ Groups are particularly useful for:
 - Debugging complex operations with multiple sub-operations
 - Improving readability of logs with many entries
 
-## Error Handling
+## Enhanced Error Handling
 
-The logger provides robust error handling patterns for different scenarios:
+The logger provides robust and flexible error handling with multiple overloads, structured serialization, and full backwards compatibility.
 
-### Basic Error Logging
+### Error Method Overloads
+
+The `error()` and `fatal()` methods support multiple call signatures for maximum flexibility:
 
 ```typescript
 import { LoggerService } from '@analog-tools/logger';
 
 const logger = new LoggerService({ name: 'my-app' });
 
-try {
-  await riskyOperation();
-  logger.info('Operation completed successfully');
-} catch (error) {
-  logger.error('Operation failed', error, { 
-    operationId: 'risky-op-123',
-    retryCount: 3,
-    timestamp: new Date().toISOString()
-  });
-  throw error; // Re-throw if needed
-}
+// 1. Simple message
+logger.error('Something went wrong');
+
+// 2. Error object only
+const dbError = new Error('Connection failed');
+logger.error(dbError);
+
+// 3. Message with Error object
+logger.error('Database operation failed', dbError);
+
+// 4. Message with structured metadata
+logger.error('Validation failed', {
+  userId: '12345',
+  field: 'email',
+  value: 'invalid-email',
+  timestamp: Date.now()
+});
+
+// 5. Message with Error and metadata
+logger.error('Payment processing failed', paymentError, {
+  orderId: 'order-123',
+  amount: 99.99,
+  currency: 'USD'
+});
+
+// 6. Backwards compatible: message with additional data
+logger.error('Operation failed', { context: 'user-service' }, { operation: 'createUser' });
 ```
 
-### Structured Error Context
+### Structured Error Serialization
+
+The logger includes a powerful error serializer that handles complex scenarios:
 
 ```typescript
-// Service with error context
+import { ErrorSerializer } from '@analog-tools/logger';
+
+// Circular reference handling
+const obj = { name: 'test' };
+obj.self = obj; // Creates circular reference
+logger.error('Circular reference detected', obj); // Safely serialized
+
+// Deep object traversal with limits
+const deepObj = { level1: { level2: { level3: { level4: 'deep' } } } };
+logger.error('Deep object logging', deepObj); // Respects max depth
+
+// Custom error serialization
+const customError = ErrorSerializer.serialize(error, {
+  includeStack: false,          // Exclude stack traces
+  maxDepth: 5,                 // Limit object depth
+  includeNonEnumerable: true   // Include hidden properties
+});
+```
+
+### LogMetadata Interface
+
+Use the structured `LogMetadata` interface for consistent logging:
+
+```typescript
+import { LogMetadata } from '@analog-tools/logger';
+
+const metadata: LogMetadata = {
+  correlationId: 'req-123',
+  userId: 'user-456',
+  requestId: 'api-789',
+  context: {
+    service: 'auth',
+    operation: 'login',
+    duration: 150
+  }
+};
+
+logger.error('Authentication failed', authError, metadata);
+```
+
+### Error Handling Patterns
+
+#### Service Layer Error Handling
+
+```typescript
 class UserService {
   static INJECTABLE = true;
   private logger = inject(LoggerService).forContext('UserService');
 
-  async getUserById(id: string) {
+  async createUser(userData: CreateUserRequest): Promise<User> {
+    const metadata: LogMetadata = {
+      operation: 'createUser',
+      correlationId: userData.correlationId
+    };
+
     try {
-      const user = await this.fetchUser(id);
-      this.logger.info('User retrieved successfully', { userId: id });
+      const user = await this.userRepository.create(userData);
+      this.logger.info('User created successfully', { 
+        ...metadata, 
+        userId: user.id 
+      });
       return user;
     } catch (error) {
-      this.logger.error('Failed to retrieve user', error, {
-        userId: id,
-        operation: 'getUserById',
-        service: 'UserService'
+      // Enhanced error logging with Error object and metadata
+      this.logger.error('User creation failed', error, {
+        ...metadata,
+        email: userData.email,
+        provider: userData.provider
       });
       throw error;
     }
@@ -768,16 +846,23 @@ class UserService {
 ```typescript
 // src/server/routes/api/users/[id].ts
 import { defineEventHandler, getRouterParam, createError } from 'h3';
-import { withLogging } from '@analog-tools/logger';
+import { withLogging, LogMetadata } from '@analog-tools/logger';
 
 export default withLogging(
   defineEventHandler(async (event) => {
     const logger = inject(LoggerService).forContext('users-api');
     const userId = getRouterParam(event, 'id');
 
+    const metadata: LogMetadata = {
+      requestId: event.context.requestId,
+      method: event.node.req.method,
+      path: event.node.req.url,
+      userId
+    };
+
     try {
       if (!userId) {
-        logger.warn('User ID missing from request', { path: event.node.req.url });
+        logger.warn('User ID missing from request', metadata);
         throw createError({
           statusCode: 400,
           statusMessage: 'User ID is required'
@@ -785,14 +870,11 @@ export default withLogging(
       }
 
       const user = await getUserById(userId);
-      logger.info('User API request successful', { userId, method: 'GET' });
+      logger.info('User API request successful', metadata);
       return user;
     } catch (error) {
-      logger.error('User API request failed', error, {
-        userId,
-        method: 'GET',
-        path: event.node.req.url
-      });
+      // Log with Error object and structured metadata
+      logger.error('User API request failed', error, metadata);
       throw error;
     }
   }),
@@ -978,7 +1060,114 @@ npm install --save-dev typescript@^4.8.0
 npm install h3@^1.10.1
 ```
 
+## Migration Guide
+
+### Upgrading to Enhanced Error Handling
+
+The latest version introduces enhanced error handling with multiple overloads while maintaining full backwards compatibility. Your existing code will continue to work without changes.
+
+#### No Breaking Changes
+
+All existing logging patterns continue to work exactly as before:
+
+```typescript
+// ✅ These patterns still work identically
+logger.error('Simple message');
+logger.error('Message', error);
+logger.error('Message', error, additionalData);
+logger.error('Message', data1, data2, data3);
+```
+
+#### New Recommended Patterns
+
+While backwards compatibility is maintained, consider adopting these new patterns for better type safety and structured logging:
+
+```typescript
+// ❌ Old pattern (still works)
+logger.error('Validation failed', error, { userId: '123', field: 'email' });
+
+// ✅ New recommended pattern - more explicit and type-safe
+logger.error('Validation failed', error, {
+  userId: '123',
+  field: 'email',
+  operation: 'validateUser'
+} as LogMetadata);
+```
+
+#### Structured Metadata
+
+Consider migrating to the new `LogMetadata` interface for better structure:
+
+```typescript
+import { LogMetadata } from '@analog-tools/logger';
+
+// ❌ Old pattern (still works)
+logger.error('Operation failed', { userId: '123', context: 'api' });
+
+// ✅ New pattern with structured metadata
+const metadata: LogMetadata = {
+  userId: '123',
+  correlationId: 'req-456',
+  context: {
+    service: 'api',
+    operation: 'processPayment'
+  }
+};
+logger.error('Payment processing failed', paymentError, metadata);
+```
+
+#### Error Serialization
+
+The new error serializer provides better handling of complex objects:
+
+```typescript
+// ❌ Objects with circular references could cause issues before
+const objWithCircular = { name: 'test' };
+objWithCircular.self = objWithCircular;
+logger.error('Circular ref', objWithCircular); // Now handled safely
+
+// ✅ Custom serialization options now available
+import { ErrorSerializer } from '@analog-tools/logger';
+
+const serialized = ErrorSerializer.serialize(complexError, {
+  includeStack: false,
+  maxDepth: 3,
+  includeNonEnumerable: true
+});
+```
+
+### Performance Improvements
+
+The enhanced error handling includes several performance improvements:
+
+- **Lazy serialization**: Objects are only serialized when actually logged
+- **Circular reference detection**: Prevents infinite recursion
+- **Depth limiting**: Prevents deep object traversal issues
+- **Type checking optimization**: Faster parameter resolution
+
+### Testing Migration
+
+If you're using custom mocks for testing, they remain compatible:
+
+```typescript
+// ✅ Existing test mocks continue to work
+const mockLogger = {
+  error: vi.fn(),
+  fatal: vi.fn(),
+  // ... other methods
+};
+
+// ✅ New test patterns can leverage enhanced types
+const error = new Error('Test error');
+const metadata: LogMetadata = { testId: '123' };
+mockLogger.error('Test failed', error, metadata);
+
+expect(mockLogger.error).toHaveBeenCalledWith('Test failed', error, metadata);
+```
+
 ## Best Practices
+
+### Logging Best Practices
 
 1. **Use structured logging**: Pass structured data as additional parameters instead of string concatenation
 2. **Create context-specific loggers**: Use `forContext()` to create loggers for different parts of your application
@@ -988,6 +1177,52 @@ npm install h3@^1.10.1
 6. **Use dependency injection**: Leverage @analog-tools/inject for cleaner code organization
 7. **Use Nitro integration**: Use the provided middleware and handlers in AnalogJS API routes
 8. **Configure via environment**: Use environment variables for production configuration
+
+### Enhanced Error Handling Best Practices
+
+9. **Use appropriate error overloads**: Choose the right method signature for your use case:
+   ```typescript
+   // ✅ For simple errors
+   logger.error('Operation failed');
+   
+   // ✅ For errors with Error objects
+   logger.error('Database error', dbError);
+   
+   // ✅ For structured metadata
+   logger.error('Validation failed', { field: 'email', value: 'invalid' });
+   
+   // ✅ For comprehensive error logging
+   logger.error('Payment failed', paymentError, { orderId: '123', amount: 99.99 });
+   ```
+
+10. **Use LogMetadata interface**: Structure your metadata consistently:
+    ```typescript
+    const metadata: LogMetadata = {
+      correlationId: 'req-123',
+      userId: 'user-456',
+      context: { service: 'payments', operation: 'charge' }
+    };
+    logger.error('Payment processing failed', error, metadata);
+    ```
+
+11. **Handle circular references**: The logger automatically handles circular references, but be mindful of object complexity:
+    ```typescript
+    // ✅ Safe - circular references are detected and handled
+    const user = { id: '123', profile: {} };
+    user.profile.user = user;
+    logger.error('User error', user);
+    ```
+
+12. **Configure serialization options**: Customize error serialization when needed:
+    ```typescript
+    import { ErrorSerializer } from '@analog-tools/logger';
+    
+    // For sensitive environments - exclude stack traces
+    const serialized = ErrorSerializer.serialize(error, {
+      includeStack: false,
+      maxDepth: 3
+    });
+    ```
 
 ## Security Considerations
 
