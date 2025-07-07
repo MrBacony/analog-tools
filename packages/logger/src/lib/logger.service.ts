@@ -3,10 +3,10 @@
  * Designed to be used with the @analog-tools/inject package
  */
 
-import { LoggerConfig } from './logger.types';
+import { LoggerConfig, LogLevel as LogLevel, isValidLogLevel } from './logger.types';
 
 // Log level enumeration to match standard console methods
-enum LogLevel {
+export enum LogLevelEnum {
   trace = 0,
   debug = 1,
   info = 2,
@@ -56,7 +56,7 @@ const Colors = {
 /**
  * Color mapping for different log levels
  */
-const LogLevelColors: Record<keyof typeof LogLevel, string> = {
+const LogLevelColors: Record<keyof typeof LogLevelEnum, string> = {
   trace: Colors.fg.gray,
   debug: Colors.fg.cyan,
   info: Colors.fg.green,
@@ -78,7 +78,7 @@ export class LoggerService {
    */
   static INJECTABLE = true;
 
-  private logLevel: LogLevel;
+  private logLevel: LogLevelEnum;
   private name: string;
   private childLoggers: Record<string, LoggerService> = {};
   private disabledContexts: string[] = [];
@@ -108,7 +108,6 @@ export class LoggerService {
       this.context = context;
       // Inherit settings from parent
       this.logLevel = parent.getLogLevel();
-      this.disabledContexts = parent.getDisabledContexts();
       this.useColors = parent.getUseColors();
     } else {
       // Root logger setup
@@ -133,7 +132,11 @@ export class LoggerService {
    * Always returns true for root logger
    */
   isContextEnabled(): boolean {
-    return this.context ? !this.disabledContexts.includes(this.context) : true;
+    if (!this.context) return true;
+    
+    // For child loggers, check the root logger's disabled contexts
+    const rootLogger = this.parentLogger || this;
+    return !rootLogger.disabledContexts.includes(this.context);
   }
 
   /**
@@ -148,7 +151,7 @@ export class LoggerService {
    * Get the current log level
    * @returns The current log level
    */
-  getLogLevel(): LogLevel {
+  getLogLevel(): LogLevelEnum {
     return this.logLevel;
   }
 
@@ -157,7 +160,9 @@ export class LoggerService {
    * @returns Array of disabled context names
    */
   getDisabledContexts(): string[] {
-    return this.disabledContexts || [];
+    // For child loggers, get from root logger
+    const rootLogger = this.parentLogger || this;
+    return rootLogger.disabledContexts || [];
   }
 
   /**
@@ -202,7 +207,7 @@ export class LoggerService {
     groups.push(groupName);
 
     console.group(
-      `${this.formatMessage(LogLevel.info, `Group: ${groupName}`)} ▼`
+      `${this.formatMessage(LogLevelEnum.info, `Group: ${groupName}`)} ▼`
     );
   }
 
@@ -242,8 +247,8 @@ export class LoggerService {
    * @param data Additional data to log
    */
   trace(message: string, ...data: unknown[]): void {
-    if (!this.isContextEnabled() || this.logLevel > LogLevel.trace) return;
-    console.trace(this.formatMessage(LogLevel.trace, message), ...(data || []));
+    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.trace) return;
+    console.trace(this.formatMessage(LogLevelEnum.trace, message), ...(data || []));
   }
 
   /**
@@ -252,8 +257,8 @@ export class LoggerService {
    * @param data Additional data to log
    */
   debug(message: string, ...data: unknown[]): void {
-    if (!this.isContextEnabled() || this.logLevel > LogLevel.debug) return;
-    console.debug(this.formatMessage(LogLevel.debug, message), ...(data || []));
+    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.debug) return;
+    console.debug(this.formatMessage(LogLevelEnum.debug, message), ...(data || []));
   }
 
   /**
@@ -262,8 +267,8 @@ export class LoggerService {
    * @param data Additional data to log
    */
   info(message: string, ...data: unknown[]): void {
-    if (!this.isContextEnabled() || this.logLevel > LogLevel.info) return;
-    console.info(this.formatMessage(LogLevel.info, message), ...(data || []));
+    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.info) return;
+    console.info(this.formatMessage(LogLevelEnum.info, message), ...(data || []));
   }
 
   /**
@@ -272,9 +277,9 @@ export class LoggerService {
    * @param data Additional data to log
    */
   info2(message: string, ...data: unknown[]): void {
-    if (!this.isContextEnabled() || this.logLevel > LogLevel.info) return;
+    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.info) return;
     console.info(
-      this.formatMessage(LogLevel.info, message, Colors.fg.magenta),
+      this.formatMessage(LogLevelEnum.info, message, Colors.fg.magenta),
       ...(data || [])
     );
   }
@@ -285,8 +290,8 @@ export class LoggerService {
    * @param data Additional data to log
    */
   warn(message: string, ...data: unknown[]): void {
-    if (!this.isContextEnabled() || this.logLevel > LogLevel.warn) return;
-    console.warn(this.formatMessage(LogLevel.warn, message), ...(data || []));
+    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.warn) return;
+    console.warn(this.formatMessage(LogLevelEnum.warn, message), ...(data || []));
   }
 
   /**
@@ -296,12 +301,14 @@ export class LoggerService {
    * @param data Additional data to log
    */
   error(message: string, error?: Error | unknown, ...data: unknown[]): void {
-    if (!this.isContextEnabled() || this.logLevel > LogLevel.error) return;
-    console.error(
-      this.formatMessage(LogLevel.error, message),
-      error,
-      ...(data || [])
-    );
+    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.error) return;
+    
+    const formattedMessage = this.formatMessage(LogLevelEnum.error, message);
+    if (error !== undefined) {
+      console.error(formattedMessage, error, ...(data || []));
+    } else {
+      console.error(formattedMessage, ...(data || []));
+    }
   }
 
   /**
@@ -311,39 +318,55 @@ export class LoggerService {
    * @param data Additional data to log
    */
   fatal(message: string, error?: Error | unknown, ...data: unknown[]): void {
-    if (!this.isContextEnabled() || this.logLevel > LogLevel.fatal) return;
-    console.error(
-      this.formatMessage(LogLevel.fatal, `FATAL: ${message}`),
-      error,
-      ...(data || [])
-    );
+    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.fatal) return;
+    
+    const formattedMessage = this.formatMessage(LogLevelEnum.fatal, `FATAL: ${message}`);
+    if (error !== undefined) {
+      console.error(formattedMessage, error, ...(data || []));
+    } else {
+      console.error(formattedMessage, ...(data || []));
+    }
   }
 
   /**
-   * Convert string log level to numeric LogLevel
-   * @param level String log level
+   * Cast a string to a LogLevel, with runtime validation and warning for invalid levels
+   * @param level String representation of log level
    * @returns Numeric LogLevel
    * @private
    */
-  private castLoglevel(level: string): LogLevel {
-    switch (level.toLowerCase()) {
-      case 'trace':
-        return LogLevel.trace;
-      case 'debug':
-        return LogLevel.debug;
-      case 'info':
-        return LogLevel.info;
-      case 'warn':
-        return LogLevel.warn;
-      case 'error':
-        return LogLevel.error;
-      case 'fatal':
-        return LogLevel.fatal;
-      case 'silent':
-        return LogLevel.silent;
-      default:
-        return LogLevel.info;
+  private castLoglevel(level: string): LogLevelEnum {
+    // First check if the exact case is valid
+    if (isValidLogLevel(level)) {
+      // Perfect case match, no warning needed
+      switch (level) {
+        case 'trace':
+          return LogLevelEnum.trace;
+        case 'debug':
+          return LogLevelEnum.debug;
+        case 'info':
+          return LogLevelEnum.info;
+        case 'warn':
+          return LogLevelEnum.warn;
+        case 'error':
+          return LogLevelEnum.error;
+        case 'fatal':
+          return LogLevelEnum.fatal;
+        case 'silent':
+          return LogLevelEnum.silent;
+      }
     }
+
+    // Check lowercase version
+    const lowerLevel = level.toLowerCase();
+    if (isValidLogLevel(lowerLevel)) {
+      // Valid lowercase, but wrong case - warn about case sensitivity
+      console.warn(`[LoggerService] Invalid log level "${level}". Log levels are case-sensitive. Falling back to "info". Valid levels: trace, debug, info, warn, error, fatal, silent`);
+      return LogLevelEnum.info;
+    }
+
+    // Completely invalid level
+    console.warn(`[LoggerService] Invalid log level "${level}". Falling back to "info". Valid levels: trace, debug, info, warn, error, fatal, silent`);
+    return LogLevelEnum.info;
   }
 
   /**
@@ -352,19 +375,19 @@ export class LoggerService {
    * @returns ANSI color code for the log level
    * @private
    */
-  private getColorForLevel(level: LogLevel): string {
+  private getColorForLevel(level: LogLevelEnum): string {
     switch (level) {
-      case LogLevel.trace:
+      case LogLevelEnum.trace:
         return LogLevelColors.trace;
-      case LogLevel.debug:
+      case LogLevelEnum.debug:
         return LogLevelColors.debug;
-      case LogLevel.info:
+      case LogLevelEnum.info:
         return LogLevelColors.info;
-      case LogLevel.warn:
+      case LogLevelEnum.warn:
         return LogLevelColors.warn;
-      case LogLevel.error:
+      case LogLevelEnum.error:
         return LogLevelColors.error;
-      case LogLevel.fatal:
+      case LogLevelEnum.fatal:
         return LogLevelColors.fatal;
       default:
         return Colors.reset;
@@ -380,7 +403,7 @@ export class LoggerService {
    * @private
    */
   private formatMessage(
-    level: LogLevel,
+    level: LogLevelEnum,
     message: string,
     overrideColor?: string
   ): string {
