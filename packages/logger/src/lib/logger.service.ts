@@ -3,7 +3,8 @@
  * Designed to be used with the @analog-tools/inject package
  */
 
-import { LoggerConfig, LogLevel as LogLevel, isValidLogLevel } from './logger.types';
+import { LoggerConfig, LogLevel as LogLevel, isValidLogLevel, LogMetadata } from './logger.types';
+import { ErrorSerializer, ErrorParam, StructuredError } from './error-serialization';
 
 // Log level enumeration to match standard console methods
 export enum LogLevelEnum {
@@ -295,37 +296,218 @@ export class LoggerService {
   }
 
   /**
-   * Log an error message
-   * @param message The message to log
-   * @param error The error that occurred
-   * @param data Additional data to log
+   * Log an error message with enhanced error handling and type safety
+   * 
+   * Supports multiple overloads for flexibility:
+   * - error(message: string): Simple error message
+   * - error(error: Error): Log an Error object 
+   * - error(message: string, error: Error): Message with Error object
+   * - error(message: string, metadata: LogMetadata): Message with structured metadata
+   * - error(message: string, error: Error, metadata: LogMetadata): Message with Error and metadata
+   * - error(message: string, error?: ErrorParam, ...data: unknown[]): Backwards compatible overload
+   * 
+   * @example
+   * ```typescript
+   * // Simple message
+   * logger.error('Something went wrong');
+   * 
+   * // With Error object
+   * logger.error('Database connection failed', dbError);
+   * 
+   * // With metadata
+   * logger.error('User validation failed', { userId: '123', action: 'login' });
+   * 
+   * // With Error and metadata
+   * logger.error('Payment processing failed', paymentError, { orderId: 'order-123' });
+   * ```
    */
-  error(message: string, error?: Error | unknown, ...data: unknown[]): void {
+  error(message: string): void;
+  error(error: Error): void;
+  error(message: string, error: Error): void;
+  error(message: string, metadata: LogMetadata): void;
+  error(message: string, error: Error, metadata: LogMetadata): void;
+  error(message: string, error?: ErrorParam, ...data: unknown[]): void;
+  error(
+    messageOrError: string | Error,
+    errorOrMetadata?: ErrorParam | LogMetadata,
+    metadataOrData?: LogMetadata | unknown,
+    ...additionalData: unknown[]
+  ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.error) return;
-    
+
+    const { message, serializedError, metadata, data } = this.parseErrorParameters(
+      messageOrError,
+      errorOrMetadata,
+      metadataOrData,
+      additionalData
+    );
+
     const formattedMessage = this.formatMessage(LogLevelEnum.error, message);
-    if (error !== undefined) {
-      console.error(formattedMessage, error, ...(data || []));
+    
+    if (serializedError) {
+      console.error(formattedMessage, serializedError, ...(data || []));
     } else {
       console.error(formattedMessage, ...(data || []));
     }
   }
 
   /**
-   * Log a fatal message
-   * @param message The message to log
-   * @param error The error that occurred
-   * @param data Additional data to log
+   * Log a fatal error message with enhanced error handling and type safety
+   * 
+   * Supports multiple overloads for flexibility:
+   * - fatal(message: string): Simple fatal message
+   * - fatal(error: Error): Log a fatal Error object 
+   * - fatal(message: string, error: Error): Message with Error object
+   * - fatal(message: string, metadata: LogMetadata): Message with structured metadata
+   * - fatal(message: string, error: Error, metadata: LogMetadata): Message with Error and metadata
+   * - fatal(message: string, error?: ErrorParam, ...data: unknown[]): Backwards compatible overload
+   * 
+   * @example
+   * ```typescript
+   * // Simple fatal message
+   * logger.fatal('Application crashed');
+   * 
+   * // With Error object
+   * logger.fatal('Critical system failure', systemError);
+   * 
+   * // With metadata
+   * logger.fatal('Out of memory', { heapUsed: '2GB', maxHeap: '1.5GB' });
+   * 
+   * // With Error and metadata
+   * logger.fatal('Database corruption detected', dbError, { tableName: 'users' });
+   * ```
    */
-  fatal(message: string, error?: Error | unknown, ...data: unknown[]): void {
+  fatal(message: string): void;
+  fatal(error: Error): void;
+  fatal(message: string, error: Error): void;
+  fatal(message: string, metadata: LogMetadata): void;
+  fatal(message: string, error: Error, metadata: LogMetadata): void;
+  fatal(message: string, error?: ErrorParam, ...data: unknown[]): void;
+  fatal(
+    messageOrError: string | Error,
+    errorOrMetadata?: ErrorParam | LogMetadata,
+    metadataOrData?: LogMetadata | unknown,
+    ...additionalData: unknown[]
+  ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.fatal) return;
-    
+
+    const { message, serializedError, metadata, data } = this.parseErrorParameters(
+      messageOrError,
+      errorOrMetadata,
+      metadataOrData,
+      additionalData
+    );
+
     const formattedMessage = this.formatMessage(LogLevelEnum.fatal, `FATAL: ${message}`);
-    if (error !== undefined) {
-      console.error(formattedMessage, error, ...(data || []));
+    
+    if (serializedError) {
+      console.error(formattedMessage, serializedError, ...(data || []));
     } else {
       console.error(formattedMessage, ...(data || []));
     }
+  }
+
+  /**
+   * Parse and normalize error method parameters to support multiple overloads
+   * 
+   * Handles various parameter combinations:
+   * - error(Error) -> extracts message and serializes error
+   * - error(message) -> uses message as-is
+   * - error(message, Error) -> uses message and serializes error
+   * - error(message, LogMetadata) -> uses message and metadata
+   * - error(message, Error, LogMetadata) -> uses all three with proper typing
+   * - error(message, ...data) -> backwards compatibility mode
+   * 
+   * @private
+   * @param messageOrError - String message or Error object
+   * @param errorOrMetadata - Error object, LogMetadata, or additional data
+   * @param metadataOrData - LogMetadata or additional data
+   * @param additionalData - Extra data for backwards compatibility
+   * @returns Parsed parameters with normalized structure
+   */
+  private parseErrorParameters(
+    messageOrError: string | Error,
+    errorOrMetadata?: ErrorParam | LogMetadata,
+    metadataOrData?: LogMetadata | unknown,
+    additionalData: unknown[] = []
+  ): {
+    message: string;
+    serializedError?: StructuredError | string;
+    metadata?: LogMetadata;
+    data: unknown[];
+  } {
+    // Case 1: error(error: Error)
+    if (messageOrError instanceof Error && errorOrMetadata === undefined) {
+      return {
+        message: messageOrError.message,
+        serializedError: ErrorSerializer.serialize(messageOrError),
+        data: []
+      };
+    }
+
+    // Case 2: error(message: string)
+    if (typeof messageOrError === 'string' && errorOrMetadata === undefined) {
+      return {
+        message: messageOrError,
+        data: []
+      };
+    }
+
+    // Case 3: error(message: string, error: Error)
+    if (typeof messageOrError === 'string' && errorOrMetadata instanceof Error && metadataOrData === undefined) {
+      return {
+        message: messageOrError,
+        serializedError: ErrorSerializer.serialize(errorOrMetadata),
+        data: []
+      };
+    }
+
+    // Case 4: error(message: string, metadata: LogMetadata)
+    if (typeof messageOrError === 'string' && this.isLogMetadata(errorOrMetadata) && metadataOrData === undefined) {
+      return {
+        message: messageOrError,
+        metadata: errorOrMetadata,
+        data: []
+      };
+    }
+
+    // Case 5: error(message: string, error: Error, metadata: LogMetadata)
+    if (typeof messageOrError === 'string' && errorOrMetadata instanceof Error && this.isLogMetadata(metadataOrData)) {
+      return {
+        message: messageOrError,
+        serializedError: ErrorSerializer.serialize(errorOrMetadata),
+        metadata: metadataOrData,
+        data: additionalData
+      };
+    }
+
+    // Backwards compatibility: error(message: string, error?: ErrorParam, ...data: unknown[])
+    const message = typeof messageOrError === 'string' ? messageOrError : 'Unknown error';
+    const serializedError = errorOrMetadata ? ErrorSerializer.serialize(errorOrMetadata) : undefined;
+    const data = metadataOrData !== undefined ? [metadataOrData, ...additionalData] : additionalData;
+
+    return { message, serializedError, data };
+  }
+
+  /**
+   * Type guard to check if an object is LogMetadata
+   * 
+   * LogMetadata is defined as a plain object that is not:
+   * - null or undefined
+   * - An Array
+   * - An Error instance
+   * - A Date instance
+   * 
+   * @private
+   * @param obj - Object to check
+   * @returns True if object matches LogMetadata interface
+   */
+  private isLogMetadata(obj: unknown): obj is LogMetadata {
+    return typeof obj === 'object' && 
+           obj !== null && 
+           !Array.isArray(obj) && 
+           !(obj instanceof Error) &&
+           !(obj instanceof Date);
   }
 
   /**
