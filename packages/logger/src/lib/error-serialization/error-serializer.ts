@@ -38,6 +38,38 @@ export class ErrorSerializer {
   private static readonly MAX_DEPTH_PLACEHOLDER = '[Max Depth Reached]';
   private static readonly UNABLE_TO_SERIALIZE = '[Unable to serialize]';
   
+  // Simple memoization cache for frequently serialized errors (limited size to prevent memory leaks)
+  private static readonly serializationCache = new Map<string, StructuredError | string>();
+  private static readonly MAX_CACHE_SIZE = 100;
+  
+  /**
+   * Generate a cache key for memoization (includes serialization options)
+   * @private
+   */
+  private static getCacheKey(error: Error, includeStack: boolean, maxDepth: number, includeNonEnumerable: boolean): string | null {
+    // Only cache if error has a stack trace (more stable identity)
+    if (!error.stack) return null;
+    
+    // Create a simple hash based on message + first line of stack + options
+    const stackFirstLine = error.stack.split('\n')[0] || '';
+    return `${error.name}:${error.message}:${stackFirstLine}:${includeStack}:${maxDepth}:${includeNonEnumerable}`;
+  }
+  
+  /**
+   * Add to cache with size limit enforcement
+   * @private
+   */
+  private static addToCache(key: string, value: StructuredError | string): void {
+    if (this.serializationCache.size >= this.MAX_CACHE_SIZE) {
+      // Remove oldest entry (first in Map)
+      const firstKey = this.serializationCache.keys().next().value;
+      if (firstKey) {
+        this.serializationCache.delete(firstKey);
+      }
+    }
+    this.serializationCache.set(key, value);
+  }
+  
   /**
    * Safely serialize any value (Error objects, plain objects, primitives) for logging
    * 
@@ -73,7 +105,23 @@ export class ErrorSerializer {
     
     // Handle Error instances
     if (error instanceof Error) {
-      return this.serializeError(error, includeStack, maxDepth, includeNonEnumerable, new WeakSet());
+      // Check cache first
+      const cacheKey = this.getCacheKey(error, includeStack, maxDepth, includeNonEnumerable);
+      if (cacheKey) {
+        const cached = this.serializationCache.get(cacheKey);
+        if (cached) {
+          return cached;
+        }
+      }
+      
+      const result = this.serializeError(error, includeStack, maxDepth, includeNonEnumerable, new WeakSet());
+      
+      // Add to cache
+      if (cacheKey) {
+        this.addToCache(cacheKey, result);
+      }
+      
+      return result;
     }
     
     // Handle string inputs
