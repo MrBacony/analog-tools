@@ -239,8 +239,8 @@ class ProductService {
 
 You can easily switch between standalone and injection patterns:
 
-- **To Standalone:** Replace `inject(LoggerService)` with `new LoggerService()` and remove `static INJECTABLE = true`
-- **To Injection:** Add `static INJECTABLE = true` and replace direct instantiation with `inject(LoggerService)`
+- **To Standalone:** Replace `inject(LoggerService)` with `new LoggerService()`
+- **To Injection:** replace direct instantiation with `inject(LoggerService)`
 - **Mixed Approach:** Use injection for services and standalone for utilities as needed
 
 ## Usage in AnalogJS API Routes
