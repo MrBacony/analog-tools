@@ -497,6 +497,8 @@ export class LoggerService {
    * - An Array
    * - An Error instance
    * - A Date instance
+   * - A RegExp instance
+   * - A Function
    * 
    * @private
    * @param obj - Object to check
@@ -507,7 +509,9 @@ export class LoggerService {
            obj !== null && 
            !Array.isArray(obj) && 
            !(obj instanceof Error) &&
-           !(obj instanceof Date);
+           !(obj instanceof Date) &&
+           !(obj instanceof RegExp) &&
+           typeof obj !== 'function';
   }
 
   /**
