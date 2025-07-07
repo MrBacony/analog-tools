@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Make unambigous main entry
+        run: git rev-parse --verify main || git remote set-branches origin main && git fetch --depth 1 origin main && git branch main origin/main
+
       - name: Run Nx tests
         run: npx nx affected --target=test --parallel=3
 
