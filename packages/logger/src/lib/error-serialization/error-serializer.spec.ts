@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ErrorSerializer } from '../error-serializer';
-import { StructuredError, ErrorSerializationOptions } from '../error.types';
+import { ErrorSerializer } from './error-serializer';
+import { StructuredError, ErrorSerializationOptions } from './error.types';
 
 describe('ErrorSerializer', () => {
   beforeEach(() => {
@@ -120,8 +120,8 @@ describe('ErrorSerializer', () => {
 
       it('should use [Circular Reference] placeholder for circular refs', () => {
         const obj: Record<string, unknown> = { name: 'test' };
-        obj.self = obj; // Create circular reference
-        
+        obj['self'] = obj; // Create circular reference
+
         const result = ErrorSerializer.serialize(obj);
         
         expect(typeof result).toBe('string');
@@ -130,7 +130,7 @@ describe('ErrorSerializer', () => {
 
       it('should handle deeply nested circular references', () => {
         const obj: Record<string, unknown> = { level1: { level2: { level3: {} } } };
-        (obj.level1 as Record<string, unknown>).level2 = obj; // Deep circular reference
+        (obj['level1'] as Record<string, unknown>)['level2'] = obj; // Deep circular reference
         
         const result = ErrorSerializer.serialize(obj);
         
@@ -141,7 +141,7 @@ describe('ErrorSerializer', () => {
       it('should not break on self-referencing objects', () => {
         const error = new Error('Self-ref error') as Error & { data?: Record<string, unknown> };
         const data: Record<string, unknown> = { ref: null };
-        data.ref = data;
+        data['ref'] = data;
         error.data = data;
         
         const result = ErrorSerializer.serialize(error);
