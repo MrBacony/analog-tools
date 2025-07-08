@@ -183,7 +183,7 @@ export class ErrorSerializer {
     Object.keys(error).forEach(key => {
       if (!(key in result)) {
         try {
-          const errorRecord = error as Record<string, unknown>;
+          const errorRecord = error as unknown as Record<string, unknown>;
           result[key] = this.safeStringify(errorRecord[key], maxDepth - 1, seen);
         } catch {
           result[key] = this.UNABLE_TO_SERIALIZE;
@@ -198,7 +198,7 @@ export class ErrorSerializer {
           try {
             const descriptor = Object.getOwnPropertyDescriptor(error, key);
             if (descriptor && descriptor.enumerable === false) {
-              const errorRecord = error as Record<string, unknown>;
+              const errorRecord = error as unknown as Record<string, unknown>;
               result[key] = this.safeStringify(errorRecord[key], maxDepth - 1, seen);
             }
           } catch {
