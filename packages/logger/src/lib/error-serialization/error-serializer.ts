@@ -234,7 +234,9 @@ export class ErrorSerializer {
     
     try {
       if (Array.isArray(obj)) {
-        return obj.map(item => this.safeStringify(item, maxDepth - 1, seen));
+        const result = obj.map(item => this.safeStringify(item, maxDepth - 1, seen));
+        seen.delete(obj as object);
+        return result;
       }
       
       const result: Record<string, unknown> = {};
