@@ -97,8 +97,48 @@ describe('LoggerService', () => {
     loggerService.error('Error occurred', error, { additional: 'data' });
 
     expect(mockConsole.error).toHaveBeenCalledTimes(1);
-    // Just check that it was called correctly - don't make detailed assertions for now
-    expect(mockConsole.error.mock.calls[0][0]).toBe('[test-logger] Error occurred');
+    
+    const callArgs = mockConsole.error.mock.calls[0];
+    expect(callArgs[0]).toBe('[test-logger] Error occurred');
+    
+    // Verify serialized error is second argument
+    expect(callArgs[1]).toEqual({
+      name: 'Error',
+      message: 'Test error',
+      stack: expect.any(String)
+    });
+    
+    // Verify metadata is third argument  
+    expect(callArgs[2]).toEqual({ additional: 'data' });
+  });
+
+  it('should handle error logging with only Error object', () => {
+    const error = new Error('Test error');
+    loggerService.error(error);
+
+    expect(mockConsole.error).toHaveBeenCalledTimes(1);
+    
+    const callArgs = mockConsole.error.mock.calls[0];
+    expect(callArgs[0]).toBe('[test-logger] Test error');
+    
+    // Verify serialized error is second argument when only error provided
+    expect(callArgs[1]).toEqual({
+      name: 'Error',
+      message: 'Test error',
+      stack: expect.any(String)
+    });
+  });
+
+  it('should handle error logging with message and metadata only', () => {
+    loggerService.error('Error message', { metaKey: 'metaValue' });
+
+    expect(mockConsole.error).toHaveBeenCalledTimes(1);
+    
+    const callArgs = mockConsole.error.mock.calls[0];
+    expect(callArgs[0]).toBe('[test-logger] Error message');
+    
+    // When no error object, metadata should be second argument
+    expect(callArgs[1]).toEqual({ metaKey: 'metaValue' });
   });
 
   it('should respect disabled contexts', () => {
@@ -132,8 +172,48 @@ describe('LoggerService', () => {
     loggerService.fatal('Fatal error occurred', error, { additional: 'data' });
 
     expect(mockConsole.error).toHaveBeenCalledTimes(1);
-    // Just check that it was called correctly - don't make detailed assertions for now
-    expect(mockConsole.error.mock.calls[0][0]).toBe('[test-logger] FATAL: Fatal error occurred');
+    
+    const callArgs = mockConsole.error.mock.calls[0];
+    expect(callArgs[0]).toBe('[test-logger] FATAL: Fatal error occurred');
+    
+    // Verify serialized error is second argument
+    expect(callArgs[1]).toEqual({
+      name: 'Error',
+      message: 'Fatal error',
+      stack: expect.any(String)
+    });
+    
+    // Verify metadata is third argument
+    expect(callArgs[2]).toEqual({ additional: 'data' });
+  });
+
+  it('should handle fatal logging with only Error object', () => {
+    const error = new Error('Fatal error');
+    loggerService.fatal(error);
+
+    expect(mockConsole.error).toHaveBeenCalledTimes(1);
+    
+    const callArgs = mockConsole.error.mock.calls[0];
+    expect(callArgs[0]).toBe('[test-logger] FATAL: Fatal error');
+    
+    // Verify serialized error is second argument when only error provided
+    expect(callArgs[1]).toEqual({
+      name: 'Error',
+      message: 'Fatal error',
+      stack: expect.any(String)
+    });
+  });
+
+  it('should handle fatal logging with message and metadata only', () => {
+    loggerService.fatal('Fatal message', { metaKey: 'metaValue' });
+
+    expect(mockConsole.error).toHaveBeenCalledTimes(1);
+    
+    const callArgs = mockConsole.error.mock.calls[0];
+    expect(callArgs[0]).toBe('[test-logger] FATAL: Fatal message');
+    
+    // When no error object, metadata should be second argument
+    expect(callArgs[1]).toEqual({ metaKey: 'metaValue' });
   });
 
   it('should use environment variables for log level if not provided in config', () => {

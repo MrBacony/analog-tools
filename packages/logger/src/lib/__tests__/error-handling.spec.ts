@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LoggerService } from '../logger.service';
+import { LogMetadata } from '../logger.types';
 
 // Mock console methods
 const mockConsole = {
@@ -277,8 +278,8 @@ describe('Logger Error Handling Method Overloads', () => {
         const [loggedMessage, serializedError, ...data] = mockConsole.error.mock.calls[0];
         expect(loggedMessage).toContain(message);
         expect(serializedError).toHaveProperty('message', 'Some error');
-        // extraData is treated as metadata in this case, so no additional data should be logged
-        expect(data).toEqual([]);
+        // extraData is treated as metadata in this case, so it should be the third parameter
+        expect(data).toEqual([extraData]);
       });
     });
   });

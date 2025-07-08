@@ -55,8 +55,8 @@ describe('Migration Compatibility Tests', () => {
       const [loggedMessage, serializedError, ...data] = mockConsole.error.mock.calls[0];
       expect(loggedMessage).toContain(message);
       expect(serializedError).toHaveProperty('message', 'Timeout');
-      // In the new implementation, additionalData is treated as metadata, so no extra data is logged
-      expect(data).toEqual([]);
+      // In the new implementation, additionalData is treated as metadata and passed as third parameter
+      expect(data).toEqual([additionalData]);
     });
 
     it('should maintain current error(message, ...data) behavior', () => {
@@ -114,8 +114,8 @@ describe('Migration Compatibility Tests', () => {
       const [loggedMessage, serializedError, ...data] = mockConsole.error.mock.calls[0];
       expect(loggedMessage).toContain('FATAL: ' + message);
       expect(serializedError).toHaveProperty('message', 'Connection lost');
-      // In the new implementation, contextData is treated as metadata, so no extra data is logged
-      expect(data).toEqual([]);
+      // In the new implementation, contextData is treated as metadata and passed as third parameter
+      expect(data).toEqual([contextData]);
     });
 
     it('should preserve FATAL prefix formatting', () => {
