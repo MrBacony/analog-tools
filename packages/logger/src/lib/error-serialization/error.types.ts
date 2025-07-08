@@ -23,17 +23,6 @@
 export type ErrorParam = Error | string | unknown;
 
 /**
- * Structured metadata for log entries
- */
-export interface LogMetadata {
-  [key: string]: unknown;
-  correlationId?: string;
-  userId?: string;
-  requestId?: string;
-  context?: Record<string, unknown>;
-}
-
-/**
  * Structured error information extracted from Error objects
  * 
  * Provides a consistent structure for serialized Error objects,
