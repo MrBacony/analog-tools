@@ -346,12 +346,12 @@ export class LoggerService {
     
     const errorParam: unknown[] = [formattedMessage];
 
-    if(metadata) {
-      errorParam.push(metadata);
-    }
-
     if(serializedError) {
       errorParam.push(serializedError);
+    }
+
+    if(metadata) {
+      errorParam.push(metadata);
     }
 
     console.error(...errorParam, ...(data || []));
@@ -408,12 +408,12 @@ export class LoggerService {
     
     const errorParam: unknown[] = [formattedMessage];
 
-    if(metadata) {
-      errorParam.push(metadata);
-    }
-
     if(serializedError) {
       errorParam.push(serializedError);
+    }
+
+    if(metadata) {
+      errorParam.push(metadata);
     }
 
     console.error(...errorParam, ...(data || []));
