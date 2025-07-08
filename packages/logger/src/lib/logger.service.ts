@@ -344,11 +344,17 @@ export class LoggerService {
 
     const formattedMessage = this.formatMessage(LogLevelEnum.error, message);
     
-    if (serializedError) {
-      console.error(formattedMessage, serializedError, ...(data || []));
-    } else {
-      console.error(formattedMessage, ...(data || []));
+    const errorParam: unknown[] = [formattedMessage];
+
+    if(metadata) {
+      errorParam.push(metadata);
     }
+
+    if(serializedError) {
+      errorParam.push(serializedError);
+    }
+
+    console.error(...errorParam, ...(data || []));
   }
 
   /**
@@ -400,11 +406,17 @@ export class LoggerService {
 
     const formattedMessage = this.formatMessage(LogLevelEnum.fatal, `FATAL: ${message}`);
     
-    if (serializedError) {
-      console.error(formattedMessage, serializedError, ...(data || []));
-    } else {
-      console.error(formattedMessage, ...(data || []));
+    const errorParam: unknown[] = [formattedMessage];
+
+    if(metadata) {
+      errorParam.push(metadata);
     }
+
+    if(serializedError) {
+      errorParam.push(serializedError);
+    }
+
+    console.error(...errorParam, ...(data || []));
   }
 
   /**
