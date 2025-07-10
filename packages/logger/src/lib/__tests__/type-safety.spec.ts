@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { LoggerService } from '../logger.service';
-import { LogMetadata } from '../logger.types';
+import { LogContext } from '../logger.types';
 import { ErrorSerializer } from '../error-serialization/error-serializer';
 import { StructuredError, ErrorParam } from '../error-serialization/error.types';
 
@@ -8,9 +8,9 @@ import { StructuredError, ErrorParam } from '../error-serialization/error.types'
 
 describe('TypeScript Type Safety Tests', () => {
   describe('Type inference validation', () => {
-    it('should provide proper type inference for LogMetadata', () => {
-      // Valid LogMetadata objects should be accepted
-      const validMetadata: LogMetadata = {
+    it('should provide proper type inference for LogContext', () => {
+      // Valid LogContext objects should be accepted
+      const validContext: LogContext = {
         correlationId: 'abc123',
         userId: 'user1',
         timestamp: new Date(),
@@ -19,9 +19,9 @@ describe('TypeScript Type Safety Tests', () => {
         requestId: 'req123'
       };
       
-      expect(validMetadata).toBeDefined();
-      expect(typeof validMetadata.correlationId).toBe('string');
-      expect(validMetadata.timestamp instanceof Date).toBe(true);
+      expect(validContext).toBeDefined();
+      expect(typeof validContext.correlationId).toBe('string');
+      expect(validContext['timestamp'] instanceof Date).toBe(true);
     });
 
     it('should provide proper type inference for ErrorParam', () => {
@@ -101,7 +101,7 @@ describe('TypeScript Type Safety Tests', () => {
       const logger = new LoggerService({ level: 'error', name: 'test' });
       
       const message = 'User action failed';
-      const metadata: LogMetadata = {
+      const metadata: LogContext = {
         userId: 'user123',
         correlationId: 'abc123'
       };
@@ -117,7 +117,7 @@ describe('TypeScript Type Safety Tests', () => {
       
       const message = 'Transaction failed';
       const error = new Error('Database error');
-      const metadata: LogMetadata = {
+      const metadata: LogContext = {
         transactionId: 'tx123',
         userId: 'user456'
       };
@@ -130,7 +130,7 @@ describe('TypeScript Type Safety Tests', () => {
   });
 
   describe('Type constraint validation', () => {
-    it('should enforce LogMetadata interface constraints', () => {
+    it('should enforce LogContext interface constraints', () => {
       // Test will be implemented - compile-time validation
       expect(true).toBe(true); // Placeholder
     });

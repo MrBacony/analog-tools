@@ -18,6 +18,21 @@
         "packageRoot": "node_modules/@analog-tools/{projectRoot}"
       }
     },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx run @analog-tools/logger:vite:test --configuration=development"
+        ],
+        "parallel": false
+      },
+      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
+      "dependsOn": [
+        {
+          "target": "@analog-tools/inject:test"
+        }
+      ]
+    },
     "build": {
       "executor": "nx:run-commands",
       "options": {
