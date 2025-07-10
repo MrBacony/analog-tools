@@ -13,6 +13,20 @@
   },
   "tags": [],
   "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx run @analog-tools/session:vite:test --configuration=development"
+        ],
+        "parallel": false
+      },
+      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
+      "dependsOn": [
+        {"target": "@analog-tools/inject:test"},
+        {"target": "@analog-tools/logger:test"}
+      ]
+    },
     "build": {
       "executor": "nx:run-commands",
       "options": {
