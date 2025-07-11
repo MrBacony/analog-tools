@@ -3,6 +3,7 @@ import { HttpErrorResponse, HttpRequest, HttpEvent, HttpHandlerFn } from '@angul
 import { authInterceptor } from './auth.interceptor';
 import { of, throwError } from 'rxjs';
 import { expect, vi, describe, it, beforeEach } from 'vitest';
+import * as routerTokens from '@analogjs/router/tokens';
 
 // Mock the login function
 vi.mock('./functions/login', () => ({
@@ -15,34 +16,37 @@ describe('AuthInterceptor', () => {
   let nextHandlerFn: HttpHandlerFn;
   let req: HttpRequest<unknown>;
   
+  beforeAll(() => {
+    // Mock injectRequest to avoid injection errors (only once)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(routerTokens, 'injectRequest').mockReturnValue(undefined as any);
+  });
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks();
-    
     // Set up the mock next handler function
     nextHandlerFn = vi.fn().mockReturnValue(of({ type: 4, body: { data: 'test' } } as HttpEvent<unknown>));
-    
-    // Set up a test request
     req = new HttpRequest('GET', 'https://example.com/api/data');
   });
   
   it('should skip interception for auth endpoints', () => {
     const authReq = new HttpRequest('GET', 'https://example.com/api/auth/user');
-    
-    // Call the interceptor
-    authInterceptor(authReq, nextHandlerFn);
-    
+    // Call the interceptor inside Angular injection context
+    TestBed.runInInjectionContext(() => {
+      authInterceptor(authReq, nextHandlerFn);
+    });
     // Should call next handler with the original request
     expect(nextHandlerFn).toHaveBeenCalledWith(authReq);
   });
   
   it('should add fetch header to non-auth requests', () => {
-    // Call the interceptor
-    authInterceptor(req, nextHandlerFn);
-    
+    // Call the interceptor inside Angular injection context
+    TestBed.runInInjectionContext(() => {
+      authInterceptor(req, nextHandlerFn);
+    });
     // Verify the request was modified with the fetch header
     expect(nextHandlerFn).toHaveBeenCalled();
-    const modifiedReq = (nextHandlerFn as any).mock.calls[0][0] as HttpRequest<unknown>;
+    const modifiedReq = nextHandlerFn.mock.calls[0][0] as HttpRequest<unknown>;
     expect(modifiedReq.headers.has('fetch')).toBe(true);
     expect(modifiedReq.headers.get('fetch')).toBe('true');
   });
@@ -55,13 +59,10 @@ describe('AuthInterceptor', () => {
         statusText: 'Unauthorized'
       }))
     );
-    
-    // Call the interceptor
-    const result = authInterceptor(req, nextHandlerFn);
-    
+    // Call the interceptor inside Angular injection context
+    const result = TestBed.runInInjectionContext(() => authInterceptor(req, nextHandlerFn));
     // Subscribe to the result to ensure the observable completes
     result.subscribe();
-    
     // Verify login was called with the concatenated path and search from the mock window location
     expect(login).toHaveBeenCalled();
     // We can't test the exact path because we can't mock window.location,
@@ -74,19 +75,19 @@ describe('AuthInterceptor', () => {
       status: 500,
       statusText: 'Server Error'
     });
-    
+
     nextHandlerFn = vi.fn().mockReturnValue(throwError(() => testError));
-    
+
     // Set up console.error spy to prevent error output in test
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {
       // Do nothing with console errors during this test 
       return;
     });
-    
+
     try {
       // Get the observable but don't subscribe to it
-      const result = authInterceptor(req, nextHandlerFn);
-      
+      const result = TestBed.runInInjectionContext(() => authInterceptor(req, nextHandlerFn));
+
       // To properly test that the error is propagated, we need to subscribe
       // but catch the error to prevent unhandled rejections
       result.subscribe({
@@ -105,7 +106,7 @@ describe('AuthInterceptor', () => {
       // Restore console.error
       consoleSpy.mockRestore();
     }
-    
+
     // Verify login was not called for this non-401 error
     expect(login).not.toHaveBeenCalled();
   });

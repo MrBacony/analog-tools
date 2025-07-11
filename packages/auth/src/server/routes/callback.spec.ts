@@ -61,6 +61,7 @@ describe('callback route', () => {
     mockAuthService = {
       initSession: vi.fn().mockResolvedValue(undefined),
       handleCallback: vi.fn().mockResolvedValue(undefined),
+      isAuthenticated: vi.fn().mockResolvedValue(false),
     };
 
     registerMockService(OAuthAuthenticationService, mockAuthService);

@@ -6,12 +6,13 @@ import { AuthService } from './auth.service';
 import { expect, vi, describe, it, beforeEach } from 'vitest';
 
 describe('Auth Guards', () => {
-  let authService: { isAuthenticated: any; login: any; hasRoles: any };
+  let authService: { isAuthenticated: any; isAuthenticatedAsync: any; login: any; hasRoles: any };
   let router: { navigate: any; url: string };
   
   beforeEach(() => {
     authService = {
       isAuthenticated: vi.fn(),
+      isAuthenticatedAsync: vi.fn(),
       login: vi.fn(),
       hasRoles: vi.fn()
     };
@@ -29,25 +30,25 @@ describe('Auth Guards', () => {
   });
 
   describe('authGuard', () => {
-    it('should allow access when user is authenticated', () => {
-      authService.isAuthenticated.mockReturnValue(true);
-      
+    it('should allow access when user is authenticated', async () => {
+      authService.isAuthenticatedAsync.mockResolvedValue(true);
+
       const route = {} as unknown as ActivatedRouteSnapshot;
       const state = { url: '/profile' } as unknown as RouterStateSnapshot;
-      
-      const result = TestBed.runInInjectionContext(() => authGuard(route, state));
-      
+
+      const result = await TestBed.runInInjectionContext(() => authGuard(route, state));
+
       expect(result).toBe(true);
     });
     
-    it('should redirect to login when user is not authenticated', () => {
-      authService.isAuthenticated.mockReturnValue(false);
-      
+    it('should redirect to login when user is not authenticated', async () => {
+      authService.isAuthenticatedAsync.mockResolvedValue(false);
+
       const route = {} as unknown as ActivatedRouteSnapshot;
       const state = { url: '/profile' } as unknown as RouterStateSnapshot;
-      
-      const result = TestBed.runInInjectionContext(() => authGuard(route, state));
-      
+
+      const result = await TestBed.runInInjectionContext(() => authGuard(route, state));
+
       expect(result).toBe(false);
       expect(authService.login).toHaveBeenCalledWith('/profile');
     });

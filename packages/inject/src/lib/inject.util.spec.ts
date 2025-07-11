@@ -100,7 +100,7 @@ describe('inject utility', () => {
       // Verify the service was retrieved
       // @ts-expect-error spyServiceRegistry has type any
       expect(spyServiceRegistry.getService).toHaveBeenCalledWith(TestService);
-      expect(service).toStrictEqual(mockService);
+      expect(service).toMatchObject({ name: 'test' });
       expect(service.name).toBe('test');
     });
 

@@ -44,7 +44,26 @@ export class AuthService implements OnDestroy {
   private httpClient = inject(HttpClient);
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
 
-  // Auth state
+  // Auth state - order matters: isAuthenticatedResource and isAuthenticated must be defined first
+  readonly isAuthenticatedResource = httpResource<boolean>(
+    () => ({
+      url: '/api/auth/authenticated',
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+      },
+      withCredentials: true,
+    }),
+    {
+      defaultValue: false,
+      parse: (value: unknown) => {
+        return (value as { authenticated: boolean }).authenticated;
+      },
+    }
+  );
+
+  readonly isAuthenticated = this.isAuthenticatedResource.asReadonly().value;
+
   readonly userResource = httpResource<AuthUser | null>(
     () => {
       if (this.isAuthenticated()) {
@@ -65,25 +84,7 @@ export class AuthService implements OnDestroy {
     { defaultValue: null }
   );
 
-  readonly isAuthenticatedResource = httpResource<boolean>(
-    () => ({
-      url: '/api/auth/authenticated',
-      method: 'GET',
-      headers: {
-        accept: 'application/json',
-      },
-      withCredentials: true,
-    }),
-    {
-      defaultValue: false,
-      parse: (value: unknown) => {
-        return (value as { authenticated: boolean }).authenticated;
-      },
-    }
-  );
-
   readonly user = this.userResource.asReadonly().value;
-  readonly isAuthenticated = this.isAuthenticatedResource.asReadonly().value;
 
   constructor() {
     // Check authentication status on startup
@@ -98,7 +99,7 @@ export class AuthService implements OnDestroy {
 
     effect(() => {
       // Automatically fetch user profile when authenticated
-      if (this.isAuthenticatedResource.value()) {
+      if (this.isAuthenticated()) {
         this.userResource.reload();
       }
     });
