@@ -64,6 +64,18 @@ export enum ColorEnum {
   PureWhite = '\x1b[97m',
   PureBlackBg = '\x1b[40m',
   PureWhiteBg = '\x1b[107m',
+
+  // Cyan shade
+  Cyan = '\x1b[36m',
+
+  // Formatting codes
+  Reset = '\x1b[0m',
+  Bold = '\x1b[1m',
+  Dim = '\x1b[2m',
+  Underline = '\x1b[4m',
+  Blink = '\x1b[5m',
+  Reverse = '\x1b[7m',
+  Hidden = '\x1b[8m',
 }
 
 /**
