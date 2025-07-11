@@ -2,7 +2,12 @@
  * Nitro specific utilities for integrating the LoggerService
  */
 
-import { EventHandler, H3Event, defineEventHandler, EventHandlerRequest } from 'h3';
+import {
+  defineEventHandler,
+  EventHandler,
+  EventHandlerRequest,
+  H3Event,
+} from 'h3';
 import { inject } from '@analog-tools/inject';
 import { LoggerService } from '../index';
 import { LogLevel } from './logger.types';
@@ -50,7 +55,7 @@ export function withLogging<T extends EventHandlerRequest>(
       const result = await handler(event);
 
       const duration = Date.now() - start;
-      
+
       // Map LogLevel to LoggerService method name
       const logMethodMap: Record<LogLevel, keyof LoggerService | undefined> = {
         trace: 'trace',
@@ -63,12 +68,15 @@ export function withLogging<T extends EventHandlerRequest>(
       };
       const method = logMethodMap[level];
       if (method && typeof logger[method] === 'function') {
-        (logger[method] as typeof logger.debug).call(logger, `Request completed in ${duration}ms`, {
-          method: event.method,
-          path: event.path,
-          duration,
-          ...(logResponse && result ? { response: result } : {}),
-        });
+        (logger[method] as typeof logger.debug)(
+          `Request completed in ${duration}ms`,
+          {
+            method: event.method,
+            path: event.path,
+            duration,
+            ...(logResponse && result ? { response: result } : {}),
+          }
+        );
       }
 
       return result;
