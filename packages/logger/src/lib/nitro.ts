@@ -2,7 +2,7 @@
  * Nitro specific utilities for integrating the LoggerService
  */
 
-import { EventHandler, defineEventHandler, EventHandlerRequest } from 'h3';
+import { EventHandler, H3Event, defineEventHandler, EventHandlerRequest } from 'h3';
 import { inject } from '@analog-tools/inject';
 import { LoggerService } from '../index';
 import { LogLevel } from './logger.types';
@@ -42,8 +42,8 @@ export function withLogging<T extends EventHandlerRequest>(
 ): EventHandler<T> {
   const { namespace = 'api', level = 'debug', logResponse = false } = options;
 
-  return defineEventHandler(async (event) => {
-    const logger = inject(LoggerService).forContext(namespace);;
+  return defineEventHandler(async (event: H3Event) => {
+    const logger = inject(LoggerService).forContext(namespace);
     const start = Date.now();
 
     try {

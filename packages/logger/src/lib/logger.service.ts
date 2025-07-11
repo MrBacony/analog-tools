@@ -1,22 +1,21 @@
 /**
  * Logger service using standard console for logging
  * Designed to be used with the @analog-tools/inject package
+ * Refactored to use LoggerStyleEngine for styling and formatting
  */
 
 import {
-  ColorEnum,
-  Icon,
   isValidLogLevel,
   LoggerConfig,
   LogStyling,
   LogContext,
-  SemanticStyleName,
 } from './logger.types';
 import {
   ErrorParam,
   ErrorSerializer,
   StructuredError,
 } from './error-serialization';
+import { LoggerStyleEngine } from './logger-style-engine';
 import { DEFAULT_ICON_SCHEME, DEFAULT_STYLE_SCHEME } from './logger.config';
 
 // Log level enumeration to match standard console methods
@@ -31,59 +30,10 @@ export enum LogLevelEnum {
 }
 
 /**
- * ANSI color codes for console output
- */
-const Colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  underscore: '\x1b[4m',
-  blink: '\x1b[5m',
-  reverse: '\x1b[7m',
-  hidden: '\x1b[8m',
-
-  fg: {
-    black: '\x1b[30m',
-    red: '\x1b[31m',
-    green: '\x1b[32m',
-    yellow: '\x1b[33m',
-    blue: '\x1b[34m',
-    magenta: '\x1b[35m',
-    cyan: '\x1b[36m',
-    white: '\x1b[37m',
-    gray: '\x1b[90m',
-  },
-
-  bg: {
-    black: '\x1b[40m',
-    red: '\x1b[41m',
-    green: '\x1b[42m',
-    yellow: '\x1b[43m',
-    blue: '\x1b[44m',
-    magenta: '\x1b[45m',
-    cyan: '\x1b[46m',
-    white: '\x1b[47m',
-    gray: '\x1b[100m',
-  },
-};
-
-/**
- * Color mapping for different log levels
- */
-const LogLevelColors: Record<keyof typeof LogLevelEnum, string> = {
-  trace: Colors.fg.gray,
-  debug: Colors.fg.cyan,
-  info: Colors.fg.green,
-  warn: Colors.fg.yellow,
-  error: Colors.fg.red,
-  fatal: `${Colors.bright}${Colors.fg.red}`,
-  silent: Colors.reset,
-};
-
-/**
  * Logger service implementation using standard console
  * Can be injected using the @analog-tools/inject package
  * Serves as both the main logger and child logger with context
+ * Uses LoggerStyleEngine for all formatting and styling operations
  */
 export class LoggerService {
   /**
@@ -96,32 +46,25 @@ export class LoggerService {
   private name: string;
   private childLoggers: Record<string, LoggerService> = {};
   private disabledContexts: string[] = [];
-  private useColors: boolean;
   // Track active groups for indentation
   private activeGroups: string[] = [];
-  // Global style and icon configuration
-  private globalStyles: Partial<
-    Record<
-      SemanticStyleName,
-      { color: ColorEnum; bold?: boolean; underline?: boolean }
-    >
-  > = {};
-  private globalIcons: Partial<
-    Record<'success' | 'warning' | 'error' | 'info' | 'debug', Icon>
-  > = {};
 
   // Properties for child loggers
   private context?: string;
   private parentLogger?: LoggerService;
+  // Style engine for formatting
+  private styleEngine: LoggerStyleEngine;
 
   /**
    * Create a new LoggerService
    * @param config The logger configuration
+   * @param styleEngine Optional style engine (will be created if not provided)
    * @param context Optional context for child logger
    * @param parent Optional parent logger for child logger
    */
   constructor(
     private config: LoggerConfig = {},
+    styleEngine?: LoggerStyleEngine,
     context?: string,
     parent?: LoggerService
   ) {
@@ -132,29 +75,25 @@ export class LoggerService {
       this.context = context;
       // Inherit settings from parent
       this.logLevel = parent.getLogLevel();
-      this.useColors = parent.getUseColors();
-      this.globalStyles = parent.globalStyles;
-      this.globalIcons = parent.globalIcons;
+      this.styleEngine = parent.styleEngine; // Share style engine with parent
     } else {
       // Root logger setup
       this.logLevel = this.castLoglevel(
         config.level || process.env['LOG_LEVEL'] || 'info'
       );
       this.name = config.name || 'analog-tools';
-      // Detect test environment and disable colors in tests unless explicitly enabled
-      const isTestEnvironment =
-        process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
-      this.useColors =
-        config.useColors !== undefined ? config.useColors : !isTestEnvironment;
       this.setDisabledContexts(
         config.disabledContexts ??
           process.env['LOG_DISABLED_CONTEXTS']?.split(',') ??
           []
       );
 
-      // Initialize global styles and icons
-      this.globalStyles = { ...DEFAULT_STYLE_SCHEME, ...config.styles };
-      this.globalIcons = { ...DEFAULT_ICON_SCHEME, ...config.icons };
+      // Initialize style engine
+      this.styleEngine = styleEngine || new LoggerStyleEngine({
+        useColors: config.useColors,
+        styles: { ...DEFAULT_STYLE_SCHEME, ...config.styles },
+        icons: { ...DEFAULT_ICON_SCHEME, ...config.icons },
+      });
     }
   }
 
@@ -201,7 +140,9 @@ export class LoggerService {
    * @param enabled Whether colors should be enabled
    */
   setUseColors(enabled: boolean): void {
-    this.useColors = enabled;
+    // For root logger, update style engine
+    const rootLogger = this.parentLogger || this;
+    rootLogger.styleEngine.setUseColors(enabled);
   }
 
   /**
@@ -209,7 +150,9 @@ export class LoggerService {
    * @returns Whether colors are enabled
    */
   getUseColors(): boolean {
-    return this.useColors;
+    // For child loggers, get from root logger's style engine
+    const rootLogger = this.parentLogger || this;
+    return rootLogger.styleEngine.getUseColors();
   }
 
   /**
@@ -219,7 +162,7 @@ export class LoggerService {
    */
   forContext(context: string): LoggerService {
     if (!this.childLoggers[context]) {
-      this.childLoggers[context] = new LoggerService({}, context, this);
+      this.childLoggers[context] = new LoggerService({}, undefined, context, this);
     }
 
     return this.childLoggers[context];
@@ -237,9 +180,13 @@ export class LoggerService {
     const groups = this.parentLogger?.activeGroups || this.activeGroups;
     groups.push(groupName);
 
-    console.group(
-      `${this.formatMessage(LogLevelEnum.info, `Group: ${groupName}`)} ▼`
+    const formattedMessage = this.styleEngine.formatMessage(
+      LogLevelEnum.info,
+      `Group: ${groupName}`,
+      this.name,
+      this.context
     );
+    console.group(`${formattedMessage} ▼`);
   }
 
   /**
@@ -287,20 +234,27 @@ export class LoggerService {
   ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.trace) return;
 
-    const { metadata, restData } = this.parseMetadataParameter(
+    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
       metadataOrData,
       data
     );
 
     if (metadata) {
-      const formattedMessage = this.formatMessageWithMetadata(
+      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.trace,
         message,
-        metadata
+        this.name,
+        metadata,
+        this.context
       );
       console.trace(formattedMessage, ...(restData || []));
     } else {
-      const formattedMessage = this.formatMessage(LogLevelEnum.trace, message);
+      const formattedMessage = this.styleEngine.formatMessage(
+        LogLevelEnum.trace,
+        message,
+        this.name,
+        this.context
+      );
       console.trace(formattedMessage, ...(restData || []));
     }
   }
@@ -320,20 +274,27 @@ export class LoggerService {
   ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.debug) return;
 
-    const { metadata, restData } = this.parseMetadataParameter(
+    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
       metadataOrData,
       data
     );
 
     if (metadata) {
-      const formattedMessage = this.formatMessageWithMetadata(
+      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.debug,
         message,
-        metadata
+        this.name,
+        metadata,
+        this.context
       );
       console.debug(formattedMessage, ...(restData || []));
     } else {
-      const formattedMessage = this.formatMessage(LogLevelEnum.debug, message);
+      const formattedMessage = this.styleEngine.formatMessage(
+        LogLevelEnum.debug,
+        message,
+        this.name,
+        this.context
+      );
       console.debug(formattedMessage, ...(restData || []));
     }
   }
@@ -353,20 +314,27 @@ export class LoggerService {
   ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.info) return;
 
-    const { metadata, restData } = this.parseMetadataParameter(
+    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
       metadataOrData,
       data
     );
 
     if (metadata) {
-      const formattedMessage = this.formatMessageWithMetadata(
+      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.info,
         message,
-        metadata
+        this.name,
+        metadata,
+        this.context
       );
       console.info(formattedMessage, ...(restData || []));
     } else {
-      const formattedMessage = this.formatMessage(LogLevelEnum.info, message);
+      const formattedMessage = this.styleEngine.formatMessage(
+        LogLevelEnum.info,
+        message,
+        this.name,
+        this.context
+      );
       console.info(formattedMessage, ...(restData || []));
     }
   }
@@ -386,20 +354,27 @@ export class LoggerService {
   ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.warn) return;
 
-    const { metadata, restData } = this.parseMetadataParameter(
+    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
       metadataOrData,
       data
     );
 
     if (metadata) {
-      const formattedMessage = this.formatMessageWithMetadata(
+      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.warn,
         message,
-        metadata
+        this.name,
+        metadata,
+        this.context
       );
       console.warn(formattedMessage, ...(restData || []));
     } else {
-      const formattedMessage = this.formatMessage(LogLevelEnum.warn, message);
+      const formattedMessage = this.styleEngine.formatMessage(
+        LogLevelEnum.warn,
+        message,
+        this.name,
+        this.context
+      );
       console.warn(formattedMessage, ...(restData || []));
     }
   }
@@ -474,10 +449,12 @@ export class LoggerService {
       }
     }
 
-    const formattedMessage = this.formatMessageWithMetadata(
+    const formattedMessage = this.styleEngine.formatMessageWithMetadata(
       LogLevelEnum.error,
       message,
-      styling
+      this.name,
+      styling,
+      this.context
     );
 
     const errorParam: unknown[] = [formattedMessage];
@@ -547,10 +524,12 @@ export class LoggerService {
     ) {
       // This is the case: fatal(message, LogStyling)
       const styling = errorOrContext as LogStyling;
-      const formattedMessage = this.formatMessageWithMetadata(
+      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.fatal,
         `FATAL: ${messageOrError}`,
-        styling
+        this.name,
+        styling,
+        this.context
       );
       console.error(formattedMessage);
       return;
@@ -582,10 +561,12 @@ export class LoggerService {
       }
     }
 
-    const formattedMessage = this.formatMessageWithMetadata(
+    const formattedMessage = this.styleEngine.formatMessageWithMetadata(
       LogLevelEnum.fatal,
       `FATAL: ${message}`,
-      styling
+      this.name,
+      styling,
+      this.context
     );
 
     const errorParam: unknown[] = [formattedMessage];
@@ -771,422 +752,5 @@ export class LoggerService {
       `[LoggerService] Invalid log level "${level}". Falling back to "info". Valid levels: trace, debug, info, warn, error, fatal, silent`
     );
     return LogLevelEnum.info;
-  }
-
-  /**
-   * Get color for a specific log level
-   * @param level The log level
-   * @returns ANSI color code for the log level
-   * @private
-   */
-  private getColorForLevel(level: LogLevelEnum): string {
-    switch (level) {
-      case LogLevelEnum.trace:
-        return LogLevelColors.trace;
-      case LogLevelEnum.debug:
-        return LogLevelColors.debug;
-      case LogLevelEnum.info:
-        return LogLevelColors.info;
-      case LogLevelEnum.warn:
-        return LogLevelColors.warn;
-      case LogLevelEnum.error:
-        return LogLevelColors.error;
-      case LogLevelEnum.fatal:
-        return LogLevelColors.fatal;
-      default:
-        return Colors.reset;
-    }
-  }
-
-  /**
-   * Format a log message with color and proper prefix
-   * @param level Log level for the message
-   * @param message The message to format
-   * @param overrideColor Optional color override for the message
-   * @returns Formatted message with color
-   * @private
-   */
-  private formatMessage(
-    level: LogLevelEnum,
-    message: string,
-    overrideColor?: string
-  ): string {
-    const prefix = this.context
-      ? `[${this.name}:${this.context}]`
-      : `[${this.name}]`;
-
-    if (this.useColors) {
-      let color = this.getColorForLevel(level);
-      if (overrideColor) {
-        color = overrideColor;
-      }
-      return `${color}${prefix} ${message}${Colors.reset}`;
-    } else {
-      return `${prefix} ${message}`;
-    }
-  }
-
-  /**
-   * Parse metadata parameter to separate metadata from additional data
-   * @param metadataOrData - Could be LogStyling or additional data
-   * @param data - Additional data parameters
-   * @returns Parsed metadata and remaining data
-   * @private
-   */
-  private parseMetadataParameter(
-    metadataOrData?: LogStyling | unknown,
-    data: unknown[] = []
-  ): { metadata?: LogStyling; restData: unknown[] } {
-    // Build all parameters array
-    const allParams =
-      metadataOrData !== undefined ? [metadataOrData, ...data] : data;
-
-    // Check if the last parameter is LogStyling
-    if (allParams.length > 0) {
-      const lastParam = allParams[allParams.length - 1];
-
-      if (
-        lastParam &&
-        typeof lastParam === 'object' &&
-        !Array.isArray(lastParam) &&
-        ('style' in lastParam || 'icon' in lastParam)
-      ) {
-        return {
-          metadata: lastParam as LogStyling,
-          restData: allParams.slice(0, -1), // Return all but the last parameter
-        };
-      }
-    }
-
-    // If no metadata found, return all parameters as data
-    return {
-      metadata: undefined,
-      restData: allParams,
-    };
-  }
-
-  /**
-   * Format message with metadata-based styling and icons
-   * @param level - Log level
-   * @param message - Message to format
-   * @param metadata - Optional metadata for styling
-   * @returns Formatted message with styling and icons
-   * @private
-   */
-  private formatMessageWithMetadata(
-    level: LogLevelEnum,
-    message: string,
-    styling?: LogStyling
-  ): string {
-    let formattedMessage = message;
-    let color = this.getColorForLevel(level);
-
-    // Apply styling if provided
-    if (styling?.style) {
-      const appliedColor = this.applyStyle(styling.style);
-      if (appliedColor) {
-        color = appliedColor;
-      }
-    }
-
-    // Add icon if provided
-    if (styling?.icon) {
-      const icon = this.resolveIcon(styling.icon);
-      formattedMessage = `${icon} ${message}`;
-    }
-
-    // Use existing formatMessage with override color
-    return this.formatMessage(level, formattedMessage, color);
-  }
-
-  /**
-   * Apply style configuration and return ANSI color code
-   * @param style - Style configuration (semantic name or custom config)
-   * @returns ANSI color code or undefined if invalid
-   * @private
-   */
-  private applyStyle(
-    style:
-      | SemanticStyleName
-      | { color: ColorEnum; bold?: boolean; underline?: boolean }
-  ): string | undefined {
-    if (typeof style === 'string') {
-      // Handle semantic style names
-      return this.getSemanticStyleColor(style);
-    } else if (typeof style === 'object' && style.color) {
-      // Validate color is a member of ColorEnum
-      const color = style.color;
-      const isValidColor = Object.values(ColorEnum).includes(color);
-      if (!isValidColor) {
-        // Silently ignore invalid/malicious color values for security
-        return undefined;
-      }
-      let styleCode = color;
-      if (style.bold === true) {
-        styleCode += '\x1b[1m'; // Add bold modifier
-      }
-      if (style.underline === true) {
-        styleCode += '\x1b[4m'; // Add underline modifier
-      }
-      return styleCode;
-    }
-
-    // Log warning for unknown style and fallback
-    console.warn(
-      `[${
-        this.context ? `${this.name}:${this.context}` : this.name
-      }] Unknown style provided: ${JSON.stringify(
-        style
-      )}. Falling back to default.`
-    );
-    return undefined;
-  }
-
-  /**
-   * Get ANSI color code for semantic style names
-   * @param styleName - Semantic style name
-   * @returns ANSI color code or undefined if unknown
-   * @private
-   */
-  private getSemanticStyleColor(
-    styleName: SemanticStyleName
-  ): string | undefined {
-    // Get style from global configuration or fall back to defaults
-    const rootLogger = this.parentLogger || this;
-    const styleConfig = rootLogger.globalStyles[styleName];
-
-    if (styleConfig) {
-      let styleCode = styleConfig.color.toString();
-      if (styleConfig.bold) {
-        styleCode += '\x1b[1m';
-      }
-      if (styleConfig.underline) {
-        styleCode += '\x1b[4m';
-      }
-      return styleCode;
-    }
-
-    // Log warning for unknown semantic style and fallback
-    console.warn(
-      `[${
-        this.context ? `${this.name}:${this.context}` : this.name
-      }] Unknown semantic style: ${styleName}. Falling back to default.`
-    );
-    return undefined;
-  }
-
-  /**
-   * Resolve icon to emoji character
-   * @param icon - Icon name or custom string
-   * @returns Emoji character
-   * @private
-   */
-  private resolveIcon(icon: Icon | string): string {
-    // If it's already an emoji (Icon type), return as-is
-    if (this.isEmojiIcon(icon)) {
-      return icon;
-    }
-
-    // Check if it's a semantic icon name in our global configuration
-    const rootLogger = this.parentLogger || this;
-    const semanticIconKeys = [
-      'success',
-      'warning',
-      'error',
-      'info',
-      'debug',
-    ] as const;
-    const semanticIcon = semanticIconKeys.find((key) => key === icon);
-
-    if (semanticIcon && rootLogger.globalIcons[semanticIcon]) {
-      return rootLogger.globalIcons[semanticIcon] as string;
-    }
-
-    // Differentiate between unknown semantic icons and invalid icons
-    if (
-      semanticIconKeys.includes(
-        icon as 'success' | 'warning' | 'error' | 'info' | 'debug'
-      )
-    ) {
-      console.warn(
-        `[${
-          this.context ? `${this.name}:${this.context}` : this.name
-        }] Unknown icon: ${icon}. Expected a valid emoji or semantic icon name.`
-      );
-    } else {
-      console.warn(
-        `[${
-          this.context ? `${this.name}:${this.context}` : this.name
-        }] Invalid icon: ${icon}. Expected a valid emoji or semantic icon name.`
-      );
-    }
-
-    return icon;
-  }
-
-  /**
-   * Check if the provided icon is a valid emoji from our Icon type
-   * @param icon - Icon to check
-   * @returns True if it's a valid emoji icon
-   * @private
-   */
-  private isEmojiIcon(icon: string): icon is Icon {
-    const validEmojis: Icon[] = [
-      '✅',
-      '⚠️',
-      '❌',
-      'ℹ️',
-      '🐞',
-      '⭐️',
-      '🚀',
-      '🔥',
-      '✔️',
-      '✖️',
-      '❓',
-      '🔒',
-      '🔓',
-      '⏳',
-      '🕒',
-      '⬆️',
-      '⬇️',
-      '➡️',
-      '⬅️',
-      '📁',
-      '📄',
-      '👤',
-      '👥',
-      '✏️',
-      '➕',
-      '➖',
-      '🔔',
-      '⚡️',
-      '🎁',
-      '🐛',
-      '🌟',
-      '❤️',
-      '👀',
-      '⚙️',
-      '🔧',
-      '🔨',
-      '🔑',
-      '🎉',
-      '📝',
-      '🚨',
-      '📅',
-      '💡',
-      '🔍',
-      '🔗',
-      '🔖',
-      '📌',
-      '📎',
-      '✉️',
-      '📞',
-      '🌍',
-      '☁️',
-      '🌈',
-      '🌙',
-      '☀️',
-      '❄️',
-      '✨',
-      '🎵',
-      '📷',
-      '🎥',
-      '🎤',
-      '🔊',
-      '🔋',
-      '🗑️',
-      '💰',
-      '💳',
-      '🎂',
-      '🏅',
-      '🏆',
-      '👑',
-      '🛸',
-      '🛡️',
-      '🛑',
-      '▶️',
-      '⏸️',
-      '⏺️',
-      '⏪',
-      '⏩',
-      '🔁',
-      '🔀',
-      '🎲',
-      '🎈',
-      '🍪',
-      '☕️',
-      '🍵',
-      '🍺',
-      '🍷',
-      '🍕',
-      '🍔',
-      '🍟',
-      '🍎',
-      '🍌',
-      '🍒',
-      '🍋',
-      '🥕',
-      '🌽',
-      '🥦',
-      '🥚',
-      '🧀',
-      '🍞',
-      '🍰',
-      '🍦',
-      '🍫',
-      '🍿',
-      '🥓',
-      '🍤',
-      '🐟',
-      '🦀',
-      '🐙',
-      '🐋',
-      '🐬',
-      '🐧',
-      '🐸',
-      '🐢',
-      '🐍',
-      '🐉',
-      '🦄',
-      '🐱',
-      '🐶',
-      '🐭',
-      '🐰',
-      '🐻',
-      '🐼',
-      '🐨',
-      '🐯',
-      '🦁',
-      '🐒',
-      '🐘',
-      '🐎',
-      '🐄',
-      '🐖',
-      '🐑',
-      '🐔',
-      '🦆',
-      '🦢',
-      '🦉',
-      '🦅',
-      '🦜',
-      '🦚',
-      '🦩',
-      '🦋',
-      '🐝',
-      '🐜',
-      '🐞',
-      '🕷️',
-      '🦂',
-      '🐌',
-      '🪱',
-      '🐛',
-      '🦗',
-      '🦟',
-      '🪰',
-      '🪳',
-      '🪲',
-    ];
-
-    return validEmojis.includes(icon as Icon);
   }
 }
