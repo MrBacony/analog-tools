@@ -44,7 +44,7 @@ describe('getStore', () => {
   it('should throw error for unsupported store type', () => {
     const config = { prefix: 'test-prefix' };
     // @ts-expect-error - Testing invalid store type
-    expect(() => getStore('invalid', config)).toThrow(
+    expect(() => registerStorage('invalid', config)).toThrow(
       'Unsupported session store type: invalid'
     );
   });
