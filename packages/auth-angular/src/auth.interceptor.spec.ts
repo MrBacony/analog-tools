@@ -3,7 +3,11 @@ import { HttpErrorResponse, HttpRequest, HttpEvent, HttpHandlerFn } from '@angul
 import { authInterceptor } from './auth.interceptor';
 import { of, throwError } from 'rxjs';
 import { expect, vi, describe, it, beforeEach } from 'vitest';
-import * as routerTokens from '@analogjs/router/tokens';
+
+// Mock the router tokens module
+vi.mock('@analogjs/router/tokens', () => ({
+  injectRequest: vi.fn().mockReturnValue(undefined),
+}));
 
 // Mock the login function
 vi.mock('./functions/login', () => ({
@@ -16,11 +20,6 @@ describe('AuthInterceptor', () => {
   let nextHandlerFn: HttpHandlerFn;
   let req: HttpRequest<unknown>;
   
-  beforeAll(() => {
-    // Mock injectRequest to avoid injection errors (only once)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.spyOn(routerTokens, 'injectRequest').mockReturnValue(undefined as any);
-  });
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks();
