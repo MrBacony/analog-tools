@@ -605,7 +605,9 @@ describe('LoggerService', () => {
 
       expect(mockConsole.info).toHaveBeenCalledTimes(1);
       expect(mockConsole.warn).toHaveBeenCalledTimes(1);
-      expect(mockConsole.warn.mock.calls[0][0]).toContain('[styled-logger] Invalid icon: unknown. Expected a valid emoji or semantic icon name.');
+      expect(mockConsole.warn.mock.calls[0][0]).toContain(
+        '[styled-logger] Invalid icon: unknown. Expected a valid emoji or semantic icon name.'
+      );
     });
 
     it('should handle invalid icon (not emoji) gracefully', () => {
@@ -794,8 +796,8 @@ describe('LoggerService', () => {
       expect(mockConsole.info).toHaveBeenCalledTimes(1);
       const call = mockConsole.info.mock.calls[0];
       expect(call[0]).toContain('Invalid color test');
-      // Should contain the invalid color string as-is
-      expect(call[0]).toContain('invalid');
+      // Should NOT contain the invalid color string
+      expect(call[0]).not.toContain('invalid');
     });
 
     it('should handle null and undefined metadata gracefully', () => {
@@ -810,11 +812,13 @@ describe('LoggerService', () => {
     it('should handle circular reference in metadata', () => {
       const circularObj: Record<string, unknown> = { prop: 'value' };
       circularObj['self'] = circularObj;
-      
+
       styledLogger.info('Circular reference test', circularObj);
 
       expect(mockConsole.info).toHaveBeenCalledTimes(1);
-      expect(mockConsole.info.mock.calls[0][0]).toContain('Circular reference test');
+      expect(mockConsole.info.mock.calls[0][0]).toContain(
+        'Circular reference test'
+      );
       expect(mockConsole.info.mock.calls[0][1]).toBe(circularObj);
     });
 
@@ -822,7 +826,7 @@ describe('LoggerService', () => {
       const level1 = styledLogger.forContext('level1');
       const level2 = level1.forContext('level2');
       const level3 = level2.forContext('level3');
-      
+
       level3.info('Deep nested message', { style: 'success', icon: '🚀' });
 
       expect(mockConsole.info).toHaveBeenCalledTimes(1);
@@ -834,7 +838,7 @@ describe('LoggerService', () => {
 
     it('should handle rapid consecutive logging calls', () => {
       const metadata: LogStyling = { style: 'highlight', icon: '⚡️' };
-      
+
       for (let i = 0; i < 10; i++) {
         styledLogger.info(`Message ${i}`, metadata);
       }
@@ -851,12 +855,15 @@ describe('LoggerService', () => {
         style: 'info',
         icon: '📊',
         // Add additional properties to test large metadata
-        data: Array.from({ length: 100 }, (_, i) => ({ id: i, value: `item${i}` })),
+        data: Array.from({ length: 100 }, (_, i) => ({
+          id: i,
+          value: `item${i}`,
+        })),
         timestamp: Date.now(),
         environment: 'test',
         version: '1.0.0',
       } as LogStyling;
-      
+
       styledLogger.info('Large metadata test', largeMetadata);
 
       expect(mockConsole.info).toHaveBeenCalledTimes(1);
@@ -869,7 +876,7 @@ describe('LoggerService', () => {
     it('should handle mixed valid and invalid icons in rapid succession', () => {
       const validIcon: LogStyling = { icon: '✅' };
       const invalidIcon: LogStyling = { icon: 'not-an-emoji' };
-      
+
       styledLogger.info('Valid icon', validIcon);
       styledLogger.info('Invalid icon', invalidIcon);
 
@@ -885,7 +892,7 @@ describe('LoggerService', () => {
         style: { color: ColorEnum.RoyalPurple, bold: true, underline: true },
         icon: '🎨',
       };
-      
+
       styledLogger.info('Full formatting test', metadata);
 
       expect(mockConsole.info).toHaveBeenCalledTimes(1);
@@ -902,29 +909,35 @@ describe('LoggerService', () => {
     it('should handle logger creation with empty config', () => {
       const emptyLogger = new LoggerService({});
       expect(emptyLogger).toBeDefined();
-      
+
       emptyLogger.info('Empty config test');
-      expect(mockConsole.info).toHaveBeenCalledWith('[analog-tools] Empty config test');
+      expect(mockConsole.info).toHaveBeenCalledWith(
+        '[analog-tools] Empty config test'
+      );
     });
 
     it('should handle multiple child loggers with same context', () => {
       const child1 = loggerService.forContext('same-context');
       const child2 = loggerService.forContext('same-context');
-      
+
       expect(child1).toBe(child2); // Should be the same instance
-      
+
       child1.info('First message');
       child2.info('Second message');
-      
+
       expect(mockConsole.info).toHaveBeenCalledTimes(2);
-      expect(mockConsole.info.mock.calls[0][0]).toContain('[test-logger:same-context]');
-      expect(mockConsole.info.mock.calls[1][0]).toContain('[test-logger:same-context]');
+      expect(mockConsole.info.mock.calls[0][0]).toContain(
+        '[test-logger:same-context]'
+      );
+      expect(mockConsole.info.mock.calls[1][0]).toContain(
+        '[test-logger:same-context]'
+      );
     });
 
     it('should handle extremely long log messages', () => {
       const longMessage = 'A'.repeat(1000);
       const metadata: LogStyling = { style: 'info', icon: '📝' };
-      
+
       loggerService.info(longMessage, metadata);
 
       expect(mockConsole.info).toHaveBeenCalledTimes(1);
@@ -936,23 +949,126 @@ describe('LoggerService', () => {
     it('should handle setting disabled contexts dynamically', () => {
       const dynamicLogger = new LoggerService({ name: 'dynamic-logger' });
       const childLogger = dynamicLogger.forContext('dynamic-context');
-      
+
       // Initially should log
       childLogger.info('Initial message');
-      expect(mockConsole.info).toHaveBeenCalledWith('[dynamic-logger:dynamic-context] Initial message');
-      
+      expect(mockConsole.info).toHaveBeenCalledWith(
+        '[dynamic-logger:dynamic-context] Initial message'
+      );
+
       // Disable context
       dynamicLogger.setDisabledContexts(['dynamic-context']);
       childLogger.info('Should not log');
-      
+
       // Should still have only 1 call
       expect(mockConsole.info).toHaveBeenCalledTimes(1);
-      
+
       // Re-enable context
       dynamicLogger.setDisabledContexts([]);
       childLogger.info('Should log again');
-      
+
       expect(mockConsole.info).toHaveBeenCalledTimes(2);
     });
+  });
+
+  describe('Security - Style Injection', () => {
+    let logger: LoggerService;
+    let output: string[];
+
+    beforeEach(() => {
+      logger = new LoggerService();
+      output = [];
+      vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+        output.push(args.join(' '));
+      });
+      vi.spyOn(console, 'info').mockImplementation((...args: unknown[]) => {
+        output.push(args.join(' '));
+      });
+      vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+        output.push(args.join(' '));
+      });
+      vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+        output.push(args.join(' '));
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+    it('should not allow ANSI escape injection via style.color', () => {
+      const maliciousColor = '\x1b[0m\x1b[31mINJECTED\x1b[0m';
+      logger.info('test', {
+        style: { color: maliciousColor as unknown as never },
+      });
+      expect(output.join(' ')).not.toContain('INJECTED');
+      expect(output.join(' ')).not.toContain('\x1b[31mINJECTED');
+      // Check for raw escape sequence using a safe string match
+      expect(output.join(' ')).not.toMatch('INJECTED');
+    });
+
+    it('should only allow valid, whitelisted color values', () => {
+      logger.info('test', { style: { color: 'red' as unknown as never } });
+      expect(output.join(' ')).toContain('test');
+    });
+
+    it('should ignore invalid style.color values', () => {
+      logger.info('test', {
+        style: { color: 'not-a-color' as unknown as never },
+      });
+      expect(output.join(' ')).toContain('test');
+    });
+  });
+});
+
+// SECURITY TESTS: Style injection
+describe('Security - Style Injection', () => {
+  let logger: LoggerService;
+  let output: string[];
+
+  beforeEach(() => {
+    logger = new LoggerService();
+    output = [];
+    vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      output.push(args.join(' '));
+    });
+    vi.spyOn(console, 'info').mockImplementation((...args: unknown[]) => {
+      output.push(args.join(' '));
+    });
+    vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+      output.push(args.join(' '));
+    });
+    vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      output.push(args.join(' '));
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should not allow ANSI escape injection via style.color', () => {
+    const maliciousColor = '\x1b[0m\x1b[31mINJECTED\x1b[0m';
+    logger.info('test', {
+      style: { color: maliciousColor as unknown as never },
+    });
+    expect(output.join(' ')).not.toContain('INJECTED');
+    expect(output.join(' ')).not.toContain('\x1b[31mINJECTED');
+    // eslint-disable-next-line no-control-regex
+    expect(output.join(' ')).not.toMatch(
+      // eslint-disable-next-line no-control-regex
+      new RegExp('\\x1b\\[[0-9;]*mINJECTED')
+    );
+  });
+
+  it('should only allow valid, whitelisted color values', () => {
+    logger.info('test', { style: { color: 'red' as unknown as never } });
+    expect(output.join(' ')).toContain('test');
+  });
+
+  it('should ignore invalid style.color values', () => {
+    logger.info('test', {
+      style: { color: 'not-a-color' as unknown as never },
+    });
+    expect(output.join(' ')).toContain('test');
   });
 });
