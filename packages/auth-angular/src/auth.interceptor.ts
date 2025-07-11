@@ -15,6 +15,11 @@ import { injectRequest } from '@analogjs/router/tokens';
  * This handles cases where a session has expired on the server-side.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  // Skip interception for auth endpoints to avoid circular issues
+  if (req.url.includes('/api/auth/')) {
+    return next(req);
+  }
+
   // Clone the request and add the fetch=true header
   const request = injectRequest();
 
