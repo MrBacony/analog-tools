@@ -914,12 +914,18 @@ export class LoggerService {
       // Handle semantic style names
       return this.getSemanticStyleColor(style);
     } else if (typeof style === 'object' && style.color) {
-      // Handle custom style configuration
-      let styleCode = style.color.toString();
-      if (style.bold) {
+      // Validate color is a member of ColorEnum
+      const color = style.color;
+      const isValidColor = Object.values(ColorEnum).includes(color);
+      if (!isValidColor) {
+        // Silently ignore invalid/malicious color values for security
+        return undefined;
+      }
+      let styleCode = color;
+      if (style.bold === true) {
         styleCode += '\x1b[1m'; // Add bold modifier
       }
-      if (style.underline) {
+      if (style.underline === true) {
         styleCode += '\x1b[4m'; // Add underline modifier
       }
       return styleCode;
