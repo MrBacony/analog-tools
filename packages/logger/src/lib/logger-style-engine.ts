@@ -44,6 +44,19 @@ const LogLevelColors: Record<keyof typeof LogLevelEnum, ColorEnum> = {
  */
 export class LoggerStyleEngine implements ILoggerStyleEngine {
   /**
+   * Public method to resolve a style definition and return the ANSI color code (with caching)
+   * @param style Style definition (semantic name or custom config)
+   * @returns ANSI color code or undefined if invalid
+   */
+  public resolveStyle(style: StyleApplication, loggerName = 'test', context?: string): string | undefined {
+    return this.applyStyle(style, loggerName, context);
+  }
+  /**
+   * Cache for resolved style definitions (memoization)
+   * Key: string for semantic style, object reference for custom style
+   */
+  private styleCache: Map<string | object, string | undefined> = new Map();
+  /**
    * Mark this service as injectable for @analog-tools/inject
    */
   static INJECTABLE = true;
@@ -250,15 +263,25 @@ export class LoggerStyleEngine implements ILoggerStyleEngine {
     loggerName: string,
     context?: string
   ): string | undefined {
+    // Memoization: cache by string or object reference
     if (typeof style === 'string') {
+      if (this.styleCache.has(style)) {
+        return this.styleCache.get(style);
+      }
       // Handle semantic style names
-      return this.getSemanticStyleColor(style, loggerName, context);
+      const resolved = this.getSemanticStyleColor(style, loggerName, context);
+      this.styleCache.set(style, resolved);
+      return resolved;
     } else if (typeof style === 'object' && style.color) {
+      if (this.styleCache.has(style)) {
+        return this.styleCache.get(style);
+      }
       // Validate color is a member of ColorEnum
       const color = style.color;
       const isValidColor = Object.values(ColorEnum).includes(color);
       if (!isValidColor) {
         // Silently ignore invalid/malicious color values for security
+        this.styleCache.set(style, undefined);
         return undefined;
       }
       let styleCode = color.toString();
@@ -268,6 +291,7 @@ export class LoggerStyleEngine implements ILoggerStyleEngine {
       if (style.underline === true) {
         styleCode += ColorEnum.Underline; // Add underline modifier
       }
+      this.styleCache.set(style, styleCode);
       return styleCode;
     }
 
@@ -278,6 +302,7 @@ export class LoggerStyleEngine implements ILoggerStyleEngine {
         style
       )}. Falling back to default.`
     );
+    this.styleCache.set(style, undefined);
     return undefined;
   }
 
@@ -295,6 +320,10 @@ export class LoggerStyleEngine implements ILoggerStyleEngine {
     context?: string
   ): string | undefined {
     // Get style from global configuration
+    // Memoization: cache by styleName string
+    if (this.styleCache.has(styleName)) {
+      return this.styleCache.get(styleName);
+    }
     const styleConfig = this.globalStyles[styleName];
 
     if (styleConfig) {
@@ -305,6 +334,7 @@ export class LoggerStyleEngine implements ILoggerStyleEngine {
       if (styleConfig.underline) {
         styleCode += ColorEnum.Underline;
       }
+      this.styleCache.set(styleName, styleCode);
       return styleCode;
     }
 
@@ -313,7 +343,15 @@ export class LoggerStyleEngine implements ILoggerStyleEngine {
     console.warn(
       `[${loggerPrefix}] Unknown semantic style: ${styleName}. Falling back to default.`
     );
+    this.styleCache.set(styleName, undefined);
     return undefined;
+  }
+
+  /**
+   * Expose style cache for diagnostics/testing
+   */
+  getStyleCache(): Map<string | object, string | undefined> {
+    return this.styleCache;
   }
 
   /**
