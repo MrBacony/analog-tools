@@ -13,6 +13,21 @@
   },
   "tags": [],
   "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx run @analog-tools/auth-angular:vite:test --configuration=development",
+          "nx run @analog-tools/auth:vite:test --configuration=development"
+        ],
+        "parallel": false
+      },
+      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
+      "dependsOn": [
+        {"target": "@analog-tools/auth-angular:test"},
+        {"target": "@analog-tools/auth:test"}
+      ]
+    },
     "build": {
       "executor": "nx:run-commands",
       "options": {

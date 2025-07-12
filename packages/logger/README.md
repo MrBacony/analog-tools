@@ -22,6 +22,8 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 - [Usage in AnalogJS API Routes](#usage-in-analogjs-api-routes)
 - [Enhanced Error Handling](#enhanced-error-handling)
 - [Context-Based Logging](#context-based-logging)
+- [Metadata-Based Styling and Icons](#metadata-based-styling-and-icons)
+- [Log Grouping](#log-grouping)
 - [API Reference](#api-reference)
 - [Environment Variables](#environment-variables)
 - [Testing with MockLoggerService](#testing-with-mockloggerservice)
@@ -42,7 +44,9 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 - 🛡️ **Compile-time type checking** for log level configuration
 - ⚠️ **Runtime validation** with graceful fallback for invalid log levels
 - 🎯 **IntelliSense support** for log level auto-completion
-- 🎨 Colorized console output with color-coding by log level
+- 🎨 **Metadata-based styling** with colors, formatting, and emoji icons
+- 🌈 **Curated color palette** with rich ANSI color support via ColorEnum
+- ✨ **Semantic styling** with global and per-call configuration
 - 🧩 Seamless integration with @analog-tools/inject for dependency injection
 - 🌳 Context-based logging with child loggers
 - 🔧 Configurable via environment variables
@@ -52,7 +56,7 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 - 🚀 Lightweight implementation using standard console
 - 🔥 **Enhanced Error Handling** with multiple overloads and type safety
 - 🛡️ **Structured Error Serialization** with circular reference protection
-- 📊 **LogMetadata Support** for structured logging
+- 📊 **LogContext Support** for structured logging
 - 🔄 **Backwards Compatibility** with existing error logging patterns
 
 ## Prerequisites
@@ -96,9 +100,17 @@ logger.info('Hello from @analog-tools/logger!');
 logger.warn('This is a warning message');
 logger.error('Error occurred', new Error('Something went wrong'));
 
+// Add styling and icons with metadata
+logger.info('Success!', { style: 'success', icon: '✅' });
+logger.warn('Be careful', { icon: '⚠️' });
+logger.error('Critical error', { 
+  style: { color: ColorEnum.FireRed, bold: true },
+  icon: '🔥' 
+});
+
 // Create context-specific loggers
 const dbLogger = logger.forContext('database');
-dbLogger.info('Database operation completed');
+dbLogger.info('Database operation completed', { icon: '🗄️' });
 ```
 
 ## Quick Start
@@ -649,35 +661,271 @@ describe('MyService', () => {
 });
 ```
 
-## Colored Console Output
 
-The logger automatically applies different colors to log messages based on their log level, making it easier to identify different types of logs in the console:
 
-- `trace`: Gray
-- `debug`: Cyan
-- `info`: Green
-- `warn`: Yellow
-- `error`: Red
-- `fatal`: Bright Red
+## Metadata-Based Styling and Icons
 
-Colors are automatically disabled in test environments to ensure consistent test output. You can also manually control the color settings:
+@analog-tools/logger now supports a powerful metadata-based styling and icon system for all log methods. This enables semantic and custom styles, emoji icons, and per-call or global configuration for beautiful, expressive logs.
+
+### Usage Example
 
 ```typescript
-// Disable colors
-logger.setUseColors(false);
+import { LoggerService, ColorEnum } from '@analog-tools/logger';
 
-// Enable colors
-logger.setUseColors(true);
-
-// Check if colors are enabled
-const usingColors = logger.getUseColors();
-
-// Disable colors via constructor
-const noColorLogger = new LoggerService({
+const logger = new LoggerService({
   level: 'info',
   name: 'my-app',
-  useColors: false
+  // Optional: global style/icon config
+  styles: { highlight: { color: ColorEnum.LemonYellow, bold: true } },
+  icons: { success: '✅', info: 'ℹ️' }
 });
+
+// Per-call metadata for style and icon
+logger.info('Success!', { style: 'success', icon: '✅' });
+logger.warn('Be careful', { icon: '⚠️' });
+logger.info('Custom dreamy color', { style: { color: ColorEnum.DeepPurple, underline: true } });
+logger.info('With emoji', { icon: '🚀' });
+```
+
+#### Supported Features
+- **Semantic styles**: Use names like `'success'`, `'warning'`, `'highlight'`, etc.
+- **Custom styles**: Use `ColorEnum` and style config for color, bold, underline, background, etc.
+- **Emoji icons**: Use any emoji or semantic icon name (e.g., `'success'`, `'info'`).
+- **Global config**: Set default styles/icons in `LoggerConfig`.
+- **Per-call override**: Pass metadata as the last argument to any log method.
+- **Fallback/warning**: Unknown styles/icons trigger a warning and fallback to defaults.
+
+#### Example: Highlighted Info (replaces `info2()`)
+```typescript
+// Old:
+// logger.info2('Important!');
+// New:
+logger.info('Important!', { style: 'highlight', icon: '⭐️' });
+```
+
+See the [Migration Guide](./OPTIMIZATION.md) for upgrade instructions and more examples.
+
+---
+
+Use predefined semantic styles for common scenarios:
+
+```typescript
+// Configure semantic styles globally
+const logger = new LoggerService({
+  level: 'info',
+  name: 'my-app',
+  useColors: true,
+  styles: {
+    highlight: { color: ColorEnum.LemonYellow, bold: true },
+    success: { color: ColorEnum.ForestGreen },
+    error: { color: ColorEnum.FireRed },
+    warning: { color: ColorEnum.TangerineOrange },
+    info: { color: ColorEnum.OceanBlue },
+    debug: { color: ColorEnum.SlateGray }
+  },
+  icons: {
+    success: '✅',
+    warning: '⚠️',
+    error: '❌',
+    info: 'ℹ️',
+    debug: '🐞'
+  }
+});
+
+// Use semantic styles
+logger.info('Important message', { style: 'highlight' });
+logger.info('Operation successful', { style: 'success', icon: 'success' });
+logger.info('Debug information', { style: 'debug', icon: 'debug' });
+```
+
+### ColorEnum Options
+
+The logger includes a comprehensive set of dreamy colors with ANSI codes:
+
+```typescript
+// Blue shades
+ColorEnum.SkyBlue        // Bright blue
+ColorEnum.OceanBlue      // Standard blue  
+ColorEnum.MidnightBlue   // Deep blue
+
+// Green shades
+ColorEnum.MintGreen      // Bright green
+ColorEnum.ForestGreen    // Standard green
+ColorEnum.EmeraldGreen   // Deep green
+
+// Yellow shades
+ColorEnum.LemonYellow    // Bright yellow
+ColorEnum.SunflowerYellow // Standard yellow
+ColorEnum.GoldYellow     // Gold
+
+// Red shades
+ColorEnum.RoseRed        // Bright red
+ColorEnum.FireRed        // Standard red
+ColorEnum.BurgundyRed    // Deep red
+
+// Purple shades
+ColorEnum.LavenderPurple // Bright purple
+ColorEnum.RoyalPurple    // Medium purple
+ColorEnum.DeepPurple     // Deep purple
+
+// Orange shades
+ColorEnum.PeachOrange    // Light orange
+ColorEnum.TangerineOrange // Standard orange
+ColorEnum.AmberOrange    // Deep orange
+
+// Gray shades
+ColorEnum.SilverGray     // Light gray
+ColorEnum.SlateGray      // Medium gray
+ColorEnum.CharcoalGray   // Dark gray
+
+// Background colors (add "Bg" suffix)
+ColorEnum.SkyBlueBg      // Blue background
+ColorEnum.ForestGreenBg  // Green background
+// ... and many more
+```
+
+### Advanced Styling Options
+
+```typescript
+// Custom styling with multiple format options
+logger.info('Formatted message', {
+  style: { 
+    color: ColorEnum.RoyalPurple,
+    bold: true,
+    underline: true 
+  },
+  icon: '🎨'
+});
+
+// Using with regular data
+logger.info('User logged in', 
+  { userId: '123', timestamp: Date.now() },
+  { style: 'success', icon: '👤' }
+);
+
+// Multiple data objects with metadata
+logger.info('Complex operation',
+  { step: 1, status: 'processing' },
+  { duration: 150, memory: '2.1MB' },
+  { style: 'highlight', icon: '⚡️' }
+);
+```
+
+### Error and Fatal Logging with Metadata
+
+The enhanced error and fatal methods support metadata styling:
+
+```typescript
+// Error with metadata styling
+logger.error('Database error', 
+  new Error('Connection timeout'),
+  { userId: '123', query: 'SELECT * FROM users' },
+  { style: 'error', icon: '🔥' }
+);
+
+// Fatal error with styling
+logger.fatal('Critical system failure', {
+  style: { color: ColorEnum.FireRed, bold: true },
+  icon: '💀'
+});
+```
+
+### Icon System
+
+The logger supports a comprehensive set of emoji icons:
+
+```typescript
+// Common icons
+logger.info('Success', { icon: '✅' });
+logger.warn('Warning', { icon: '⚠️' });
+logger.error('Error', { icon: '❌' });
+logger.info('Information', { icon: 'ℹ️' });
+logger.debug('Debug', { icon: '🐞' });
+
+// Process icons
+logger.info('Loading', { icon: '⏳' });
+logger.info('Rocket launch', { icon: '🚀' });
+logger.info('Fire alert', { icon: '🔥' });
+logger.info('Star rating', { icon: '⭐️' });
+
+// Status icons
+logger.info('Locked', { icon: '🔒' });
+logger.info('Unlocked', { icon: '🔓' });
+logger.info('Up arrow', { icon: '⬆️' });
+logger.info('Down arrow', { icon: '⬇️' });
+
+// And many more emoji options available...
+```
+
+### Fallback and Warning Behavior
+
+The logger gracefully handles unknown styles and icons:
+
+```typescript
+// Unknown semantic style - logs warning and uses default
+logger.info('Message', { style: 'unknown-style' });
+// Console output: [my-app] Unknown semantic style: unknown-style. Falling back to default.
+
+// Invalid icon - logs warning and uses the string as-is
+logger.info('Message', { icon: 'not-an-emoji' });
+// Console output: [my-app] Invalid icon: not-an-emoji. Expected a valid emoji or semantic icon name.
+```
+
+### Child Logger Inheritance
+
+Child loggers inherit global styling configuration:
+
+```typescript
+const logger = new LoggerService({
+  styles: { highlight: { color: ColorEnum.LemonYellow, bold: true } },
+  icons: { success: '✅' }
+});
+
+const childLogger = logger.forContext('child');
+childLogger.info('Child message', { style: 'highlight', icon: 'success' });
+// Uses parent's configuration
+```
+
+### Color Control
+
+Control color output globally or per-call:
+
+```typescript
+// Disable colors globally
+const logger = new LoggerService({
+  level: 'info',
+  name: 'my-app',
+  useColors: false  // Icons still work, colors are disabled
+});
+
+// Enable/disable colors at runtime
+logger.setUseColors(false);
+logger.info('No colors', { style: 'highlight', icon: '🎨' });
+// Output: 🎨 [my-app] No colors (no color codes)
+
+logger.setUseColors(true);
+logger.info('With colors', { style: 'highlight', icon: '🎨' });
+// Output: 🎨 [my-app] With colors (with color codes)
+```
+
+### Migration from Legacy Styling
+
+If you were using custom color libraries or formatting, you can now use the built-in metadata system:
+
+```typescript
+// Before (custom color library)
+logger.info(chalk.yellow.bold('Important message'));
+
+// After (metadata-based)
+logger.info('Important message', { 
+  style: { color: ColorEnum.LemonYellow, bold: true } 
+});
+
+// Before (manual emoji concatenation)
+logger.info('✅ Task completed');
+
+// After (metadata-based)
+logger.info('Task completed', { icon: '✅' });
 ```
 
 ## Log Grouping
@@ -785,14 +1033,14 @@ const customError = ErrorSerializer.serialize(error, {
 });
 ```
 
-### LogMetadata Interface
+### LogContext Interface
 
-Use the structured `LogMetadata` interface for consistent logging:
+Use the structured `LogContext` interface for consistent logging:
 
 ```typescript
-import { LogMetadata } from '@analog-tools/logger';
+import { LogContext } from '@analog-tools/logger';
 
-const metadata: LogMetadata = {
+const context: LogContext = {
   correlationId: 'req-123',
   userId: 'user-456',
   requestId: 'api-789',
@@ -803,7 +1051,7 @@ const metadata: LogMetadata = {
   }
 };
 
-logger.error('Authentication failed', authError, metadata);
+logger.error('Authentication failed', authError, context);
 ```
 
 ### Error Handling Patterns
@@ -816,7 +1064,7 @@ class UserService {
   private logger = inject(LoggerService).forContext('UserService');
 
   async createUser(userData: CreateUserRequest): Promise<User> {
-    const metadata: LogMetadata = {
+    const context: LogContext = {
       operation: 'createUser',
       correlationId: userData.correlationId
     };
@@ -824,14 +1072,14 @@ class UserService {
     try {
       const user = await this.userRepository.create(userData);
       this.logger.info('User created successfully', { 
-        ...metadata, 
+        ...context, 
         userId: user.id 
       });
       return user;
     } catch (error) {
-      // Enhanced error logging with Error object and metadata
+      // Enhanced error logging with Error object and context
       this.logger.error('User creation failed', error, {
-        ...metadata,
+        ...context,
         email: userData.email,
         provider: userData.provider
       });
@@ -853,7 +1101,7 @@ export default withLogging(
     const logger = inject(LoggerService).forContext('users-api');
     const userId = getRouterParam(event, 'id');
 
-    const metadata: LogMetadata = {
+    const context: LogContext = {
       requestId: event.context.requestId,
       method: event.node.req.method,
       path: event.node.req.url,
@@ -862,7 +1110,7 @@ export default withLogging(
 
     try {
       if (!userId) {
-        logger.warn('User ID missing from request', metadata);
+        logger.warn('User ID missing from request', context);
         throw createError({
           statusCode: 400,
           statusMessage: 'User ID is required'
@@ -870,11 +1118,11 @@ export default withLogging(
       }
 
       const user = await getUserById(userId);
-      logger.info('User API request successful', metadata);
+      logger.info('User API request successful', context);
       return user;
     } catch (error) {
-      // Log with Error object and structured metadata
-      logger.error('User API request failed', error, metadata);
+      // Log with Error object and structured context
+      logger.error('User API request failed', error, context);
       throw error;
     }
   }),
@@ -939,33 +1187,6 @@ const logger = new LoggerService({
 ## Troubleshooting
 
 ### Common Issues
-
-#### Logger not working after injection
-**Problem:** `inject(LoggerService)` throws an error or returns undefined.  
-**Solution:** Ensure the service is registered before use, or consider using standalone approach:
-
-```typescript
-// Option 1: With @analog-tools/inject
-import { registerService } from '@analog-tools/inject';
-import { LoggerService } from '@analog-tools/logger';
-
-// Register with custom configuration
-registerService(LoggerService, {
-  level: 'debug',
-  name: 'my-app',
-  disabledContexts: ['verbose-module']
-});
-
-// Now injection will work
-const logger = inject(LoggerService);
-
-// Option 2: Standalone (no injection needed)
-const logger = new LoggerService({
-  level: 'debug',
-  name: 'my-app',
-  disabledContexts: ['verbose-module']
-});
-```
 
 #### Missing @analog-tools/inject dependency
 **Problem:** TypeScript errors or runtime errors related to `inject()` function.
@@ -1043,127 +1264,6 @@ function getLogger() {
 }
 ```
 
-### Integration Issues
-
-#### TypeScript compilation errors
-**Problem:** TypeScript errors when using the logger.
-**Solution:** Ensure proper peer dependencies:
-```bash
-npm install @analog-tools/inject@^0.0.5
-npm install --save-dev typescript@^4.8.0
-```
-
-#### Nitro middleware not working
-**Problem:** `createLoggerMiddleware` or `withLogging` not functioning.
-**Solution:** Verify H3 version compatibility:
-```bash
-npm install h3@^1.10.1
-```
-
-## Migration Guide
-
-### Upgrading to Enhanced Error Handling
-
-The latest version introduces enhanced error handling with multiple overloads while maintaining full backwards compatibility. Your existing code will continue to work without changes.
-
-#### No Breaking Changes
-
-All existing logging patterns continue to work exactly as before:
-
-```typescript
-// ✅ These patterns still work identically
-logger.error('Simple message');
-logger.error('Message', error);
-logger.error('Message', error, additionalData);
-logger.error('Message', data1, data2, data3);
-```
-
-#### New Recommended Patterns
-
-While backwards compatibility is maintained, consider adopting these new patterns for better type safety and structured logging:
-
-```typescript
-// ❌ Old pattern (still works)
-logger.error('Validation failed', error, { userId: '123', field: 'email' });
-
-// ✅ New recommended pattern - more explicit and type-safe
-logger.error('Validation failed', error, {
-  userId: '123',
-  field: 'email',
-  operation: 'validateUser'
-} as LogMetadata);
-```
-
-#### Structured Metadata
-
-Consider migrating to the new `LogMetadata` interface for better structure:
-
-```typescript
-import { LogMetadata } from '@analog-tools/logger';
-
-// ❌ Old pattern (still works)
-logger.error('Operation failed', { userId: '123', context: 'api' });
-
-// ✅ New pattern with structured metadata
-const metadata: LogMetadata = {
-  userId: '123',
-  correlationId: 'req-456',
-  context: {
-    service: 'api',
-    operation: 'processPayment'
-  }
-};
-logger.error('Payment processing failed', paymentError, metadata);
-```
-
-#### Error Serialization
-
-The new error serializer provides better handling of complex objects:
-
-```typescript
-// ❌ Objects with circular references could cause issues before
-const objWithCircular = { name: 'test' };
-objWithCircular.self = objWithCircular;
-logger.error('Circular ref', objWithCircular); // Now handled safely
-
-// ✅ Custom serialization options now available
-import { ErrorSerializer } from '@analog-tools/logger';
-
-const serialized = ErrorSerializer.serialize(complexError, {
-  includeStack: false,
-  maxDepth: 3,
-  includeNonEnumerable: true
-});
-```
-
-### Performance Improvements
-
-The enhanced error handling includes several performance improvements:
-
-- **Lazy serialization**: Objects are only serialized when actually logged
-- **Circular reference detection**: Prevents infinite recursion
-- **Depth limiting**: Prevents deep object traversal issues
-- **Type checking optimization**: Faster parameter resolution
-
-### Testing Migration
-
-If you're using custom mocks for testing, they remain compatible:
-
-```typescript
-// ✅ Existing test mocks continue to work
-const mockLogger = {
-  error: vi.fn(),
-  fatal: vi.fn(),
-  // ... other methods
-};
-
-// ✅ New test patterns can leverage enhanced types
-const error = new Error('Test error');
-const metadata: LogMetadata = { testId: '123' };
-mockLogger.error('Test failed', error, metadata);
-
-expect(mockLogger.error).toHaveBeenCalledWith('Test failed', error, metadata);
-```
 
 ## Best Practices
 
@@ -1195,14 +1295,14 @@ expect(mockLogger.error).toHaveBeenCalledWith('Test failed', error, metadata);
    logger.error('Payment failed', paymentError, { orderId: '123', amount: 99.99 });
    ```
 
-10. **Use LogMetadata interface**: Structure your metadata consistently:
+10. **Use LogContext interface**: Structure your metadata consistently:
     ```typescript
-    const metadata: LogMetadata = {
+    const context: LogContext = {
       correlationId: 'req-123',
       userId: 'user-456',
       context: { service: 'payments', operation: 'charge' }
     };
-    logger.error('Payment processing failed', error, metadata);
+    logger.error('Payment processing failed', paymentError, context);
     ```
 
 11. **Handle circular references**: The logger automatically handles circular references, but be mindful of object complexity:
@@ -1220,7 +1320,8 @@ expect(mockLogger.error).toHaveBeenCalledWith('Test failed', error, metadata);
     // For sensitive environments - exclude stack traces
     const serialized = ErrorSerializer.serialize(error, {
       includeStack: false,
-      maxDepth: 3
+      maxDepth: 3,
+      includeNonEnumerable: true
     });
     ```
 
@@ -1352,3 +1453,47 @@ We welcome contributions! Please see our [Contributing Guide](../../CONTRIBUTING
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Metadata-Based Styling and Icon System
+
+@analog-tools/logger now supports a powerful metadata-based styling and icon system for all log methods. This enables semantic and custom styles, emoji icons, and per-call or global configuration for beautiful, expressive logs.
+
+### Usage Example
+
+```typescript
+import { LoggerService, ColorEnum } from '@analog-tools/logger';
+
+const logger = new LoggerService({
+  level: 'info',
+  name: 'my-app',
+  // Optional: global style/icon config
+  styles: { highlight: { color: ColorEnum.LemonYellow, bold: true } },
+  icons: { success: '✅', info: 'ℹ️' }
+});
+
+// Per-call metadata for style and icon
+logger.info('Success!', { style: 'success', icon: '✅' });
+logger.warn('Be careful', { icon: '⚠️' });
+logger.info('Custom dreamy color', { style: { color: ColorEnum.DeepPurple, underline: true } });
+logger.info('With emoji', { icon: '🚀' });
+```
+
+#### Supported Features
+- **Semantic styles**: Use names like `'success'`, `'warning'`, `'highlight'`, etc.
+- **Custom styles**: Use `ColorEnum` and style config for color, bold, underline, background, etc.
+- **Emoji icons**: Use any emoji or semantic icon name (e.g., `'success'`, `'info'`).
+- **Global config**: Set default styles/icons in `LoggerConfig`.
+- **Per-call override**: Pass metadata as the last argument to any log method.
+- **Fallback/warning**: Unknown styles/icons trigger a warning and fallback to defaults.
+
+#### Example: Highlighted Info (replaces `info2()`)
+```typescript
+// Old:
+// logger.info2('Important!');
+// New:
+logger.info('Important!', { style: 'highlight', icon: '⭐️' });
+```
+
+See the [Migration Guide](./OPTIMIZATION.md) for upgrade instructions and more examples.
+
+---

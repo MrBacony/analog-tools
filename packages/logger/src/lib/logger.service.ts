@@ -1,10 +1,22 @@
 /**
  * Logger service using standard console for logging
  * Designed to be used with the @analog-tools/inject package
+ * Refactored to use LoggerStyleEngine for styling and formatting
  */
 
-import { LoggerConfig, LogLevel as LogLevel, isValidLogLevel, LogMetadata } from './logger.types';
-import { ErrorSerializer, ErrorParam, StructuredError } from './error-serialization';
+import {
+  isValidLogLevel,
+  LoggerConfig,
+  LogStyling,
+  LogContext,
+} from './logger.types';
+import {
+  ErrorParam,
+  ErrorSerializer,
+  StructuredError,
+} from './error-serialization';
+import { LoggerStyleEngine } from './logger-style-engine';
+import { DEFAULT_ICON_SCHEME, DEFAULT_STYLE_SCHEME } from './logger.config';
 
 // Log level enumeration to match standard console methods
 export enum LogLevelEnum {
@@ -18,59 +30,10 @@ export enum LogLevelEnum {
 }
 
 /**
- * ANSI color codes for console output
- */
-const Colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  underscore: '\x1b[4m',
-  blink: '\x1b[5m',
-  reverse: '\x1b[7m',
-  hidden: '\x1b[8m',
-
-  fg: {
-    black: '\x1b[30m',
-    red: '\x1b[31m',
-    green: '\x1b[32m',
-    yellow: '\x1b[33m',
-    blue: '\x1b[34m',
-    magenta: '\x1b[35m',
-    cyan: '\x1b[36m',
-    white: '\x1b[37m',
-    gray: '\x1b[90m',
-  },
-
-  bg: {
-    black: '\x1b[40m',
-    red: '\x1b[41m',
-    green: '\x1b[42m',
-    yellow: '\x1b[43m',
-    blue: '\x1b[44m',
-    magenta: '\x1b[45m',
-    cyan: '\x1b[46m',
-    white: '\x1b[47m',
-    gray: '\x1b[100m',
-  },
-};
-
-/**
- * Color mapping for different log levels
- */
-const LogLevelColors: Record<keyof typeof LogLevelEnum, string> = {
-  trace: Colors.fg.gray,
-  debug: Colors.fg.cyan,
-  info: Colors.fg.green,
-  warn: Colors.fg.yellow,
-  error: Colors.fg.red,
-  fatal: `${Colors.bright}${Colors.fg.red}`,
-  silent: Colors.reset,
-};
-
-/**
  * Logger service implementation using standard console
  * Can be injected using the @analog-tools/inject package
  * Serves as both the main logger and child logger with context
+ * Uses LoggerStyleEngine for all formatting and styling operations
  */
 export class LoggerService {
   /**
@@ -83,22 +46,25 @@ export class LoggerService {
   private name: string;
   private childLoggers: Record<string, LoggerService> = {};
   private disabledContexts: string[] = [];
-  private useColors: boolean;
   // Track active groups for indentation
   private activeGroups: string[] = [];
 
   // Properties for child loggers
   private context?: string;
   private parentLogger?: LoggerService;
+  // Style engine for formatting
+  private styleEngine: LoggerStyleEngine;
 
   /**
    * Create a new LoggerService
    * @param config The logger configuration
+   * @param styleEngine Optional style engine (will be created if not provided)
    * @param context Optional context for child logger
    * @param parent Optional parent logger for child logger
    */
   constructor(
     private config: LoggerConfig = {},
+    styleEngine?: LoggerStyleEngine,
     context?: string,
     parent?: LoggerService
   ) {
@@ -109,22 +75,25 @@ export class LoggerService {
       this.context = context;
       // Inherit settings from parent
       this.logLevel = parent.getLogLevel();
-      this.useColors = parent.getUseColors();
+      this.styleEngine = parent.styleEngine; // Share style engine with parent
     } else {
       // Root logger setup
       this.logLevel = this.castLoglevel(
         config.level || process.env['LOG_LEVEL'] || 'info'
       );
       this.name = config.name || 'analog-tools';
-      // Detect test environment and disable colors in tests
-      const isTestEnvironment =
-        process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
-      this.useColors = isTestEnvironment ? false : config.useColors !== false;
       this.setDisabledContexts(
         config.disabledContexts ??
           process.env['LOG_DISABLED_CONTEXTS']?.split(',') ??
           []
       );
+
+      // Initialize style engine
+      this.styleEngine = styleEngine || new LoggerStyleEngine({
+        useColors: config.useColors,
+        styles: { ...DEFAULT_STYLE_SCHEME, ...config.styles },
+        icons: { ...DEFAULT_ICON_SCHEME, ...config.icons },
+      });
     }
   }
 
@@ -134,7 +103,7 @@ export class LoggerService {
    */
   isContextEnabled(): boolean {
     if (!this.context) return true;
-    
+
     // For child loggers, check the root logger's disabled contexts
     const rootLogger = this.parentLogger || this;
     return !rootLogger.disabledContexts.includes(this.context);
@@ -171,7 +140,9 @@ export class LoggerService {
    * @param enabled Whether colors should be enabled
    */
   setUseColors(enabled: boolean): void {
-    this.useColors = enabled;
+    // For root logger, update style engine
+    const rootLogger = this.parentLogger || this;
+    rootLogger.styleEngine.setUseColors(enabled);
   }
 
   /**
@@ -179,7 +150,9 @@ export class LoggerService {
    * @returns Whether colors are enabled
    */
   getUseColors(): boolean {
-    return this.useColors;
+    // For child loggers, get from root logger's style engine
+    const rootLogger = this.parentLogger || this;
+    return rootLogger.styleEngine.getUseColors();
   }
 
   /**
@@ -189,7 +162,7 @@ export class LoggerService {
    */
   forContext(context: string): LoggerService {
     if (!this.childLoggers[context]) {
-      this.childLoggers[context] = new LoggerService({}, context, this);
+      this.childLoggers[context] = new LoggerService({}, undefined, context, this);
     }
 
     return this.childLoggers[context];
@@ -207,9 +180,13 @@ export class LoggerService {
     const groups = this.parentLogger?.activeGroups || this.activeGroups;
     groups.push(groupName);
 
-    console.group(
-      `${this.formatMessage(LogLevelEnum.info, `Group: ${groupName}`)} ▼`
+    const formattedMessage = this.styleEngine.formatMessage(
+      LogLevelEnum.info,
+      `Group: ${groupName}`,
+      this.name,
+      this.context
     );
+    console.group(`${formattedMessage} ▼`);
   }
 
   /**
@@ -246,264 +223,468 @@ export class LoggerService {
    * Log a trace message
    * @param message The message to log
    * @param data Additional data to log
+   * @param metadata Optional metadata for styling and icons
    */
-  trace(message: string, ...data: unknown[]): void {
+  trace(message: string, ...data: unknown[]): void;
+  trace(message: string, metadata: LogStyling, ...data: unknown[]): void;
+  trace(
+    message: string,
+    metadataOrData?: LogStyling | unknown,
+    ...data: unknown[]
+  ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.trace) return;
-    console.trace(this.formatMessage(LogLevelEnum.trace, message), ...(data || []));
+
+    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
+      metadataOrData,
+      data
+    );
+
+    if (metadata) {
+      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
+        LogLevelEnum.trace,
+        message,
+        this.name,
+        metadata,
+        this.context
+      );
+      console.trace(formattedMessage, ...(restData || []));
+    } else {
+      const formattedMessage = this.styleEngine.formatMessage(
+        LogLevelEnum.trace,
+        message,
+        this.name,
+        this.context
+      );
+      console.trace(formattedMessage, ...(restData || []));
+    }
   }
 
   /**
    * Log a debug message
    * @param message The message to log
    * @param data Additional data to log
+   * @param metadata Optional metadata for styling and icons
    */
-  debug(message: string, ...data: unknown[]): void {
+  debug(message: string, ...data: unknown[]): void;
+  debug(message: string, metadata: LogStyling, ...data: unknown[]): void;
+  debug(
+    message: string,
+    metadataOrData?: LogStyling | unknown,
+    ...data: unknown[]
+  ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.debug) return;
-    console.debug(this.formatMessage(LogLevelEnum.debug, message), ...(data || []));
+
+    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
+      metadataOrData,
+      data
+    );
+
+    if (metadata) {
+      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
+        LogLevelEnum.debug,
+        message,
+        this.name,
+        metadata,
+        this.context
+      );
+      console.debug(formattedMessage, ...(restData || []));
+    } else {
+      const formattedMessage = this.styleEngine.formatMessage(
+        LogLevelEnum.debug,
+        message,
+        this.name,
+        this.context
+      );
+      console.debug(formattedMessage, ...(restData || []));
+    }
   }
 
   /**
    * Log an info message
    * @param message The message to log
    * @param data Additional data to log
+   * @param metadata Optional metadata for styling and icons
    */
-  info(message: string, ...data: unknown[]): void {
+  info(message: string, ...data: unknown[]): void;
+  info(message: string, metadata: LogStyling, ...data: unknown[]): void;
+  info(
+    message: string,
+    metadataOrData?: LogStyling | unknown,
+    ...data: unknown[]
+  ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.info) return;
-    console.info(this.formatMessage(LogLevelEnum.info, message), ...(data || []));
-  }
 
-  /**
-   * Log an alternative info message (with magenta color)
-   * @param message The message to log
-   * @param data Additional data to log
-   */
-  info2(message: string, ...data: unknown[]): void {
-    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.info) return;
-    console.info(
-      this.formatMessage(LogLevelEnum.info, message, Colors.fg.magenta),
-      ...(data || [])
+    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
+      metadataOrData,
+      data
     );
+
+    if (metadata) {
+      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
+        LogLevelEnum.info,
+        message,
+        this.name,
+        metadata,
+        this.context
+      );
+      console.info(formattedMessage, ...(restData || []));
+    } else {
+      const formattedMessage = this.styleEngine.formatMessage(
+        LogLevelEnum.info,
+        message,
+        this.name,
+        this.context
+      );
+      console.info(formattedMessage, ...(restData || []));
+    }
   }
 
   /**
    * Log a warning message
    * @param message The message to log
    * @param data Additional data to log
+   * @param metadata Optional metadata for styling and icons
    */
-  warn(message: string, ...data: unknown[]): void {
+  warn(message: string, ...data: unknown[]): void;
+  warn(message: string, metadata: LogStyling, ...data: unknown[]): void;
+  warn(
+    message: string,
+    metadataOrData?: LogStyling | unknown,
+    ...data: unknown[]
+  ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.warn) return;
-    console.warn(this.formatMessage(LogLevelEnum.warn, message), ...(data || []));
+
+    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
+      metadataOrData,
+      data
+    );
+
+    if (metadata) {
+      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
+        LogLevelEnum.warn,
+        message,
+        this.name,
+        metadata,
+        this.context
+      );
+      console.warn(formattedMessage, ...(restData || []));
+    } else {
+      const formattedMessage = this.styleEngine.formatMessage(
+        LogLevelEnum.warn,
+        message,
+        this.name,
+        this.context
+      );
+      console.warn(formattedMessage, ...(restData || []));
+    }
   }
 
   /**
    * Log an error message with enhanced error handling and type safety
-   * 
+   *
    * Supports multiple overloads for flexibility:
    * - error(message: string): Simple error message
-   * - error(error: Error): Log an Error object 
+   * - error(error: Error): Log an Error object
    * - error(message: string, error: Error): Message with Error object
-   * - error(message: string, metadata: LogMetadata): Message with structured metadata
-   * - error(message: string, error: Error, metadata: LogMetadata): Message with Error and metadata
+   * - error(message: string, context: LogContext): Message with structured context
+   * - error(message: string, error: Error, context: LogContext): Message with Error and context
    * - error(message: string, error?: ErrorParam, ...data: unknown[]): Backwards compatible overload
-   * 
+   * - error(message: string, ...data: unknown[], styling: LogStyling): With styling metadata
+   *
    * @example
    * ```typescript
    * // Simple message
    * logger.error('Something went wrong');
-   * 
+   *
    * // With Error object
    * logger.error('Database connection failed', dbError);
-   * 
-   * // With metadata
+   *
+   * // With context
    * logger.error('User validation failed', { userId: '123', action: 'login' });
-   * 
-   * // With Error and metadata
+   *
+   * // With Error and context
    * logger.error('Payment processing failed', paymentError, { orderId: 'order-123' });
+   *
+   * // With styling
+   * logger.error('Critical error', { style: 'error', icon: '❌' });
    * ```
    */
   error(message: string): void;
   error(error: Error): void;
   error(message: string, error: Error): void;
-  error(message: string, metadata: LogMetadata): void;
-  error(message: string, error: Error, metadata: LogMetadata): void;
+  error(message: string, context: LogContext): void;
+  error(message: string, error: Error, context: LogContext): void;
   error(message: string, error?: ErrorParam, ...data: unknown[]): void;
   error(
     messageOrError: string | Error,
-    errorOrMetadata?: ErrorParam | LogMetadata,
-    metadataOrData?: LogMetadata | unknown,
+    errorOrContext?: ErrorParam | LogContext,
+    contextOrData?: LogContext | unknown,
     ...additionalData: unknown[]
   ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.error) return;
 
-    const { message, serializedError, metadata, data } = this.parseErrorParameters(
-      messageOrError,
-      errorOrMetadata,
-      metadataOrData,
-      additionalData
+    const { message, serializedError, context, data } =
+      this.parseErrorParameters(
+        messageOrError,
+        errorOrContext,
+        contextOrData,
+        additionalData
+      );
+
+    // Check if last parameter is LogStyling for styling
+    const allData = data || [];
+    let styling: LogStyling | undefined;
+    let actualData = allData;
+
+    if (allData.length > 0) {
+      const lastParam = allData[allData.length - 1];
+      if (
+        lastParam &&
+        typeof lastParam === 'object' &&
+        !Array.isArray(lastParam) &&
+        ('style' in lastParam || 'icon' in lastParam)
+      ) {
+        styling = lastParam as LogStyling;
+        actualData = allData.slice(0, -1);
+      }
+    }
+
+    const formattedMessage = this.styleEngine.formatMessageWithMetadata(
+      LogLevelEnum.error,
+      message,
+      this.name,
+      styling,
+      this.context
     );
 
-    const formattedMessage = this.formatMessage(LogLevelEnum.error, message);
-    
     const errorParam: unknown[] = [formattedMessage];
 
-    if(serializedError) {
+    if (serializedError) {
       errorParam.push(serializedError);
     }
 
-    if(metadata) {
-      errorParam.push(metadata);
+    if (context) {
+      errorParam.push(context);
     }
 
-    console.error(...errorParam, ...(data || []));
+    console.error(...errorParam, ...actualData);
   }
 
   /**
    * Log a fatal error message with enhanced error handling and type safety
-   * 
+   *
    * Supports multiple overloads for flexibility:
    * - fatal(message: string): Simple fatal message
-   * - fatal(error: Error): Log a fatal Error object 
+   * - fatal(error: Error): Log a fatal Error object
    * - fatal(message: string, error: Error): Message with Error object
-   * - fatal(message: string, metadata: LogMetadata): Message with structured metadata
-   * - fatal(message: string, error: Error, metadata: LogMetadata): Message with Error and metadata
+   * - fatal(message: string, context: LogContext): Message with structured context
+   * - fatal(message: string, error: Error, context: LogContext): Message with Error and context
    * - fatal(message: string, error?: ErrorParam, ...data: unknown[]): Backwards compatible overload
-   * 
+   * - fatal(message: string, ...data: unknown[], styling: LogStyling): With styling metadata
+   *
    * @example
    * ```typescript
    * // Simple fatal message
    * logger.fatal('Application crashed');
-   * 
+   *
    * // With Error object
    * logger.fatal('Critical system failure', systemError);
-   * 
-   * // With metadata
+   *
+   * // With context
    * logger.fatal('Out of memory', { heapUsed: '2GB', maxHeap: '1.5GB' });
-   * 
-   * // With Error and metadata
+   *
+   * // With Error and context
    * logger.fatal('Database corruption detected', dbError, { tableName: 'users' });
+   *
+   * // With styling
+   * logger.fatal('Critical error', { style: 'error', icon: '💀' });
    * ```
    */
   fatal(message: string): void;
   fatal(error: Error): void;
   fatal(message: string, error: Error): void;
-  fatal(message: string, metadata: LogMetadata): void;
-  fatal(message: string, error: Error, metadata: LogMetadata): void;
+  fatal(message: string, context: LogContext): void;
+  fatal(message: string, error: Error, context: LogContext): void;
   fatal(message: string, error?: ErrorParam, ...data: unknown[]): void;
   fatal(
     messageOrError: string | Error,
-    errorOrMetadata?: ErrorParam | LogMetadata,
-    metadataOrData?: LogMetadata | unknown,
+    errorOrContext?: ErrorParam | LogContext,
+    contextOrData?: LogContext | unknown,
     ...additionalData: unknown[]
   ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.fatal) return;
 
-    const { message, serializedError, metadata, data } = this.parseErrorParameters(
-      messageOrError,
-      errorOrMetadata,
-      metadataOrData,
-      additionalData
+    // Special handling for when second parameter is LogStyling (for styling)
+    if (
+      typeof messageOrError === 'string' &&
+      errorOrContext &&
+      typeof errorOrContext === 'object' &&
+      !Array.isArray(errorOrContext) &&
+      ('style' in errorOrContext || 'icon' in errorOrContext)
+    ) {
+      // This is the case: fatal(message, LogStyling)
+      const styling = errorOrContext as LogStyling;
+      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
+        LogLevelEnum.fatal,
+        `FATAL: ${messageOrError}`,
+        this.name,
+        styling,
+        this.context
+      );
+      console.error(formattedMessage);
+      return;
+    }
+
+    const { message, serializedError, context, data } =
+      this.parseErrorParameters(
+        messageOrError,
+        errorOrContext,
+        contextOrData,
+        additionalData
+      );
+
+    // Check if last parameter is LogStyling for styling
+    const allData = data || [];
+    let styling: LogStyling | undefined;
+    let actualData = allData;
+
+    if (allData.length > 0) {
+      const lastParam = allData[allData.length - 1];
+      if (
+        lastParam &&
+        typeof lastParam === 'object' &&
+        !Array.isArray(lastParam) &&
+        ('style' in lastParam || 'icon' in lastParam)
+      ) {
+        styling = lastParam as LogStyling;
+        actualData = allData.slice(0, -1);
+      }
+    }
+
+    const formattedMessage = this.styleEngine.formatMessageWithMetadata(
+      LogLevelEnum.fatal,
+      `FATAL: ${message}`,
+      this.name,
+      styling,
+      this.context
     );
 
-    const formattedMessage = this.formatMessage(LogLevelEnum.fatal, `FATAL: ${message}`);
-    
     const errorParam: unknown[] = [formattedMessage];
 
-    if(serializedError) {
+    if (serializedError) {
       errorParam.push(serializedError);
     }
 
-    if(metadata) {
-      errorParam.push(metadata);
+    if (context) {
+      errorParam.push(context);
     }
 
-    console.error(...errorParam, ...(data || []));
+    console.error(...errorParam, ...actualData);
   }
 
   /**
    * Parse and normalize error method parameters to support multiple overloads
-   * 
+   *
    * Handles various parameter combinations:
    * - error(Error) -> extracts message and serializes error
    * - error(message) -> uses message as-is
    * - error(message, Error) -> uses message and serializes error
-   * - error(message, LogMetadata) -> uses message and metadata
-   * - error(message, Error, LogMetadata) -> uses all three with proper typing
+   * - error(message, LogContext) -> uses message and context
+   * - error(message, Error, LogContext) -> uses all three with proper typing
    * - error(message, ...data) -> backwards compatibility mode
-   * 
+   *
    * @private
    * @param messageOrError - String message or Error object
-   * @param errorOrMetadata - Error object, LogMetadata, or additional data
-   * @param metadataOrData - LogMetadata or additional data
+   * @param errorOrContext - Error object, LogContext, or additional data
+   * @param contextOrData - LogContext or additional data
    * @param additionalData - Extra data for backwards compatibility
    * @returns Parsed parameters with normalized structure
    */
   private parseErrorParameters(
     messageOrError: string | Error,
-    errorOrMetadata?: ErrorParam | LogMetadata,
-    metadataOrData?: LogMetadata | unknown,
+    errorOrContext?: ErrorParam | LogContext,
+    contextOrData?: LogContext | unknown,
     additionalData: unknown[] = []
   ): {
     message: string;
     serializedError?: StructuredError | string;
-    metadata?: LogMetadata;
+    context?: LogContext;
     data: unknown[];
   } {
     // Case 1: error(error: Error)
-    if (messageOrError instanceof Error && errorOrMetadata === undefined) {
+    if (messageOrError instanceof Error && errorOrContext === undefined) {
       return {
         message: messageOrError.message,
         serializedError: ErrorSerializer.serialize(messageOrError),
-        data: []
+        data: [],
       };
     }
 
     // Case 2: error(message: string)
-    if (typeof messageOrError === 'string' && errorOrMetadata === undefined) {
+    if (typeof messageOrError === 'string' && errorOrContext === undefined) {
       return {
         message: messageOrError,
-        data: []
+        data: [],
       };
     }
 
     // Case 3: error(message: string, error: Error)
-    if (typeof messageOrError === 'string' && errorOrMetadata instanceof Error && metadataOrData === undefined) {
+    if (
+      typeof messageOrError === 'string' &&
+      errorOrContext instanceof Error &&
+      contextOrData === undefined
+    ) {
       return {
         message: messageOrError,
-        serializedError: ErrorSerializer.serialize(errorOrMetadata),
-        data: []
+        serializedError: ErrorSerializer.serialize(errorOrContext),
+        data: [],
       };
     }
 
-    // Case 4: error(message: string, metadata: LogMetadata)
-    if (typeof messageOrError === 'string' && this.isLogMetadata(errorOrMetadata) && metadataOrData === undefined) {
+    // Case 4: error(message: string, context: LogContext)
+    if (
+      typeof messageOrError === 'string' &&
+      this.isLogContext(errorOrContext) &&
+      contextOrData === undefined
+    ) {
       return {
         message: messageOrError,
-        metadata: errorOrMetadata,
-        data: []
+        context: errorOrContext,
+        data: [],
       };
     }
 
-    // Case 5: error(message: string, error: Error, metadata: LogMetadata)
-    if (typeof messageOrError === 'string' && errorOrMetadata instanceof Error && this.isLogMetadata(metadataOrData)) {
+    // Case 5: error(message: string, error: Error, context: LogContext)
+    if (
+      typeof messageOrError === 'string' &&
+      errorOrContext instanceof Error &&
+      this.isLogContext(contextOrData)
+    ) {
       return {
         message: messageOrError,
-        serializedError: ErrorSerializer.serialize(errorOrMetadata),
-        metadata: metadataOrData,
-        data: additionalData
+        serializedError: ErrorSerializer.serialize(errorOrContext),
+        context: contextOrData,
+        data: additionalData,
       };
     }
 
     // Backwards compatibility: error(message: string, error?: ErrorParam, ...data: unknown[])
-    const message = typeof messageOrError === 'string' ? messageOrError : 'Unknown error';
-    const serializedError = errorOrMetadata ? ErrorSerializer.serialize(errorOrMetadata) : undefined;
-    const data = metadataOrData !== undefined ? [metadataOrData, ...additionalData] : additionalData;
+    const message =
+      typeof messageOrError === 'string' ? messageOrError : 'Unknown error';
+    const serializedError = errorOrContext
+      ? ErrorSerializer.serialize(errorOrContext)
+      : undefined;
+    const data =
+      contextOrData !== undefined
+        ? [contextOrData, ...additionalData]
+        : additionalData;
 
     return { message, serializedError, data };
   }
 
   /**
    * Type guard to check if an object is LogMetadata
-   * 
+   *
    * LogMetadata is defined as a plain object that is not:
    * - null or undefined
    * - An Array
@@ -511,19 +692,21 @@ export class LoggerService {
    * - A Date instance
    * - A RegExp instance
    * - A Function
-   * 
+   *
    * @private
    * @param obj - Object to check
    * @returns True if object matches LogMetadata interface
    */
-  private isLogMetadata(obj: unknown): obj is LogMetadata {
-    return typeof obj === 'object' && 
-           obj !== null && 
-           !Array.isArray(obj) && 
-           !(obj instanceof Error) &&
-           !(obj instanceof Date) &&
-           !(obj instanceof RegExp) &&
-           typeof obj !== 'function';
+  private isLogContext(obj: unknown): obj is LogContext {
+    return (
+      typeof obj === 'object' &&
+      obj !== null &&
+      !Array.isArray(obj) &&
+      !(obj instanceof Error) &&
+      !(obj instanceof Date) &&
+      !(obj instanceof RegExp) &&
+      typeof obj !== 'function'
+    );
   }
 
   /**
@@ -558,65 +741,16 @@ export class LoggerService {
     const lowerLevel = level.toLowerCase();
     if (isValidLogLevel(lowerLevel)) {
       // Valid lowercase, but wrong case - warn about case sensitivity
-      console.warn(`[LoggerService] Invalid log level "${level}". Log levels are case-sensitive. Falling back to "info". Valid levels: trace, debug, info, warn, error, fatal, silent`);
+      console.warn(
+        `[LoggerService] Invalid log level "${level}". Log levels are case-sensitive. Falling back to "info". Valid levels: trace, debug, info, warn, error, fatal, silent`
+      );
       return LogLevelEnum.info;
     }
 
     // Completely invalid level
-    console.warn(`[LoggerService] Invalid log level "${level}". Falling back to "info". Valid levels: trace, debug, info, warn, error, fatal, silent`);
+    console.warn(
+      `[LoggerService] Invalid log level "${level}". Falling back to "info". Valid levels: trace, debug, info, warn, error, fatal, silent`
+    );
     return LogLevelEnum.info;
-  }
-
-  /**
-   * Get color for a specific log level
-   * @param level The log level
-   * @returns ANSI color code for the log level
-   * @private
-   */
-  private getColorForLevel(level: LogLevelEnum): string {
-    switch (level) {
-      case LogLevelEnum.trace:
-        return LogLevelColors.trace;
-      case LogLevelEnum.debug:
-        return LogLevelColors.debug;
-      case LogLevelEnum.info:
-        return LogLevelColors.info;
-      case LogLevelEnum.warn:
-        return LogLevelColors.warn;
-      case LogLevelEnum.error:
-        return LogLevelColors.error;
-      case LogLevelEnum.fatal:
-        return LogLevelColors.fatal;
-      default:
-        return Colors.reset;
-    }
-  }
-
-  /**
-   * Format a log message with color and proper prefix
-   * @param level Log level for the message
-   * @param message The message to format
-   * @param overrideColor Optional color override for the message
-   * @returns Formatted message with color
-   * @private
-   */
-  private formatMessage(
-    level: LogLevelEnum,
-    message: string,
-    overrideColor?: string
-  ): string {
-    const prefix = this.context
-      ? `[${this.name}:${this.context}]`
-      : `[${this.name}]`;
-
-    if (this.useColors) {
-      let color = this.getColorForLevel(level);
-      if (overrideColor) {
-        color = overrideColor;
-      }
-      return `${color}${prefix} ${message}${Colors.reset}`;
-    } else {
-      return `${prefix} ${message}`;
-    }
   }
 }
