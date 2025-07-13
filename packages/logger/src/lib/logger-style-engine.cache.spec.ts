@@ -49,4 +49,18 @@ describe('LoggerStyleEngine Style Resolution Caching', () => {
     // Arbitrary threshold: should be fast
     expect(duration).toBeLessThan(50);
   });
+
+  it('should keep cache isolated between LoggerStyleEngine instances', () => {
+    const engineA = new LoggerStyleEngine({ useColors: true });
+    const engineB = new LoggerStyleEngine({ useColors: true });
+    const styleObjA = createHeavyStyle('customA');
+    const styleObjB = createHeavyStyle('customB');
+    engineA.resolveStyle(styleObjA);
+    engineB.resolveStyle(styleObjB);
+    // Each cache should only contain its own style object
+    expect(engineA.getStyleCache().has(styleObjA)).toBe(true);
+    expect(engineA.getStyleCache().has(styleObjB)).toBe(false);
+    expect(engineB.getStyleCache().has(styleObjB)).toBe(true);
+    expect(engineB.getStyleCache().has(styleObjA)).toBe(false);
+  });
 });
