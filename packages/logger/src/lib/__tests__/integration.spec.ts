@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LoggerService, LogLevelEnum } from '../lib/logger.service';
-import { LoggerConfig, LogLevel, isValidLogLevel } from '../lib/logger.types';
+import { LoggerService, LogLevelEnum } from '../logger.service';
+import { LoggerConfig, LogLevel, isValidLogLevel } from '../logger.types';
+import { LoggerError, LoggerContextError } from '../errors';
 
 // Mock console methods
 const mockConsole = {
@@ -81,21 +82,9 @@ describe('Logger Integration with Type Safety', () => {
         name: 'external-app'
       };
 
-      const logger = new LoggerService(externalConfig as LoggerConfig);
-
-      // Should have warned about invalid level
-      expect(mockConsole.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[LoggerService] Invalid log level "verbose"')
-      );
-
-      // Should fall back to info level
-      logger.debug('Debug message');
-      logger.info('Info message');
-
-      expect(mockConsole.debug).not.toHaveBeenCalled();
-      expect(mockConsole.info).toHaveBeenCalledWith(
-        '[external-app] Info message'
-      );
+      // Should throw LoggerError for invalid level
+      expect(() => new LoggerService(externalConfig as LoggerConfig))
+        .toThrow(LoggerError);
     });
   });
 
@@ -174,21 +163,9 @@ describe('Logger Integration with Type Safety', () => {
     it('should validate environment variables', () => {
       process.env['LOG_LEVEL'] = 'invalid';
       
-      const logger = new LoggerService({ name: 'env-test' });
-
-      // Should have warned about invalid env var
-      expect(mockConsole.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[LoggerService] Invalid log level "invalid"')
-      );
-
-      // Should use info level as fallback
-      logger.debug('Debug message');
-      logger.info('Info message');
-
-      expect(mockConsole.debug).not.toHaveBeenCalled();
-      expect(mockConsole.info).toHaveBeenCalledWith(
-        '[env-test] Info message'
-      );
+      // Should throw LoggerError for invalid environment variable
+      expect(() => new LoggerService({ name: 'env-test' }))
+        .toThrow(LoggerError);
     });
 
     it('should work with valid environment variables', () => {

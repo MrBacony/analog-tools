@@ -17,6 +17,7 @@ import {
 } from './error-serialization';
 import { LoggerStyleEngine } from './logger-style-engine';
 import { DEFAULT_ICON_SCHEME, DEFAULT_STYLE_SCHEME } from './logger.config';
+import { LoggerError } from './errors';
 
 // Log level enumeration to match standard console methods
 export enum LogLevelEnum {
@@ -78,6 +79,9 @@ export class LoggerService {
       this.styleEngine = parent.styleEngine; // Share style engine with parent
     } else {
       // Root logger setup
+      if (typeof config.level === 'string' && !Object.keys(LogLevelEnum).includes(config.level)) {
+        throw new LoggerError(`Invalid log level: ${config.level}`);
+      }
       this.logLevel = this.castLoglevel(
         config.level || process.env['LOG_LEVEL'] || 'info'
       );
@@ -718,7 +722,6 @@ export class LoggerService {
   private castLoglevel(level: string): LogLevelEnum {
     // First check if the exact case is valid
     if (isValidLogLevel(level)) {
-      // Perfect case match, no warning needed
       switch (level) {
         case 'trace':
           return LogLevelEnum.trace;
@@ -740,17 +743,35 @@ export class LoggerService {
     // Check lowercase version
     const lowerLevel = level.toLowerCase();
     if (isValidLogLevel(lowerLevel)) {
-      // Valid lowercase, but wrong case - warn about case sensitivity
-      console.warn(
-        `[LoggerService] Invalid log level "${level}". Log levels are case-sensitive. Falling back to "info". Valid levels: trace, debug, info, warn, error, fatal, silent`
+      throw new LoggerError(
+        `Invalid log level: ${level}. Log levels are case-sensitive. Valid levels: trace, debug, info, warn, error, fatal, silent.`
       );
-      return LogLevelEnum.info;
     }
 
-    // Completely invalid level
-    console.warn(
-      `[LoggerService] Invalid log level "${level}". Falling back to "info". Valid levels: trace, debug, info, warn, error, fatal, silent`
+    throw new LoggerError(
+      `Invalid log level: ${level}. Valid levels: trace, debug, info, warn, error, fatal, silent.`
     );
-    return LogLevelEnum.info;
+  }
+
+  /**
+   * Safely format a message using the style engine
+   * Catches and logs any errors from the style engine
+   * @param args Arguments for the style engine formatMessage method
+   * @returns The formatted message
+   * @private
+   */
+  private safeFormatMessage(
+    level: LogLevelEnum,
+    message: string,
+    name: string,
+    context = '',
+    extra = ''
+  ): string {
+    try {
+      return this.styleEngine.formatMessage(level, message, name, context, extra);
+    } catch (err) {
+      this.error('Style engine failure', err as Error);
+      throw new LoggerError('Style engine failure');
+    }
   }
 }
