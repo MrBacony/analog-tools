@@ -57,7 +57,7 @@ describe('Logger Integration with Type Safety', () => {
         level: 'debug',
         name: 'integration-test',
         useColors: false,
-        disabledContexts: ['disabled-context']
+        disabledContexts: ['disabled-context'],
       };
 
       const logger = new LoggerService(config);
@@ -79,12 +79,13 @@ describe('Logger Integration with Type Safety', () => {
       // Simulate a scenario where config comes from external source
       const externalConfig = {
         level: 'verbose', // Invalid level
-        name: 'external-app'
+        name: 'external-app',
       };
 
       // Should throw LoggerError for invalid level
-      expect(() => new LoggerService(externalConfig as LoggerConfig))
-        .toThrow(LoggerError);
+      expect(() => new LoggerService(externalConfig as LoggerConfig)).toThrow(
+        LoggerError
+      );
     });
   });
 
@@ -93,7 +94,7 @@ describe('Logger Integration with Type Safety', () => {
       const parentConfig: LoggerConfig = {
         level: 'warn',
         name: 'parent-logger',
-        disabledContexts: ['disabled']
+        disabledContexts: ['disabled'],
       };
 
       const parentLogger = new LoggerService(parentConfig);
@@ -162,15 +163,16 @@ describe('Logger Integration with Type Safety', () => {
   describe('Environment variable handling with type safety', () => {
     it('should validate environment variables', () => {
       process.env['LOG_LEVEL'] = 'invalid';
-      
+
       // Should throw LoggerError for invalid environment variable
-      expect(() => new LoggerService({ name: 'env-test' }))
-        .toThrow(LoggerError);
+      expect(() => new LoggerService({ name: 'env-test' })).toThrow(
+        LoggerError
+      );
     });
 
     it('should work with valid environment variables', () => {
       process.env['LOG_LEVEL'] = 'error';
-      
+
       const logger = new LoggerService({ name: 'env-test' });
 
       // Should not have warned
@@ -193,7 +195,7 @@ describe('Logger Integration with Type Safety', () => {
       const appConfig: LoggerConfig = {
         level: 'info',
         name: 'my-app',
-        useColors: false
+        useColors: false,
       };
 
       const appLogger = new LoggerService(appConfig);
@@ -206,9 +208,18 @@ describe('Logger Integration with Type Safety', () => {
       apiLogger.info('API server listening on port 3000');
 
       expect(mockConsole.info).toHaveBeenCalledTimes(3);
-      expect(mockConsole.info).toHaveBeenNthCalledWith(1, '[my-app] Application starting');
-      expect(mockConsole.info).toHaveBeenNthCalledWith(2, '[my-app:database] Connected to database');
-      expect(mockConsole.info).toHaveBeenNthCalledWith(3, '[my-app:api] API server listening on port 3000');
+      expect(mockConsole.info).toHaveBeenNthCalledWith(
+        1,
+        '[my-app] Application starting'
+      );
+      expect(mockConsole.info).toHaveBeenNthCalledWith(
+        2,
+        '[my-app:database] Connected to database'
+      );
+      expect(mockConsole.info).toHaveBeenNthCalledWith(
+        3,
+        '[my-app:api] API server listening on port 3000'
+      );
     });
 
     it('should handle dynamic logger configuration', () => {
@@ -220,18 +231,22 @@ describe('Logger Integration with Type Safety', () => {
       logger.warn('Warning message');
 
       expect(mockConsole.info).not.toHaveBeenCalled();
-      expect(mockConsole.warn).toHaveBeenCalledWith('[dynamic-app] Warning message');
+      expect(mockConsole.warn).toHaveBeenCalledWith(
+        '[dynamic-app] Warning message'
+      );
 
       // Simulate changing disabled contexts dynamically
       logger.setDisabledContexts(['api']);
       const apiLogger = logger.forContext('api');
       const dbLogger = logger.forContext('database');
 
-      apiLogger.warn('API warning');  // Should not appear
-      dbLogger.warn('DB warning');    // Should appear
+      apiLogger.warn('API warning'); // Should not appear
+      dbLogger.warn('DB warning'); // Should appear
 
       expect(mockConsole.warn).toHaveBeenCalledTimes(2); // Only original + db warning
-      expect(mockConsole.warn).toHaveBeenLastCalledWith('[dynamic-app:database] DB warning');
+      expect(mockConsole.warn).toHaveBeenLastCalledWith(
+        '[dynamic-app:database] DB warning'
+      );
     });
   });
 });
