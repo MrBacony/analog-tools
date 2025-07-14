@@ -118,25 +118,17 @@ describe('Logger Type Safety', () => {
       })).toThrow(LoggerError);
     });
 
-      expect(mockConsole.debug).not.toHaveBeenCalled();
-      expect(mockConsole.info).toHaveBeenCalledWith(
-        '[test-logger] Info message'
-      );
-    });
-
     it('should accept valid levels without warning', () => {
       const logger = new LoggerService({ 
-        level: 'debug',
+        level: 'info',
         name: 'test-logger' 
       });
-
       // Should not have warned
       expect(mockConsole.warn).not.toHaveBeenCalled();
-
-      // Should work at debug level
-      logger.debug('Debug message');
-      expect(mockConsole.debug).toHaveBeenCalledWith(
-        '[test-logger] Debug message'
+      // Should work at info level
+      logger.info('Info message');
+      expect(mockConsole.info).toHaveBeenCalledWith(
+        '[test-logger] Info message'
       );
     });
   });
@@ -191,3 +183,4 @@ describe('Logger Type Safety', () => {
       delete process.env['LOG_LEVEL'];
     });
   });
+});
