@@ -3,6 +3,7 @@ export * from './lib/logger.types';
 export * from './lib/logger-style-engine';
 export * from './lib/logger-style-engine.types';
 export * from './lib/error-serialization';
+export * from './lib/errors';
 export * from './lib/nitro';
 
 // Re-export LogLevelEnum for convenience

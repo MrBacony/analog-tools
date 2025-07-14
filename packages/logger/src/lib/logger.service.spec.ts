@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoggerService } from '../lib/logger.service';
 import { ColorEnum, Icon, LogStyling, LogLevel } from './logger.types';
+import { LoggerError, LoggerContextError } from './errors';
 
 // Mock console methods
 const mockConsole = {
@@ -1070,5 +1071,21 @@ describe('Security - Style Injection', () => {
       style: { color: 'not-a-color' as unknown as never },
     });
     expect(output.join(' ')).toContain('test');
+  });
+});
+describe('LoggerService Error Handling', () => {
+  it('should throw LoggerError for invalid log level', () => {
+    expect(() => new LoggerService({ level: 'invalid' as LogLevel, name: 'test-logger' }))
+      .toThrow(LoggerError);
+  });
+
+  it('should throw LoggerError for case-sensitive log level', () => {
+    expect(() => new LoggerService({ level: 'INFO' as LogLevel, name: 'test-logger' }))
+      .toThrow(LoggerError);
+  });
+
+  it('should throw LoggerError for completely invalid log level', () => {
+    expect(() => new LoggerService({ level: 'nonsense' as LogLevel, name: 'test-logger' }))
+      .toThrow(LoggerError);
   });
 });
