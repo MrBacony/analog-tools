@@ -392,7 +392,7 @@ describe('LoggerStyleEngine', () => {
       
       expect(result).toBeUndefined();
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Unknown style provided')
+        expect.stringContaining('Unknown style configuration provided')
       );
     });
   });
@@ -581,6 +581,59 @@ describe('LoggerStyleEngine', () => {
       
       expect(result.metadata).toEqual(styling);
       expect(result.restData).toHaveLength(1000);
+    });
+  });
+
+  describe('Helper Functions', () => {
+    describe('Color Validation', () => {
+      it('should validate known ColorEnum values', () => {
+        const validColors = Object.values(ColorEnum);
+        validColors.forEach((color) => {
+          expect(styleEngine['isValidColor'](color)).toBe(true);
+        });
+      });
+      it('should reject unknown color values', () => {
+        expect(styleEngine['isValidColor']('not-a-color')).toBe(false);
+      });
+    });
+
+    describe('Icon Validation', () => {
+      it('should validate known emoji icons', () => {
+        expect(styleEngine['isValidIcon']('✅')).toBe(true);
+        expect(styleEngine['isValidIcon']('🐞')).toBe(true);
+      });
+      it('should reject unknown icons', () => {
+        expect(styleEngine['isValidIcon']('not-an-icon')).toBe(false);
+      });
+    });
+
+    describe('Memoization Helper', () => {
+      it('should cache and retrieve style values', () => {
+        styleEngine['setStyleCache']('test-style', 'cached-value');
+        expect(styleEngine['getStyleCacheValue']('test-style')).toBe('cached-value');
+      });
+    });
+
+    describe('Error Logging Helper', () => {
+      it('should log warnings for invalid color', () => {
+        styleEngine['logWarning']('Invalid color', 'logger', 'context');
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid color')
+        );
+      });
+    });
+
+    describe('Style Code Construction Helper', () => {
+      it('should construct style code with color, bold, underline', () => {
+        const styleObj = { color: ColorEnum.FireRed, bold: true, underline: true };
+        const code = styleEngine['constructStyleCode'](styleObj);
+        expect(code).toBe(ColorEnum.FireRed + ColorEnum.Bold + ColorEnum.Underline);
+      });
+      it('should construct style code with color only', () => {
+        const styleObj = { color: ColorEnum.FireRed };
+        const code = styleEngine['constructStyleCode'](styleObj);
+        expect(code).toBe(ColorEnum.FireRed);
+      });
     });
   });
 });

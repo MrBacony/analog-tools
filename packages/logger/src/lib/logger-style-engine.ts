@@ -264,46 +264,58 @@ export class LoggerStyleEngine implements ILoggerStyleEngine {
     context?: string
   ): string | undefined {
     // Memoization: cache by string or object reference
+    const cached = this.getStyleCacheValue(style);
+    if (cached !== undefined) return cached;
+    
     if (typeof style === 'string') {
-      if (this.styleCache.has(style)) {
-        return this.styleCache.get(style);
-      }
-      // Handle semantic style names
       const resolved = this.getSemanticStyleColor(style, loggerName, context);
-      this.styleCache.set(style, resolved);
+      this.setStyleCache(style, resolved);
       return resolved;
-    } else if (typeof style === 'object' && style.color) {
-      if (this.styleCache.has(style)) {
-        return this.styleCache.get(style);
-      }
-      // Validate color is a member of ColorEnum
-      const color = style.color;
-      const isValidColor = Object.values(ColorEnum).includes(color);
-      if (!isValidColor) {
-        // Silently ignore invalid/malicious color values for security
-        this.styleCache.set(style, undefined);
+    }
+    if (typeof style === 'object' && 'color' in style) {
+      if (!this.isValidColor(style.color)) {
+        this.setStyleCache(style, undefined);
+        this.logWarning(`Invalid color provided. Only predefined ColorEnum values are allowed.`, loggerName, context);
         return undefined;
       }
-      let styleCode = color.toString();
-      if (style.bold === true) {
-        styleCode += ColorEnum.Bold; // Add bold modifier
-      }
-      if (style.underline === true) {
-        styleCode += ColorEnum.Underline; // Add underline modifier
-      }
-      this.styleCache.set(style, styleCode);
+      const styleCode = this.constructStyleCode(style);
+      this.setStyleCache(style, styleCode);
       return styleCode;
     }
-
-    // Log warning for unknown style and fallback
-    const loggerPrefix = context ? `${loggerName}:${context}` : loggerName;
-    console.warn(
-      `[${loggerPrefix}] Unknown style provided: ${JSON.stringify(
-        style
-      )}. Falling back to default.`
-    );
-    this.styleCache.set(style, undefined);
+    this.setStyleCache(style, undefined);
+    this.logWarning(`Unknown style configuration provided. Only semantic style names or valid ColorEnum objects are allowed.`, loggerName, context);
     return undefined;
+  }
+  // Helper: Validate color
+  private isValidColor(color: unknown): boolean {
+    return Object.values(ColorEnum).includes(color as ColorEnum);
+  }
+
+  // Helper: Validate icon
+  private isValidIcon(icon: unknown): boolean {
+    return this.isEmojiIcon(icon as string);
+  }
+
+  // Helper: Memoization get/set
+  private getStyleCacheValue(key: string | object): string | undefined {
+    return this.styleCache.has(key) ? this.styleCache.get(key) : undefined;
+  }
+  private setStyleCache(key: string | object, value: string | undefined): void {
+    this.styleCache.set(key, value);
+  }
+
+  // Helper: Error logging
+  private logWarning(message: string, loggerName: string, context?: string): void {
+    const loggerPrefix = context ? `${loggerName}:${context}` : loggerName;
+    console.warn(`[${loggerPrefix}] ${message}`);
+  }
+
+  // Helper: Style code construction
+  private constructStyleCode(style: { color: ColorEnum; bold?: boolean; underline?: boolean }): string {
+    let code = style.color.toString();
+    if (style.bold) code += ColorEnum.Bold;
+    if (style.underline) code += ColorEnum.Underline;
+    return code;
   }
 
   /**
@@ -367,41 +379,21 @@ export class LoggerStyleEngine implements ILoggerStyleEngine {
     loggerName: string,
     context?: string
   ): string {
-    // If it's already an emoji (Icon type), return as-is
-    if (this.isEmojiIcon(icon)) {
+    if (this.isValidIcon(icon)) {
       return icon;
     }
-
-    // Check if it's a semantic icon name in our global configuration
     const semanticIconKeys = [
-      'success',
-      'warning',
-      'error',
-      'info',
-      'debug',
+      'success', 'warning', 'error', 'info', 'debug',
     ] as const;
     const semanticIcon = semanticIconKeys.find((key) => key === icon);
-
     if (semanticIcon && this.globalIcons[semanticIcon]) {
       return this.globalIcons[semanticIcon] as string;
     }
-
-    // Differentiate between unknown semantic icons and invalid icons
-    const loggerPrefix = context ? `${loggerName}:${context}` : loggerName;
-    if (
-      semanticIconKeys.includes(
-        icon as 'success' | 'warning' | 'error' | 'info' | 'debug'
-      )
-    ) {
-      console.warn(
-        `[${loggerPrefix}] Unknown icon: ${icon}. Expected a valid emoji or semantic icon name.`
-      );
+    if (semanticIconKeys.includes(icon as typeof semanticIconKeys[number])) {
+      this.logWarning(`Unknown icon: ${icon}. Expected a valid emoji or semantic icon name.`, loggerName, context);
     } else {
-      console.warn(
-        `[${loggerPrefix}] Invalid icon: ${icon}. Expected a valid emoji or semantic icon name.`
-      );
+      this.logWarning(`Invalid icon: ${icon}. Expected a valid emoji or semantic icon name.`, loggerName, context);
     }
-
     return icon;
   }
 
