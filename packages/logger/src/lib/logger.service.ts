@@ -304,11 +304,9 @@ export class LoggerService {
       data
     );
 
-    // Only deduplicate simple messages (without styling metadata)
-    if (!metadata && restData.length === 0) {
-      if (!this.shouldLogImmediately(LogLevelEnum.debug, message)) {
-        return; // Message was batched
-      }
+    // Handle deduplication logic
+    if (!this.handleDeduplication(LogLevelEnum.debug, message, metadata, restData)) {
+      return; // Message was batched
     }
 
     if (metadata) {
@@ -346,17 +344,14 @@ export class LoggerService {
   ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.info) return;
 
-    // Check deduplication first (only for simple messages without metadata)
     const { metadata, restData } = this.styleEngine.parseMetadataParameter(
       metadataOrData,
       data
     );
 
-    // Only deduplicate simple messages (without styling metadata)
-    if (!metadata && restData.length === 0) {
-      if (!this.shouldLogImmediately(LogLevelEnum.info, message)) {
-        return; // Message was batched
-      }
+    // Handle deduplication logic
+    if (!this.handleDeduplication(LogLevelEnum.info, message, metadata, restData)) {
+      return; // Message was batched
     }
 
     if (metadata) {
@@ -399,11 +394,9 @@ export class LoggerService {
       data
     );
 
-    // Only deduplicate simple messages (without styling metadata)
-    if (!metadata && restData.length === 0) {
-      if (!this.shouldLogImmediately(LogLevelEnum.warn, message)) {
-        return; // Message was batched
-      }
+    // Handle deduplication logic
+    if (!this.handleDeduplication(LogLevelEnum.warn, message, metadata, restData)) {
+      return; // Message was batched
     }
 
     if (metadata) {
@@ -841,5 +834,22 @@ export class LoggerService {
       console.error('Logger deduplication error:', error);
       return true;
     }
+  }
+
+  /**
+   * Deduplication handler for all log methods
+   * Returns true if the message should be logged immediately, false if batched
+   */
+  private handleDeduplication(
+    level: LogLevelEnum,
+    message: string,
+    metadata: LogStyling | undefined,
+    restData: unknown[]
+  ): boolean {
+    // Only deduplicate simple messages (no metadata, no extra data)
+    if (!metadata && restData.length === 0) {
+      return this.shouldLogImmediately(level, message);
+    }
+    return true;
   }
 }
