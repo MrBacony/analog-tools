@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LoggerService } from '../logger.service';
+import { LogLevelEnum } from '../logger.types';
 import { ErrorSerializer } from '../error-serialization/error-serializer';
 
 // Mock console methods

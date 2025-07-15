@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LogDeduplicator } from './deduplicator';
-import { LogLevelEnum } from '../logger.service';
+import { LogLevelEnum } from '../logger.types';
 import { DEFAULT_DEDUPLICATION_CONFIG } from './deduplication.types';
 
 // Mock console methods
@@ -113,7 +113,7 @@ describe('LogDeduplicator', () => {
       expect(mockConsole.info).toHaveBeenCalledTimes(1);
       const call = mockConsole.info.mock.calls[0][0];
       expect(call).toContain('repeated message');
-      expect(call).toContain('×3 times');
+      expect(call).toContain('(×3)');
     });
 
     it('should not add count for single occurrence', () => {

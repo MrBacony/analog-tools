@@ -3,7 +3,7 @@
  * Following YAGNI principle - minimal, focused functionality
  */
 
-import { LogLevelEnum } from '../logger.service';
+import { LogLevelEnum } from '../logger.types';
 import {
   DeduplicationConfig,
   LogEntry,
@@ -138,7 +138,7 @@ export class LogDeduplicator implements ILogDeduplicator {
     
     // Add count suffix if message occurred multiple times
     if (entry.count > 1) {
-      message = `${message} (×${entry.count} times)`;
+      message = `${message} (×${entry.count})`;
     }
 
     // Format and output the message

@@ -3,13 +3,7 @@
  * Extracted from LoggerService to follow Single Responsibility Principle
  */
 
-import {
-  ColorEnum,
-  Icon,
-  LogStyling,
-  SemanticStyleName,
-} from './logger.types';
-import { LogLevelEnum } from './logger.service';
+import { LogLevelEnum, ColorEnum, Icon, LogStyling, SemanticStyleName } from './logger.types';
 import { DEFAULT_ICON_SCHEME, DEFAULT_STYLE_SCHEME, StyleScheme, IconScheme } from './logger.config';
 import {
   ILoggerStyleEngine,

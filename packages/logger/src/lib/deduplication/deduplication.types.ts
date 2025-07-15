@@ -3,7 +3,7 @@
  * Following YAGNI principle - minimal, focused implementation
  */
 
-import { LogLevelEnum } from '../logger.service';
+import { LogLevelEnum } from '../logger.types';
 
 /**
  * Configuration for log deduplication
