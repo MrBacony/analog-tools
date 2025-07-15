@@ -259,11 +259,9 @@ export class LoggerService {
       data
     );
 
-    // Only deduplicate simple messages (without styling metadata)
-    if (!metadata && restData.length === 0) {
-      if (!this.shouldLogImmediately(LogLevelEnum.trace, message)) {
-        return; // Message was batched
-      }
+    // Handle deduplication logic
+    if (!this.handleDeduplication(LogLevelEnum.trace, message, metadata, restData)) {
+      return; // Message was batched
     }
 
     if (metadata) {
