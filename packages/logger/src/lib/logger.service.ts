@@ -18,6 +18,14 @@ import {
 import { LoggerStyleEngine } from './logger-style-engine';
 import { DEFAULT_ICON_SCHEME, DEFAULT_STYLE_SCHEME } from './logger.config';
 import { LoggerError } from './errors';
+import { 
+  LogDeduplicator, 
+  MessageFormatter 
+} from './deduplication/deduplicator';
+import { 
+  DeduplicationConfig, 
+  DEFAULT_DEDUPLICATION_CONFIG 
+} from './deduplication/deduplication.types';
 
 // Log level enumeration to match standard console methods
 export enum LogLevelEnum {
@@ -55,6 +63,8 @@ export class LoggerService {
   private parentLogger?: LoggerService;
   // Style engine for formatting
   private styleEngine: LoggerStyleEngine;
+  // Deduplicator for batching repeated messages
+  private deduplicator?: LogDeduplicator;
 
   /**
    * Create a new LoggerService
@@ -98,6 +108,22 @@ export class LoggerService {
         styles: { ...DEFAULT_STYLE_SCHEME, ...config.styles },
         icons: { ...DEFAULT_ICON_SCHEME, ...config.icons },
       });
+
+      // Initialize deduplicator if enabled
+      if (config.deduplication?.enabled) {
+        const dedupeConfig: DeduplicationConfig = {
+          enabled: true,
+          windowMs: config.deduplication.windowMs ?? DEFAULT_DEDUPLICATION_CONFIG.windowMs,
+          flushOnCritical: config.deduplication.flushOnCritical ?? DEFAULT_DEDUPLICATION_CONFIG.flushOnCritical,
+        };
+
+        // Create formatter function for deduplicator
+        const formatter: MessageFormatter = (level, message, context) => {
+          return this.styleEngine.formatMessage(level, message, this.name, context);
+        };
+
+        this.deduplicator = new LogDeduplicator(dedupeConfig, formatter);
+      }
     }
   }
 
@@ -243,6 +269,13 @@ export class LoggerService {
       data
     );
 
+    // Only deduplicate simple messages (without styling metadata)
+    if (!metadata && restData.length === 0) {
+      if (!this.shouldLogImmediately(LogLevelEnum.trace, message)) {
+        return; // Message was batched
+      }
+    }
+
     if (metadata) {
       const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.trace,
@@ -283,6 +316,13 @@ export class LoggerService {
       data
     );
 
+    // Only deduplicate simple messages (without styling metadata)
+    if (!metadata && restData.length === 0) {
+      if (!this.shouldLogImmediately(LogLevelEnum.debug, message)) {
+        return; // Message was batched
+      }
+    }
+
     if (metadata) {
       const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.debug,
@@ -318,10 +358,18 @@ export class LoggerService {
   ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.info) return;
 
+    // Check deduplication first (only for simple messages without metadata)
     const { metadata, restData } = this.styleEngine.parseMetadataParameter(
       metadataOrData,
       data
     );
+
+    // Only deduplicate simple messages (without styling metadata)
+    if (!metadata && restData.length === 0) {
+      if (!this.shouldLogImmediately(LogLevelEnum.info, message)) {
+        return; // Message was batched
+      }
+    }
 
     if (metadata) {
       const formattedMessage = this.styleEngine.formatMessageWithMetadata(
@@ -362,6 +410,13 @@ export class LoggerService {
       metadataOrData,
       data
     );
+
+    // Only deduplicate simple messages (without styling metadata)
+    if (!metadata && restData.length === 0) {
+      if (!this.shouldLogImmediately(LogLevelEnum.warn, message)) {
+        return; // Message was batched
+      }
+    }
 
     if (metadata) {
       const formattedMessage = this.styleEngine.formatMessageWithMetadata(
@@ -772,6 +827,31 @@ export class LoggerService {
     } catch (err) {
       this.error('Style engine failure', err as Error);
       throw new LoggerError('Style engine failure');
+    }
+  }
+
+  /**
+   * Handle deduplication for a log message
+   * @param level Log level
+   * @param message Message text
+   * @returns True if message should be logged immediately, false if batched
+   * @private
+   */
+  private shouldLogImmediately(level: LogLevelEnum, message: string): boolean {
+    // Get the root logger's deduplicator (child loggers share with parent)
+    const rootLogger = this.parentLogger || this;
+    const deduplicator = rootLogger.deduplicator;
+
+    if (!deduplicator) {
+      return true; // No deduplication, log immediately
+    }
+
+    try {
+      return deduplicator.addMessage(level, message, this.context);
+    } catch (error) {
+      // If deduplication fails for any reason, log immediately to ensure messages aren't lost
+      console.error('Logger deduplication error:', error);
+      return true;
     }
   }
 }
