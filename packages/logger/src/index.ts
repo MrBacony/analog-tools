@@ -7,6 +7,3 @@ export * from './lib/errors';
 export * from './lib/nitro';
 export * from './lib/deduplication/deduplication.types';
 export * from './lib/deduplication/deduplicator';
-
-// Re-export LogLevelEnum for convenience
-export { LogLevelEnum } from './lib/logger.service';

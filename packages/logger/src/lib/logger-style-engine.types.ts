@@ -3,7 +3,7 @@
  */
 
 import { ColorEnum, LogStyling, SemanticStyleName } from './logger.types';
-import { LogLevelEnum } from './logger.service';
+import { LogLevelEnum } from './logger.types';
 import { StyleScheme, IconScheme } from './logger.config';
 
 /**
