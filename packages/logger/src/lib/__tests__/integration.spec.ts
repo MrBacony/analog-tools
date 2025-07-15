@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LoggerService, LogLevelEnum } from '../logger.service';
-import { LoggerConfig, LogLevel, isValidLogLevel } from '../logger.types';
+import { LoggerService } from '../logger.service';
+import { LoggerConfig, LogLevel, isValidLogLevel, LogLevelEnum } from '../logger.types';
 import { LoggerError, LoggerContextError } from '../errors';
 
 // Mock console methods

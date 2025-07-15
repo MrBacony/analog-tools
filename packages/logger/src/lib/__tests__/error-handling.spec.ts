@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LoggerService } from '../logger.service';
-import { LogMetadata } from '../logger.types';
+import { LogMetadata, LogLevelEnum } from '../logger.types';
 
 // Mock console methods
 const mockConsole = {

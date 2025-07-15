@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoggerStyleEngine } from './logger-style-engine';
-import { ColorEnum, Icon, LogStyling, SemanticStyleName } from './logger.types';
-import { LogLevelEnum } from './logger.service';
+import { ColorEnum, Icon, LogStyling, SemanticStyleName, LogLevelEnum } from './logger.types';
 import { DEFAULT_STYLE_SCHEME, DEFAULT_ICON_SCHEME } from './logger.config';
 
 describe('LoggerStyleEngine', () => {
@@ -322,7 +321,7 @@ describe('LoggerStyleEngine', () => {
       ];
 
       testCases.forEach(({ styleName, expectedColor }) => {
-        const result = styleEngine['applyStyle'](styleName);
+        const result = styleEngine['applyStyle'](styleName, 'test-logger');
         expect(result).toContain(expectedColor);
       });
     });
@@ -332,7 +331,7 @@ describe('LoggerStyleEngine', () => {
         color: ColorEnum.MintGreen,
       };
       
-      const result = styleEngine['applyStyle'](customStyle);
+      const result = styleEngine['applyStyle'](customStyle, 'test-logger');
       expect(result).toBe(ColorEnum.MintGreen);
     });
 
@@ -342,7 +341,7 @@ describe('LoggerStyleEngine', () => {
         bold: true,
       };
       
-      const result = styleEngine['applyStyle'](customStyle);
+      const result = styleEngine['applyStyle'](customStyle, 'test-logger');
       expect(result).toBe(ColorEnum.FireRed + '\x1b[1m');
     });
 
@@ -352,7 +351,7 @@ describe('LoggerStyleEngine', () => {
         underline: true,
       };
       
-      const result = styleEngine['applyStyle'](customStyle);
+      const result = styleEngine['applyStyle'](customStyle, 'test-logger');
       expect(result).toBe(ColorEnum.OceanBlue + '\x1b[4m');
     });
 
@@ -363,7 +362,7 @@ describe('LoggerStyleEngine', () => {
         underline: true,
       };
       
-      const result = styleEngine['applyStyle'](customStyle);
+      const result = styleEngine['applyStyle'](customStyle, 'test-logger');
       expect(result).toBe(ColorEnum.RoyalPurple + '\x1b[1m\x1b[4m');
     });
 
@@ -372,12 +371,12 @@ describe('LoggerStyleEngine', () => {
         color: 'invalid-color' as ColorEnum,
       };
       
-      const result = styleEngine['applyStyle'](invalidStyle);
+      const result = styleEngine['applyStyle'](invalidStyle, 'test-logger');
       expect(result).toBeUndefined();
     });
 
     it('should warn about unknown semantic styles', () => {
-      const result = styleEngine['applyStyle']('unknown-style' as SemanticStyleName);
+      const result = styleEngine['applyStyle']('unknown-style' as SemanticStyleName, 'test-logger');
       
       expect(result).toBeUndefined();
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -388,7 +387,7 @@ describe('LoggerStyleEngine', () => {
     it('should warn about unknown style objects', () => {
       const unknownStyle = { invalid: 'style' } as unknown;
       
-      const result = styleEngine['applyStyle'](unknownStyle as SemanticStyleName);
+      const result = styleEngine['applyStyle'](unknownStyle as SemanticStyleName, 'test-logger');
       
       expect(result).toBeUndefined();
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -402,7 +401,7 @@ describe('LoggerStyleEngine', () => {
       const testIcons: Icon[] = ['✅', '⚠️', '❌', 'ℹ️', '🐞', '🚀', '🔥'];
       
       testIcons.forEach((icon) => {
-        const result = styleEngine['resolveIcon'](icon);
+        const result = styleEngine['resolveIcon'](icon, 'test-logger');
         expect(result).toBe(icon);
       });
     });
@@ -417,14 +416,14 @@ describe('LoggerStyleEngine', () => {
       ];
 
       testCases.forEach(({ name, expected }) => {
-        const result = styleEngine['resolveIcon'](name);
+        const result = styleEngine['resolveIcon'](name, 'test-logger');
         expect(result).toBe(expected);
       });
     });
 
     it('should handle custom string icons gracefully', () => {
       const customIcon = 'custom-icon';
-      const result = styleEngine['resolveIcon'](customIcon);
+      const result = styleEngine['resolveIcon'](customIcon, 'test-logger');
       
       expect(result).toBe(customIcon);
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -434,7 +433,7 @@ describe('LoggerStyleEngine', () => {
 
     it('should warn about unknown semantic icons', () => {
       const unknownIcon = 'unknown';
-      const result = styleEngine['resolveIcon'](unknownIcon);
+      const result = styleEngine['resolveIcon'](unknownIcon, 'test-logger');
       
       expect(result).toBe(unknownIcon);
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -481,12 +480,12 @@ describe('LoggerStyleEngine', () => {
       styleEngine.updateStyleConfig(newStyles, newIcons);
 
       // Test that new styles are applied
-      const successStyle = styleEngine['getSemanticStyleColor']('success');
+      const successStyle = styleEngine['getSemanticStyleColor']('success', 'test-logger');
       expect(successStyle).toContain(ColorEnum.MintGreen);
       expect(successStyle).toContain('\x1b[1m'); // Bold
 
       // Test that new icons are resolved
-      const successIcon = styleEngine['resolveIcon']('success');
+      const successIcon = styleEngine['resolveIcon']('success', 'test-logger');
       expect(successIcon).toBe('🎉');
     });
 
@@ -498,11 +497,11 @@ describe('LoggerStyleEngine', () => {
       styleEngine.updateStyleConfig(newStyles, {});
 
       // New style should be applied
-      const successStyle = styleEngine['getSemanticStyleColor']('success');
+      const successStyle = styleEngine['getSemanticStyleColor']('success', 'test-logger');
       expect(successStyle).toContain(ColorEnum.MintGreen);
 
       // Existing styles should be preserved
-      const errorStyle = styleEngine['getSemanticStyleColor']('error');
+      const errorStyle = styleEngine['getSemanticStyleColor']('error', 'test-logger');
       expect(errorStyle).toContain(ColorEnum.FireRed);
     });
   });

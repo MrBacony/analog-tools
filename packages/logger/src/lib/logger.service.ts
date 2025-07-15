@@ -7,6 +7,7 @@
 import {
   isValidLogLevel,
   LoggerConfig,
+  LogLevelEnum,
   LogStyling,
   LogContext,
 } from './logger.types';
@@ -26,17 +27,6 @@ import {
   DeduplicationConfig, 
   DEFAULT_DEDUPLICATION_CONFIG 
 } from './deduplication/deduplication.types';
-
-// Log level enumeration to match standard console methods
-export enum LogLevelEnum {
-  trace = 0,
-  debug = 1,
-  info = 2,
-  warn = 3,
-  error = 4,
-  fatal = 5,
-  silent = 6,
-}
 
 /**
  * Logger service implementation using standard console

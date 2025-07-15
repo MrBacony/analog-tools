@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoggerService } from '../lib/logger.service';
 import { ColorEnum, Icon, LogStyling, LogLevel } from './logger.types';
-import { LoggerError, LoggerContextError } from './errors';
+import { LoggerError } from './errors';
 
 // Mock console methods
 const mockConsole = {
