@@ -183,4 +183,16 @@ export interface LoggerConfig {
    * Global icon configuration for semantic icons
    */
   icons?: Partial<Record<'success' | 'warning' | 'error' | 'info' | 'debug', Icon>>;
+
+  /**
+   * Log deduplication configuration
+   */
+  deduplication?: {
+    /** Whether deduplication is enabled (default: false) */
+    enabled: boolean;
+    /** Time window in milliseconds for batching messages (default: 5000) */
+    windowMs?: number;
+    /** Whether to flush immediately on critical levels (default: true) */
+    flushOnCritical?: boolean;
+  };
 }

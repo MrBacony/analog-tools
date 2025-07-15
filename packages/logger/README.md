@@ -23,6 +23,7 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 - [Enhanced Error Handling](#enhanced-error-handling)
 - [Context-Based Logging](#context-based-logging)
 - [Metadata-Based Styling and Icons](#metadata-based-styling-and-icons)
+- [Smart Log Deduplication](#smart-log-deduplication)
 - [Log Grouping](#log-grouping)
 - [API Reference](#api-reference)
 - [Environment Variables](#environment-variables)
@@ -58,6 +59,7 @@ A minimal, type-safe logging utility for server-side applications in AnalogJS, N
 - 🛡️ **Structured Error Serialization** with circular reference protection
 - 📊 **LogContext Support** for structured logging
 - 🔄 **Backwards Compatibility** with existing error logging patterns
+- 🔁 **Smart Log Deduplication** with aggregation to reduce noise from repeated messages
 
 ## Prerequisites
 
@@ -927,6 +929,136 @@ logger.info('✅ Task completed');
 // After (metadata-based)
 logger.info('Task completed', { icon: '✅' });
 ```
+
+## Smart Log Deduplication
+
+The logger includes smart deduplication to reduce noise from repeated log messages. When enabled, identical messages within a time window are batched together and displayed with repeat counts.
+
+### Basic Configuration
+
+```typescript
+const logger = new LoggerService({
+  level: 'info',
+  deduplication: {
+    enabled: true,
+    windowMs: 5000,        // 5-second batching window (default: 1000ms)
+    flushOnCritical: true  // Flush batched messages when error/fatal occurs (default: true)
+  }
+});
+
+// These repeated messages will be batched
+logger.info('Processing file...');
+logger.info('Processing file...');
+logger.info('Processing file...');
+
+// After 5 seconds, you'll see:
+// [my-app] Processing file... (×3)
+```
+
+### How It Works
+
+1. **Message Batching**: Identical messages at the same log level are grouped together within a time window
+2. **Automatic Flushing**: Batched messages are automatically flushed when the time window expires
+3. **Critical Message Priority**: Error and fatal messages always log immediately and optionally flush any pending batches
+4. **Context Awareness**: Messages from different contexts are tracked separately
+5. **Metadata Bypass**: Messages with styling metadata or additional data are never batched (logged immediately)
+
+### Key Features
+
+#### Simple Messages Only
+Only simple messages without metadata or additional data are deduplicated:
+
+```typescript
+// These will be batched
+logger.info('Connection retry');
+logger.info('Connection retry');
+logger.info('Connection retry');
+
+// These will NOT be batched (logged immediately)
+logger.info('Connection retry', { style: 'warning' });
+logger.info('Connection retry', { userId: 123 });
+logger.info('Connection retry', additionalData);
+```
+
+#### Critical Message Handling
+Error and fatal messages bypass deduplication entirely:
+
+```typescript
+// Setup with batching
+logger.info('Processing...');
+logger.info('Processing...');
+
+// This error logs immediately and flushes batched messages
+logger.error('Processing failed!');
+
+// Output:
+// [my-app] Processing... (×2)
+// [my-app] Processing failed!
+```
+
+#### Level-Specific Batching
+Different log levels are batched separately:
+
+```typescript
+logger.debug('Checking status');
+logger.info('Checking status');  // Different level, won't batch with debug
+logger.debug('Checking status'); // Will batch with first debug message
+
+// Results in separate batches for debug and info levels
+```
+
+#### Context Separation
+Child loggers maintain separate deduplication tracking:
+
+```typescript
+const rootLogger = new LoggerService({ 
+  deduplication: { enabled: true } 
+});
+const userLogger = rootLogger.forContext('user');
+const adminLogger = rootLogger.forContext('admin');
+
+// These are tracked separately
+rootLogger.info('System status');
+userLogger.info('System status');
+adminLogger.info('System status');
+
+// Results in three separate log entries
+```
+
+### Configuration Options
+
+```typescript
+interface DeduplicationConfig {
+  enabled: boolean;         // Enable/disable deduplication
+  windowMs?: number;        // Time window in milliseconds (default: 1000)
+  flushOnCritical?: boolean; // Flush batches on error/fatal (default: true)
+}
+```
+
+### Environment Variable Support
+
+You can configure deduplication via environment variables:
+
+```bash
+# Enable deduplication with 2-second window
+LOG_DEDUP_ENABLED=true
+LOG_DEDUP_WINDOW=2000
+LOG_DEDUP_FLUSH_CRITICAL=true
+```
+
+### Best Practices
+
+1. **Use for High-Volume Scenarios**: Enable deduplication when you expect repeated messages (polling, retry loops, etc.)
+2. **Keep Short Windows**: Use shorter time windows (1-5 seconds) to maintain responsiveness
+3. **Critical Messages**: Always keep `flushOnCritical: true` to ensure important errors are seen immediately
+4. **Disable for Development**: Consider disabling during development for immediate feedback
+5. **Monitor Performance**: While lightweight, consider the memory footprint in extremely high-volume scenarios
+
+### Performance Impact
+
+- **Memory**: Minimal overhead - uses in-memory Map with automatic cleanup
+- **CPU**: Negligible processing overhead per message
+- **Timing**: Uses Node.js timers with automatic cleanup on flush
 
 ## Log Grouping
 
