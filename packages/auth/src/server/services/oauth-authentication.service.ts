@@ -1,13 +1,10 @@
 import { createError, H3Event } from 'h3';
 import { SessionService } from './session.service';
-import {
-  AuthSessionData,
-  SessionWithHandler,
-  SessionWithSave,
-} from '../types/auth-session.types';
+import { AuthSessionData } from '../types/auth-session.types';
 import { AnalogAuthConfig } from '../types/auth.types';
 import { inject, registerService } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
+import { getSession, updateSession } from '@analog-tools/session';
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
@@ -87,7 +84,7 @@ export class OAuthAuthenticationService {
       }
 
       // These config values are optional and should return a safe default if missing
-      if (key === 'userHandler' || key === 'logoutUrl') {
+      if (key === 'userHandler' || key === 'logoutUrl' || key === 'audience') {
         return undefined as AnalogAuthConfig[K];
       }
       if (key === 'unprotectedRoutes') {
@@ -126,7 +123,7 @@ export class OAuthAuthenticationService {
 
     const config = await this.getOpenIDConfiguration();
 
-    const audience = this.getConfigValue('audience');
+    const audience = this.getConfigValue('audience', undefined);
 
     const searchparams = {
       response_type: 'code',
@@ -366,8 +363,7 @@ export class OAuthAuthenticationService {
       user = await userHandler.createOrUpdateUser?.(userData);
     }
 
-    // Store auth data in session using sessionHandler
-    const sessionHandler = event.context['sessionHandler'];
+    // Store auth data in session using new session API
     const auth = {
       isAuthenticated: true,
       accessToken: access_token,
@@ -378,19 +374,10 @@ export class OAuthAuthenticationService {
     };
 
     // Update session with user and auth data
-    sessionHandler.update((data: AuthSessionData) => ({ ...data, user, auth }));
+    await updateSession(event, () => ({ user, auth }));
 
-    // Save session explicitly
-    try {
-      this.logger.debug('Saving authentication session data', {
-        sessionId: sessionHandler.id,
-      });
-      await sessionHandler.save();
-      this.logger.debug('Session saved successfully');
-    } catch (error) {
-      this.logger.error('Failed to save session', error);
-      throw error;
-    }
+    // Log successful session save
+    this.logger.debug('Authentication session data saved successfully');
 
     return { user, tokens };
   }
@@ -412,130 +399,31 @@ export class OAuthAuthenticationService {
    * Serverless-compatible method to refresh expiring tokens
    * This should be called by a scheduled function/CRON job
    * rather than using setInterval which doesn't work reliably in serverless
+   *
+   * Note: This method is currently not fully implemented with the new session API
+   * as it requires bulk session operations that are not yet available.
    */
   async refreshExpiringTokens(): Promise<{
     refreshed: number;
     failed: number;
     total: number;
   }> {
-    let refreshed = 0;
-    let failed = 0;
+    // TODO: Implement bulk session refresh with new session API
+    // The new session API doesn't currently support bulk operations like getActiveSessions()
+    // This would require either:
+    // 1. Adding bulk operations to the session package
+    // 2. Implementing a different approach for background token refresh
+    // 3. Moving this functionality to a separate service
 
-    try {
-      const activeSessions = await inject(SessionService).getActiveSessions();
+    this.logger.warn(
+      'refreshExpiringTokens is not yet implemented with the new session API'
+    );
 
-      const expiringSessionCount = activeSessions.filter(
-        (session) =>
-          session.data?.auth?.isAuthenticated &&
-          session.data?.auth?.refreshToken &&
-          session.data?.auth?.expiresAt &&
-          this.shouldRefreshToken(session.data.auth.expiresAt)
-      ).length;
-
-      this.logger.debug(`Found sessions with expiring tokens`, {
-        expiringCount: expiringSessionCount,
-        totalCount: activeSessions.length,
-      });
-
-      // Create a function to handle token refresh for a session
-      const refreshSessionToken = async (
-        session: SessionWithHandler
-      ): Promise<{ success: boolean }> => {
-        try {
-          const refreshToken = session.data.auth?.refreshToken;
-          if (!refreshToken) {
-            throw new Error('No refresh token available');
-          }
-
-          const tokens = await this.refreshTokens(refreshToken);
-
-          // Update session with new tokens using immutable update pattern
-          session.update((data: AuthSessionData) => ({
-            ...data,
-            auth: {
-              ...data.auth,
-              isAuthenticated: data.auth?.isAuthenticated ?? false,
-              accessToken: tokens.access_token,
-              idToken: tokens.id_token || data?.auth?.idToken,
-              refreshToken: tokens.refresh_token || data.auth?.refreshToken,
-              expiresAt: Date.now() + tokens.expires_in * 1000,
-            },
-          }));
-
-          // Save updated session
-          await session.save();
-          this.logger.debug(`Proactively refreshed token for session`, {
-            sessionId: session.id,
-          });
-          return { success: true };
-        } catch (error) {
-          this.logger.error(`Failed to refresh token for session`, error, {
-            sessionId: session.id,
-          });
-          // Mark session as unauthenticated on refresh failure using immutable update
-          session.update((data) => ({
-            ...data,
-            auth: {
-              ...data.auth,
-              isAuthenticated: false,
-            },
-          }));
-          await session.save();
-          return { success: false };
-        }
-      };
-
-      // Use a type guard to ensure we only process valid sessions with auth data
-      const hasValidAuthWithRefreshToken = (
-        session: SessionWithSave
-      ): session is SessionWithHandler => {
-        return (
-          !!session &&
-          typeof session === 'object' &&
-          'data' in session &&
-          !!session.data &&
-          'auth' in session.data &&
-          !!session.data.auth &&
-          'refreshToken' in session.data.auth &&
-          !!session.data.auth.refreshToken &&
-          'expiresAt' in session.data.auth &&
-          !!session.data.auth.expiresAt &&
-          'isAuthenticated' in session.data.auth &&
-          !!session.data.auth.isAuthenticated &&
-          this.shouldRefreshToken(session.data.auth.expiresAt)
-        );
-      };
-
-      // Get the sessions to refresh
-      const sessionsToRefresh = activeSessions.filter(
-        hasValidAuthWithRefreshToken
-      );
-
-      await this.getOpenIDConfiguration();
-
-      // Execute the refresh operations and track results
-      const results = await Promise.allSettled(
-        sessionsToRefresh.map(refreshSessionToken)
-      );
-
-      // Count successes and failures
-      results.forEach((result) => {
-        if (result.status === 'fulfilled') {
-          if (result.value.success) {
-            refreshed++;
-          } else {
-            failed++;
-          }
-        } else {
-          failed++;
-        }
-      });
-
-      return { refreshed, failed, total: activeSessions.length };
-    } catch (error) {
-      this.logger.error('Error checking and refreshing tokens', error);
-      return { refreshed, failed, total: 0 };
-    }
+    return {
+      refreshed: 0,
+      failed: 0,
+      total: 0,
+    };
   }
 
   /**
@@ -544,104 +432,103 @@ export class OAuthAuthenticationService {
   async isAuthenticated(event: H3Event): Promise<boolean> {
     await inject(SessionService).initSession(event);
 
-    const sessionHandler = event.context['sessionHandler'];
+    const session = (await getSession(event)) as AuthSessionData;
 
     // Ensure auth object exists in session data
-    if (!sessionHandler.data.auth) {
-      // @ts-expect-error any
-      sessionHandler.update((data) => ({
-        ...data,
+    if (!session?.auth) {
+      await updateSession(event, () => ({
         auth: { isAuthenticated: false },
       }));
-      await sessionHandler.save();
+
       return false;
     }
 
     // Check if session has auth data
-    if (!sessionHandler.data.auth?.isAuthenticated) {
+    if (!session.auth.isAuthenticated) {
       return false;
     }
 
     // Check if token is expired
-    if (sessionHandler.data.auth.expiresAt < Date.now()) {
+    if (session.auth.expiresAt && session.auth.expiresAt < Date.now()) {
       // Token is expired, try to refresh if refresh token exists
-      if (sessionHandler.data.auth.refreshToken) {
+      if (session.auth.refreshToken) {
         try {
           // Refresh the token
-          const tokens = await this.refreshTokens(
-            sessionHandler.data.auth.refreshToken
-          );
+          const tokens = await this.refreshTokens(session.auth.refreshToken);
 
           // Update session with new tokens
-          sessionHandler.update((data: AuthSessionData) => ({
-            ...data,
+          await updateSession(event, (currentSession: AuthSessionData) => ({
             auth: {
-              ...data.auth,
+              ...currentSession.auth,
+              isAuthenticated: true,
               accessToken: tokens.access_token,
-              idToken: tokens.id_token || data?.auth?.idToken,
-              refreshToken: tokens.refresh_token || data?.auth?.refreshToken,
+              idToken: tokens.id_token || session?.auth?.idToken,
+              refreshToken: tokens.refresh_token || session?.auth?.refreshToken,
               expiresAt: Date.now() + tokens.expires_in * 1000,
             },
           }));
-
-          // Save session
-          await sessionHandler.save();
 
           return true;
         } catch (error) {
           this.logger.error('Error refreshing token', error);
           // Clear auth data on refresh token failure
-          sessionHandler.update((data: AuthSessionData) => ({
-            ...data,
+          await updateSession(event, (currentSession: AuthSessionData) => ({
             auth: {
-              ...data.auth,
+              ...currentSession.auth,
               isAuthenticated: false,
             },
           }));
-          await sessionHandler.save();
+
+          this.logger.info('error occurred while refreshing token');
+          this.logger.groupEnd(
+            'OAuthAuthenticationService.isAuthenticated ' + event.path
+          );
           return false;
         }
       } else {
         // No refresh token available
+        this.logger.info(' No refresh token available');
+        this.logger.groupEnd(
+          'OAuthAuthenticationService.isAuthenticated ' + event.path
+        );
         return false;
       }
     }
 
     // Check if token needs proactive refresh
-    if (this.shouldRefreshToken(sessionHandler.data.auth.expiresAt)) {
+    if (
+      session.auth.expiresAt &&
+      this.shouldRefreshToken(session.auth.expiresAt)
+    ) {
       // Refresh in background without blocking the request
       setTimeout(async () => {
         try {
-          // Refresh the token
-          const tokens = await this.refreshTokens(
-            sessionHandler.data.auth.refreshToken
-          );
-
-          // Get fresh session data
-          const freshSession = await inject(SessionService).getSession(
-            sessionHandler.id
-          );
-          if (!freshSession || !freshSession.data.auth?.isAuthenticated) {
+          const currentSession = (await getSession(event)) as AuthSessionData;
+          if (
+            !currentSession?.auth?.isAuthenticated ||
+            !currentSession.auth.refreshToken
+          ) {
             return; // Session no longer valid
           }
 
+          const tokens = await this.refreshTokens(
+            currentSession.auth.refreshToken
+          );
+
           // Update session with new tokens
-          freshSession.data.auth.accessToken = tokens.access_token;
-          if (tokens.id_token) {
-            freshSession.data.auth.idToken = tokens.id_token;
-          }
+          await updateSession(event, (session: AuthSessionData) => ({
+            auth: {
+              ...session.auth,
+              isAuthenticated: true,
+              accessToken: tokens.access_token,
+              idToken: tokens.id_token || currentSession?.auth?.idToken,
+              refreshToken:
+                tokens.refresh_token || currentSession?.auth?.refreshToken,
+              expiresAt: Date.now() + tokens.expires_in * 1000,
+            },
+          }));
 
-          // Update refresh token if a new one was provided
-          if (tokens.refresh_token) {
-            freshSession.data.auth.refreshToken = tokens.refresh_token;
-          }
-
-          // Update expiration time
-          freshSession.data.auth.expiresAt =
-            Date.now() + tokens.expires_in * 1000;
-
-          // Save session
-          await freshSession.save();
+          this.logger.debug('Background token refresh completed');
         } catch (error) {
           this.logger.error('Background token refresh failed', error);
         }
@@ -660,15 +547,15 @@ export class OAuthAuthenticationService {
       return null;
     }
 
-    const sessionHandler = event.context['sessionHandler'];
+    const session = getSession(event) as AuthSessionData;
 
     const userHandler = this.getConfigValue('userHandler', undefined);
 
     if (userHandler && 'mapUserToLocal' in userHandler) {
-      return userHandler.mapUserToLocal?.(sessionHandler.data.auth.userInfo);
+      return userHandler.mapUserToLocal?.(session.auth?.userInfo);
     }
 
-    return sessionHandler.data.auth.userInfo;
+    return session.auth?.userInfo;
   }
 
   /**
@@ -698,22 +585,22 @@ export class OAuthAuthenticationService {
    */
   async logout(event: H3Event): Promise<string> {
     await inject(SessionService).initSession(event);
-    const sessionHandler = event.context['sessionHandler'];
+    const session = getSession(event) as AuthSessionData;
     const config = await this.getOpenIDConfiguration();
 
     // Revoke access token if it exists
-    if (sessionHandler.data?.auth?.accessToken) {
+    if (session?.['auth']?.accessToken) {
       try {
-        await this.revokeToken(sessionHandler.data.auth.accessToken);
+        await this.revokeToken(session['auth'].accessToken);
       } catch (error) {
         this.logger.error('Failed to revoke access token', error);
       }
     }
 
     // Revoke refresh token if it exists
-    if (sessionHandler.data?.auth?.refreshToken) {
+    if (session?.auth?.refreshToken) {
       try {
-        await this.revokeToken(sessionHandler.data.auth.refreshToken);
+        await this.revokeToken(session.auth.refreshToken);
       } catch (error) {
         this.logger.error('Failed to revoke refresh token', error);
       }
@@ -731,12 +618,10 @@ export class OAuthAuthenticationService {
     }
 
     // Clear session
-    sessionHandler.update((data: AuthSessionData) => ({
-      ...data,
+    await updateSession(event, () => ({
       auth: { isAuthenticated: false },
       user: null,
     }));
-    await sessionHandler.save();
 
     return logoutUrl.toString();
   }

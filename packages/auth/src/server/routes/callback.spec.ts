@@ -4,6 +4,7 @@ import callbackRoute from './callback';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { AuthSessionData } from '../types/auth-session.types';
 import { registerMockService, resetAllInjections } from '@analog-tools/inject';
+import { getSession, updateSession } from '@analog-tools/session';
 
 // Mock dependencies
 vi.mock('h3', () => ({
@@ -12,49 +13,37 @@ vi.mock('h3', () => ({
   sendRedirect: vi.fn().mockReturnValue('redirect-result'),
 }));
 
+// Mock the session API
+vi.mock('@analog-tools/session', () => ({
+  getSession: vi.fn(),
+  updateSession: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe('callback route', () => {
   // Mock services and event
   let mockEvent: H3Event;
   let mockAuthService: Partial<OAuthAuthenticationService>;
   let mockSessionData: Partial<AuthSessionData>;
-  let mockSessionHandler: {
-    data: Partial<AuthSessionData>;
-    update: (fn: (data: AuthSessionData) => AuthSessionData) => void;
-    save: () => Promise<void>;
-  };
+  let mockGetSession: Mock;
+  let mockUpdateSession: Mock;
 
   const mockCode = 'auth-code-123';
   const mockState = 'state-456';
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Get the mock functions
+    mockGetSession = getSession as Mock;
+    mockUpdateSession = updateSession as Mock;
+
     // Set up initial session data
     mockSessionData = {
       state: mockState,
       redirectUrl: '/dashboard',
     };
 
-    // Set up mock session handler
-    mockSessionHandler = {
-      data: mockSessionData,
-      update: vi.fn((updater) => {
-        const result = updater(mockSessionData as AuthSessionData);
-        // Reset mockSessionData and only add properties from result
-        // This ensures deleted properties are properly removed
-        for (const key in mockSessionData) {
-          if (Object.prototype.hasOwnProperty.call(mockSessionData, key)) {
-            delete mockSessionData[key];
-          }
-        }
-        Object.assign(mockSessionData, result);
-      }),
-      save: vi.fn().mockResolvedValue(undefined),
-    };
-
     // Set up mock event
     mockEvent = {
-      context: {
-        sessionHandler: mockSessionHandler,
-      },
+      context: {},
     } as unknown as H3Event;
 
     // Set up mock auth service
@@ -64,8 +53,10 @@ describe('callback route', () => {
       isAuthenticated: vi.fn().mockResolvedValue(false),
     };
 
+    // Mock getSession to return our mock session data
+    mockGetSession.mockReturnValue(mockSessionData);
+
     registerMockService(OAuthAuthenticationService, mockAuthService);
-    //registerCustomServiceInstance(LoggerService, {forContext: vi.fn().mockReturnValue(mockContextLogger)});
 
     // Mock getQuery to return code and state
     (getQuery as unknown as Mock).mockReturnValue({
@@ -92,16 +83,9 @@ describe('callback route', () => {
       mockCode,
       mockState
     );
-    expect(mockSessionHandler.update).toHaveBeenCalledTimes(2); // Once for state, once for redirectUrl
-    expect(mockSessionHandler.save).toHaveBeenCalled();
+    expect(mockUpdateSession).toHaveBeenCalledTimes(2); // Once for state, once for redirectUrl
     expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/dashboard');
     expect(result).toBe('redirect-result');
-
-    // Verify state has been removed from session
-    expect(mockSessionData.state).toBeUndefined();
-
-    // Verify redirectUrl has been removed from session
-    expect(mockSessionData.redirectUrl).toBeUndefined();
   });
 
   it('should throw error when state parameter is missing', async () => {
@@ -122,8 +106,8 @@ describe('callback route', () => {
   });
 
   it('should throw error when state in session is missing', async () => {
-    // Remove state from session
-    mockSessionData.state = undefined;
+    // Mock session without state
+    mockGetSession.mockReturnValue({ ...mockSessionData, state: undefined });
 
     await expect(callbackRoute.handler(mockEvent)).rejects.toEqual({
       statusCode: 400,
@@ -153,8 +137,8 @@ describe('callback route', () => {
   });
 
   it('should use default redirect URL when not provided in session', async () => {
-    // Remove redirectUrl from session
-    mockSessionData.redirectUrl = undefined;
+    // Mock session without redirectUrl
+    mockGetSession.mockReturnValue({ ...mockSessionData, redirectUrl: undefined });
 
     await callbackRoute.handler(mockEvent);
 

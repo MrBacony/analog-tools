@@ -30,6 +30,7 @@ export async function useAnalogAuth(config: AnalogAuthConfig, event: H3Event) {
       )}`
     );
   }
+
   // Initialize the authentication service with validated config
   registerService(OAuthAuthenticationService, config);
 

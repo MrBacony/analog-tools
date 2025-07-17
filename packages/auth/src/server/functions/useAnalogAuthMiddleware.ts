@@ -11,6 +11,8 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
   const authService = inject(OAuthAuthenticationService);
   const logger = inject(LoggerService).forContext('AuthMiddleware');
 
+  logger.info('Processing authentication middleware', pathname);
+
   // Public routes that should bypass authentication
   if (
     pathname.startsWith('/api/auth/login') ||

@@ -15,6 +15,15 @@ import {
   resetAllInjections,
 } from '@analog-tools/inject';
 
+// Mock the @analog-tools/session functions
+vi.mock('@analog-tools/session', () => ({
+  getSession: vi.fn(),
+  updateSession: vi.fn(),
+}));
+
+// Import the mocked functions for use in tests
+import { getSession, updateSession } from '@analog-tools/session';
+
 // Mock the fetch function
 vi.stubGlobal('fetch', vi.fn());
 vi.stubGlobal('setTimeout', vi.fn());
@@ -59,6 +68,8 @@ describe('OAuthAuthenticationService', () => {
       info: vi.fn(),
       warn: vi.fn(),
       error: vi.fn(),
+      group: vi.fn(),
+      groupEnd: vi.fn(),
     };
 
     mockLoggerService = {
@@ -188,6 +199,15 @@ describe('OAuthAuthenticationService', () => {
       };
     });
 
+    // Set up session API mocks
+    vi.mocked(getSession).mockReturnValue(mockSessionData as AuthSessionData);
+    vi.mocked(updateSession).mockImplementation(async (event, updater) => {
+      if (typeof updater === 'function') {
+        const updates = updater(mockSessionData as AuthSessionData);
+        Object.assign(mockSessionData, updates);
+      }
+    });
+
     // Create service instance with mock config
     registerMockService(SessionService, mockSessionService);
     registerMockService(LoggerService, mockLoggerService);
@@ -199,6 +219,10 @@ describe('OAuthAuthenticationService', () => {
     vi.clearAllMocks();
     // Reset the inject ServiceRegistry
     resetAllInjections();
+    
+    // Reset session mocks
+    vi.mocked(getSession).mockReset();
+    vi.mocked(updateSession).mockReset();
   });
 
   describe('constructor', () => {
@@ -318,8 +342,7 @@ describe('OAuthAuthenticationService', () => {
       const result = await service.isAuthenticated(mockEvent as H3Event);
 
       expect(result).toBe(false);
-      expect(mockSessionHandler.update).toHaveBeenCalled();
-      expect(mockSessionHandler.save).toHaveBeenCalled();
+      expect(updateSession).toHaveBeenCalled();
       expect(mockSessionData.auth).toEqual({ isAuthenticated: false });
     });
 
@@ -384,8 +407,7 @@ describe('OAuthAuthenticationService', () => {
       expect(body).toContain('client_secret=test-secret');
       expect(body).toContain('refresh_token=test-refresh-token');
 
-      expect(mockSessionHandler.update).toHaveBeenCalled();
-      expect(mockSessionHandler.save).toHaveBeenCalled();
+      expect(updateSession).toHaveBeenCalled();
       expect(mockSessionData.auth?.accessToken).toBe('new-access-token');
     });
 
@@ -543,8 +565,7 @@ describe('OAuthAuthenticationService', () => {
         })
       );
 
-      expect(mockSessionHandler.update).toHaveBeenCalled();
-      expect(mockSessionHandler.save).toHaveBeenCalled();
+      expect(updateSession).toHaveBeenCalled();
 
       expect(result).toHaveProperty('user');
       expect(result).toHaveProperty('tokens');
@@ -699,8 +720,7 @@ describe('OAuthAuthenticationService', () => {
       expect(refreshTokenBody.get('token')).toBe('test-refresh-token');
 
       // Check session update
-      expect(mockSessionHandler.update).toHaveBeenCalled();
-      expect(mockSessionHandler.save).toHaveBeenCalled();
+      expect(updateSession).toHaveBeenCalled();
 
       expect(mockSessionData.auth).toEqual({ isAuthenticated: false });
       expect(mockSessionData.user).toBeNull();

@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SessionService } from './session.service';
 import { createError, H3Event } from 'h3';
-import { AuthSessionData, SessionWithSave } from '../types/auth-session.types';
+import { AuthSessionData } from '../types/auth-session.types';
 import {
-  registerStorage,
-  UnstorageSessionStore,
   useSession,
+  getSession,
+  updateSession,
+  destroySession,
+  createMemoryStore,
+  createRedisStore,
+  type Storage,
 } from '@analog-tools/session';
 import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
@@ -13,9 +17,12 @@ import { SessionStorageConfig } from '../types/auth.types';
 
 // Mock dependencies
 vi.mock('@analog-tools/session', () => ({
-  registerStorage: vi.fn(),
-  getStore: vi.fn(),
   useSession: vi.fn().mockResolvedValue(undefined),
+  getSession: vi.fn(),
+  updateSession: vi.fn(),
+  destroySession: vi.fn(),
+  createMemoryStore: vi.fn(),
+  createRedisStore: vi.fn(),
 }));
 
 vi.mock('h3', async () => {
@@ -40,14 +47,8 @@ describe('SessionService', () => {
     forContext: ReturnType<typeof vi.fn>;
   };
   let mockEvent: H3Event;
-  let mockStore: Partial<UnstorageSessionStore<AuthSessionData>>;
+  let mockStore: Partial<Storage<AuthSessionData>>;
   let mockSessionConfig: SessionStorageConfig;
-  let mockSessionHandler: {
-    data: Partial<AuthSessionData>;
-    update: (fn: (data: AuthSessionData) => AuthSessionData) => void;
-    save: () => Promise<void>;
-    destroy: () => Promise<void>;
-  };
 
   beforeEach(() => {
     // Reset mocks
@@ -69,46 +70,19 @@ describe('SessionService', () => {
 
     // Set up mock store
     mockStore = {
-      get: vi.fn((id) => {
-        if (id === 'test-session-id') return Promise.resolve({ auth: { isAuthenticated: true } });
+      getItem: vi.fn((id) => {
+        if (id === 'test-session-id') return Promise.resolve({ auth: { isAuthenticated: true } } as AuthSessionData);
         if (id === 'non-existent-id') return Promise.resolve(null);
         if (id === 'error-session-id') return Promise.reject(new Error('Test error'));
-        return Promise.resolve({ auth: { isAuthenticated: true } });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      }) as any,
-      set: vi.fn().mockResolvedValue(undefined),
-      all: vi.fn().mockResolvedValue({
-        'auth-session:session-1': { auth: { isAuthenticated: true } },
-        'auth-session:session-2': { auth: { isAuthenticated: false } },
+        return Promise.resolve({ auth: { isAuthenticated: true } } as AuthSessionData);
       }),
-    };
-
-    // Set up mock session handler
-    mockSessionHandler = {
-      data: { auth: { isAuthenticated: true } },
-      update: vi.fn((updater) => {
-        const result = updater(mockSessionHandler.data as AuthSessionData);
-        // Reset data and assign new values
-        for (const key in mockSessionHandler.data) {
-          if (
-            Object.prototype.hasOwnProperty.call(mockSessionHandler.data, key)
-          ) {
-            delete mockSessionHandler.data[
-              key as keyof typeof mockSessionHandler.data
-            ];
-          }
-        }
-        Object.assign(mockSessionHandler.data, result);
-      }),
-      save: vi.fn().mockResolvedValue(undefined),
-      destroy: vi.fn().mockResolvedValue(undefined),
+      setItem: vi.fn().mockResolvedValue(undefined),
+      getKeys: vi.fn().mockResolvedValue(['session-1', 'session-2']),
     };
 
     // Set up mock event
     mockEvent = {
-      context: {
-        sessionHandler: mockSessionHandler,
-      },
+      context: {},
     } as unknown as H3Event;
 
     // Set up mock session config
@@ -120,10 +94,9 @@ describe('SessionService', () => {
     // Register services
     registerMockService(LoggerService, mockLogger);
 
-    // Mock getStore to return our mockStore
-    vi.mocked(registerStorage).mockReturnValue(
-      mockStore as UnstorageSessionStore<AuthSessionData>
-    );
+    // Mock createMemoryStore and createRedisStore to return our mockStore
+    vi.mocked(createMemoryStore).mockReturnValue(mockStore as Storage<AuthSessionData>);
+    vi.mocked(createRedisStore).mockReturnValue(mockStore as Storage<AuthSessionData>);
 
     // Create service instance
     service = new SessionService(mockSessionConfig);
@@ -142,26 +115,24 @@ describe('SessionService', () => {
 
   describe('initSession', () => {
     it('should skip initialization if session already exists', async () => {
+      // Mock existing session
+      vi.mocked(getSession).mockReturnValue({ auth: { isAuthenticated: true } } as AuthSessionData);
+
       await service.initSession(mockEvent);
 
-      // Session handler already exists, so getStore and useSession shouldn't be called
+      // Session already exists, so useSession shouldn't be called
       expect(useSession).not.toHaveBeenCalled();
     });
 
-    it('should initialize session if session handler does not exist', async () => {
-      // Remove existing sessionHandler
-      const eventWithoutSession = {
-        context: {},
-      } as unknown as H3Event;
+    it('should initialize session if no session exists', async () => {
+      // Mock no existing session
+      vi.mocked(getSession).mockReturnValue(null);
 
-      await service.initSession(eventWithoutSession);
+      await service.initSession(mockEvent);
 
-      expect(registerStorage).toHaveBeenCalledWith(
-        mockSessionConfig.type,
-        mockSessionConfig.config
-      );
+      expect(createMemoryStore).toHaveBeenCalled();
       expect(useSession).toHaveBeenCalledWith(
-        eventWithoutSession,
+        mockEvent,
         expect.objectContaining({
           store: mockStore,
           name: 'auth.session',
@@ -194,8 +165,8 @@ describe('SessionService', () => {
     });
 
     it('should handle errors and return null', async () => {
-      // @ts-expect-error suppress possibly undefined in test
-      vi.mocked(mockStore.get).mockRejectedValueOnce(new TypeError('Cannot read properties of undefined (reading \'get\')'));
+      const getItemMock = mockStore.getItem as ReturnType<typeof vi.fn>;
+      getItemMock.mockRejectedValueOnce(new TypeError('Test error'));
 
       const result = await service.getSession('error-session-id');
 
@@ -221,17 +192,25 @@ describe('SessionService', () => {
       await service.initSession(event);
     });
     it('should retrieve all active sessions', async () => {
+      // Mock store.getItem to return different session data for different keys
+      const getItemMock = mockStore.getItem as ReturnType<typeof vi.fn>;
+      getItemMock.mockImplementation((key) => {
+        if (key === 'session-1') return Promise.resolve({ auth: { isAuthenticated: true } } as AuthSessionData);
+        if (key === 'session-2') return Promise.resolve({ auth: { isAuthenticated: false } } as AuthSessionData);
+        return Promise.resolve(null);
+      });
+
       const result = await service.getActiveSessions();
 
-      expect(mockStore.all).toHaveBeenCalled();
+      expect(mockStore.getKeys).toHaveBeenCalled();
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
-        id: 'auth-session:session-1',
+        id: 'session-1',
         data: { auth: { isAuthenticated: true } },
         save: expect.any(Function),
       });
       expect(result[1]).toEqual({
-        id: 'auth-session:session-2',
+        id: 'session-2',
         data: { auth: { isAuthenticated: false } },
         save: expect.any(Function),
       });
@@ -239,8 +218,8 @@ describe('SessionService', () => {
 
     it('should handle errors and return empty array', async () => {
       const error = new Error('Test error');
-      // @ts-expect-error suppress possibly undefined in test
-      vi.mocked(mockStore.all).mockRejectedValueOnce(error);
+      const getKeysMock = mockStore.getKeys as ReturnType<typeof vi.fn>;
+      getKeysMock.mockRejectedValueOnce(error);
 
       const result = await service.getActiveSessions();
 
@@ -252,50 +231,63 @@ describe('SessionService', () => {
     });
 
     it('should provide a working save method for each session', async () => {
+      // Mock store.getItem to return session data
+      const getItemMock = mockStore.getItem as ReturnType<typeof vi.fn>;
+      getItemMock.mockImplementation((key) => {
+        if (key === 'session-1') return Promise.resolve({ auth: { isAuthenticated: true } } as AuthSessionData);
+        return Promise.resolve(null);
+      });
+
       const sessions = await service.getActiveSessions();
 
       await sessions[0].save();
 
-      expect(mockStore.set).toHaveBeenCalledWith('auth-session:session-1', {
+      expect(mockStore.setItem).toHaveBeenCalledWith('session-1', {
         auth: { isAuthenticated: true },
       });
     });
   });
 
-  describe('destroySession', () => {
-    it('should destroy the session and clean up context', async () => {
-      await service.destroySession(mockEvent);
+  describe('destroyAuthSession', () => {
+    it('should destroy the session and clear auth data', async () => {
+      // Mock session with auth data
+      vi.mocked(getSession).mockReturnValue({ auth: { isAuthenticated: true } } as AuthSessionData);
 
-      expect(mockSessionHandler.destroy).toHaveBeenCalled();
-      expect(mockEvent.context['sessionHandler']).toBeUndefined();
-      expect(mockEvent.context['session']).toBeUndefined();
-      expect(mockEvent.context['sessionId']).toBeUndefined();
+      await service.destroyAuthSession(mockEvent);
+
+      expect(updateSession).toHaveBeenCalledWith(mockEvent, expect.any(Function));
+      expect(destroySession).toHaveBeenCalledWith(mockEvent);
     });
 
     it('should initialize session before destroying it', async () => {
       // Create a spy on initSession
       const spy = vi.spyOn(service, 'initSession');
 
-      await service.destroySession(mockEvent);
+      await service.destroyAuthSession(mockEvent);
 
       expect(spy).toHaveBeenCalledWith(mockEvent);
     });
 
     it('should clear auth data if it exists', async () => {
-      await service.destroySession(mockEvent);
+      // Mock session with auth data
+      vi.mocked(getSession).mockReturnValue({ auth: { isAuthenticated: true } } as AuthSessionData);
 
-      expect(mockSessionHandler.update).toHaveBeenCalled();
-      // Verify auth was removed in the update function
-      expect(mockSessionHandler.data.auth).toBeUndefined();
+      await service.destroyAuthSession(mockEvent);
+
+      expect(updateSession).toHaveBeenCalledWith(mockEvent, expect.any(Function));
+      
+      // Test the updater function
+      const updateFn = vi.mocked(updateSession).mock.calls[0][1];
+      const result = updateFn({ auth: { isAuthenticated: true } } as AuthSessionData);
+      expect(result['auth']).toBeUndefined();
     });
 
     it('should handle and propagate errors', async () => {
-      // Make destroy throw an error
+      // Make destroySession throw an error
       const error = new Error('Destroy failed');
-      // @ts-expect-error suppress possibly undefined in test
-      mockSessionHandler.destroy.mockRejectedValueOnce(error);
+      vi.mocked(destroySession).mockRejectedValueOnce(error);
 
-      await expect(service.destroySession(mockEvent)).rejects.toMatchObject({
+      await expect(service.destroyAuthSession(mockEvent)).rejects.toMatchObject({
         statusCode: 500,
         message: 'Session handling failed',
       });
@@ -313,12 +305,18 @@ describe('SessionService', () => {
 
   describe('getSessionData', () => {
     it('should retrieve specific session data by key', async () => {
+      // Mock session data
+      vi.mocked(getSession).mockReturnValue({ auth: { isAuthenticated: true } } as AuthSessionData);
+
       const result = await service.getSessionData(mockEvent, 'auth');
 
       expect(result).toEqual({ isAuthenticated: true });
     });
 
     it('should return null if data does not exist', async () => {
+      // Mock session data without the requested key
+      vi.mocked(getSession).mockReturnValue({} as AuthSessionData);
+
       const result = await service.getSessionData(
         mockEvent,
         'nonExistentKey' as keyof AuthSessionData
@@ -343,10 +341,12 @@ describe('SessionService', () => {
 
       await service.setSessionData(mockEvent, 'user', testData);
 
-      expect(mockSessionHandler.update).toHaveBeenCalled();
-      expect(mockSessionHandler.save).toHaveBeenCalled();
-      // Verify data was updated
-      expect(mockSessionHandler.data.user).toEqual(testData);
+      expect(updateSession).toHaveBeenCalledWith(mockEvent, expect.any(Function));
+      
+      // Test the updater function
+      const updateFn = vi.mocked(updateSession).mock.calls[0][1];
+      const result = updateFn({ auth: { isAuthenticated: false } } as AuthSessionData);
+      expect(result['user']).toEqual(testData);
     });
 
     it('should initialize session before setting data', async () => {
@@ -363,20 +363,19 @@ describe('SessionService', () => {
 
   describe('isValidSession', () => {
     it('should return true for valid sessions', async () => {
+      // Mock valid session data
+      vi.mocked(getSession).mockReturnValue({ auth: { isAuthenticated: true } } as AuthSessionData);
+
       const result = await service.isValidSession(mockEvent);
 
       expect(result).toBe(true);
     });
 
     it('should return false for invalid sessions', async () => {
-      // Create an event with invalid session
-      const invalidEvent = {
-        context: {
-          sessionHandler: { data: null },
-        },
-      } as unknown as H3Event;
+      // Mock no session data
+      vi.mocked(getSession).mockReturnValue(null);
 
-      const result = await service.isValidSession(invalidEvent);
+      const result = await service.isValidSession(mockEvent);
 
       expect(result).toBe(false);
     });
