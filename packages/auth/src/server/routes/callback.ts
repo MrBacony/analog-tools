@@ -3,6 +3,7 @@ import { AuthRoute } from '../types/auth.types';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { AuthSessionData } from '../types/auth-session.types';
 import { inject } from '@analog-tools/inject';
+import { getSession, updateSession } from '@analog-tools/session';
 
 /**
  * Handles the OAuth callback from the authentication provider.
@@ -31,7 +32,8 @@ const route: AuthRoute = {
     const state = query['state'] as string;
 
     // Verify state parameter with proper null checks and error handling
-    const sessionState = event.context['sessionHandler']?.data?.state;
+    const sessionData = getSession<AuthSessionData>(event);
+    const sessionState = sessionData?.state;
 
     if (!state || !sessionState || state !== sessionState) {
       throw createError({
@@ -43,7 +45,7 @@ const route: AuthRoute = {
     }
 
     // Clear state from session
-    event.context['sessionHandler'].update((data: AuthSessionData) => {
+    await updateSession<AuthSessionData>(event, (data) => {
       const updatedData = { ...data };
       delete updatedData.state;
       return updatedData;
@@ -53,16 +55,15 @@ const route: AuthRoute = {
     await authService.handleCallback(event, code, state);
 
     // Get redirect URL from session or use default
-    const redirectUrl = event.context['sessionHandler'].data.redirectUrl || '/';
+    const currentSessionData = getSession<AuthSessionData>(event);
+    const redirectUrl = currentSessionData?.redirectUrl || '/';
 
     // Remove redirectUrl from session
-    event.context['sessionHandler'].update((data: AuthSessionData) => {
+    await updateSession<AuthSessionData>(event, (data) => {
       const updatedData = { ...data };
       delete updatedData.redirectUrl;
       return updatedData;
     });
-
-    await event.context['sessionHandler'].save();
 
     // Redirect to application
     return sendRedirect(event, redirectUrl);

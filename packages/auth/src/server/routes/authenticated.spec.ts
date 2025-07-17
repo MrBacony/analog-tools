@@ -21,10 +21,12 @@ describe('authenticated route', () => {
       isAuthenticated: vi.fn().mockResolvedValue(true),
     };
 
-    registerMockService(OAuthAuthenticationService, mockAuthService, {
-      locked: true,
+    registerMockService(OAuthAuthenticationService, mockAuthService);
+    registerMockService(LoggerService, { 
+      forContext: vi.fn().mockReturnValue({
+        info: vi.fn(),
+      })
     });
-    registerMockService(LoggerService, { forContext: vi.fn() });
   });
 
   afterEach(() => {

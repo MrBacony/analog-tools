@@ -3,9 +3,9 @@ import { getQuery, H3Event, sendRedirect } from 'h3';
 import { randomUUID } from 'uncrypto';
 import loginRoute from './login';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
-import { AuthSessionData } from '../types/auth-session.types';
 import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
+import { updateSession } from '@analog-tools/session';
 
 // Mock dependencies
 vi.mock('h3', () => ({
@@ -17,27 +17,24 @@ vi.mock('uncrypto', () => ({
   randomUUID: vi.fn().mockReturnValue('mock-state-uuid'),
 }));
 
+// Mock the session API
+vi.mock('@analog-tools/session', () => ({
+  updateSession: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe('login route', () => {
   // Mock services and event
   let mockEvent: H3Event;
   let mockAuthService: Partial<OAuthAuthenticationService>;
-  let mockSessionHandler: {
-    update: (fn: (data: AuthSessionData) => AuthSessionData) => void;
-    save: () => Promise<void>;
-  };
+  let mockUpdateSession: Mock;
 
-  beforeEach(() => {
-    // Set up mock session handler
-    mockSessionHandler = {
-      update: vi.fn((updater) => updater({ auth: { isAuthenticated: false } })),
-      save: vi.fn().mockResolvedValue(undefined),
-    };
+  beforeEach(async () => {
+    // Get the mock function
+    mockUpdateSession = updateSession as Mock;
 
     // Set up mock event
     mockEvent = {
-      context: {
-        sessionHandler: mockSessionHandler,
-      },
+      context: {},
     } as unknown as H3Event;
 
     // Set up mock auth service
@@ -73,8 +70,7 @@ describe('login route', () => {
     expect(randomUUID).toHaveBeenCalled();
 
     // Verify session was updated with state
-    expect(mockSessionHandler.update).toHaveBeenCalled();
-    expect(mockSessionHandler.save).toHaveBeenCalled();
+    expect(mockUpdateSession).toHaveBeenCalledWith(mockEvent, expect.any(Function));
   });
 
   it('should get redirect URL from query parameters', async () => {

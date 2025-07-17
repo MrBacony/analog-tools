@@ -4,6 +4,7 @@ import { OAuthAuthenticationService } from '../services/oauth-authentication.ser
 import { AuthSessionData } from '../types/auth-session.types';
 import { AuthRoute } from '../types/auth.types';
 import { inject } from '@analog-tools/inject';
+import { updateSession } from '@analog-tools/session';
 
 const route: AuthRoute = {
   path: 'login',
@@ -16,14 +17,11 @@ const route: AuthRoute = {
     // Generate state parameter for CSRF protection
     const state = randomUUID();
 
-    // Store state in session using the sessionHandler
-    event.context['sessionHandler'].update(
-      (currentSession: AuthSessionData) => ({
-        ...currentSession,
-        state,
-      })
-    );
-    await event.context['sessionHandler'].save();
+    // Store state in session using the new session API
+    await updateSession<AuthSessionData>(event, (currentSession) => ({
+      ...currentSession,
+      state,
+    }));
 
     // Get redirect URL from query parameters
     const query = getQuery(event);

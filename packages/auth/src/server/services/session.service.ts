@@ -1,9 +1,13 @@
 import { createError, H3Event } from 'h3';
 import {
-  registerStorage,
-  UnstorageSessionStore,
   useSession,
+  getSession,
+  updateSession,
+  destroySession,
+  createMemoryStore,
+  createRedisStore,
 } from '@analog-tools/session';
+import type { Storage } from 'unstorage';
 import { AuthSessionData, SessionWithSave } from '../types/auth-session.types';
 import { LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
@@ -12,7 +16,7 @@ import { type SessionStorageConfig } from '../types/auth.types';
 export class SessionService {
   static readonly INJECTABLE = true;
   private readonly storageConfig: SessionStorageConfig;
-  private store!: UnstorageSessionStore<AuthSessionData>;
+  private store!: Storage<AuthSessionData>;
   private logger: LoggerService;
 
   constructor(config: SessionStorageConfig) {
@@ -22,22 +26,49 @@ export class SessionService {
   }
 
   async initSession(event: H3Event): Promise<void> {
-    if (!event.context['sessionHandler']) {
-      this.logger.info('Creating new session handler');
-      this.store = registerStorage(
-        this.storageConfig.type,
-        this.storageConfig.config
-      );
+    // Check if session is already initialized
+    const existingSession = getSession<AuthSessionData>(event);
+    
+    if (!existingSession) {
+      this.logger.info('Creating new session');
+      
+      // Create appropriate store based on config
+      if (!this.store) {
+        if (this.storageConfig.type === 'redis') {
+          // Convert Redis config to match createRedisStore expectations
+          const redisConfig = { ...this.storageConfig.config };
+          
+          // Handle different Redis configuration types (URL vs host/port)
+          if ('url' in redisConfig) {
+            // URL-based configuration
+            this.store = createRedisStore<AuthSessionData>(redisConfig);
+          } else if ('host' in redisConfig) {
+            // Host/port-based configuration - ensure port is number
+            const hostPortConfig = {
+              ...redisConfig,
+              port: typeof redisConfig.port === 'string' 
+                ? parseInt(redisConfig.port, 10) 
+                : redisConfig.port
+            };
+            this.store = createRedisStore<AuthSessionData>(hostPortConfig);
+          } else {
+            throw new Error('Invalid Redis configuration: must provide either url or host/port');
+          }
+        } else {
+          this.store = createMemoryStore<AuthSessionData>();
+        }
+      }
+      
       await useSession<AuthSessionData>(event, {
         store: this.store,
         secret:
           this.storageConfig.config.sessionSecret || 'change-me-in-production',
         name: 'auth.session',
+        maxAge: 60 * 60 * 24, // 24 hours
         cookie: {
           httpOnly: true,
           secure: process.env['NODE_ENV'] === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 60 * 24, // 24 hours
+          sameSite: process.env['NODE_ENV'] === 'production' ? 'lax' : 'strict',
         },
         // Initialize default session structure with auth property
         generate: () => ({
@@ -48,7 +79,7 @@ export class SessionService {
       });
     } else {
       this.logger.debug(
-        'Session handler already exists, skipping initialization'
+        'Session already exists, skipping initialization'
       );
     }
   }
@@ -60,17 +91,18 @@ export class SessionService {
    */
   async getSession(sessionId: string): Promise<SessionWithSave | null> {
     try {
-      const sessionData = await this.store.get(sessionId);
+      const sessionData = await this.store.getItem(sessionId);
+
       if (!sessionData) {
         return null;
       }
 
-      // Create a mock session object with basic needed functionality
+      // Create a session object with basic needed functionality
       return {
         id: sessionId,
-        data: sessionData,
+        data: sessionData as AuthSessionData,
         save: async () => {
-          await this.store.set(sessionId, sessionData);
+          await this.store.setItem(sessionId, sessionData);
         },
       };
     } catch (error) {
@@ -80,61 +112,62 @@ export class SessionService {
   }
 
   /**
-   * Get all active sessions from Redis
+   * Get all active sessions from storage
    * @returns Array of session objects
    */
   async getActiveSessions(): Promise<SessionWithSave[]> {
     try {
-      // Get all session keys from Redis with the configured prefix
-      const sessionKeys = await this.store.all();
+      // Get all session keys from storage
+      const sessionKeys = await this.store.getKeys();
 
       // Map keys to session objects
-      return Promise.all(
-        Object.keys(sessionKeys).map(async (key) => {
-          // Extract session ID from the key (remove prefix)
-          const sessionId = key.replace(
-            `${this.storageConfig.config.prefix}:`,
-            ''
-          );
-          const sessionData = sessionKeys[key] as AuthSessionData;
+      const sessions = await Promise.all(
+        sessionKeys.map(async (key) => {
+          const sessionData = await this.store.getItem(key);
+          if (!sessionData) return null;
+
+          // Extract session ID from the key (remove prefix if exists)
+          const sessionId = this.storageConfig.config.prefix 
+            ? key.replace(`${this.storageConfig.config.prefix}:`, '')
+            : key;
 
           return {
             id: sessionId,
             data: sessionData,
             save: async () => {
-              await this.store.set(sessionId, sessionData);
+              await this.store.setItem(key, sessionData);
             },
           };
         })
       );
+
+      // Filter out null values
+      return sessions.filter((session): session is SessionWithSave => session !== null);
     } catch (error) {
       this.logger.error('Error retrieving active sessions', error);
       return [];
     }
   }
 
-  async destroySession(event: H3Event): Promise<void> {
+  async destroyAuthSession(event: H3Event): Promise<void> {
     try {
       await this.initSession(event);
-      // Use the sessionHandler instead of session after our refactoring
-      const sessionHandler = event.context['sessionHandler'];
-
-      // Clear auth data if exists
-      if (sessionHandler.data?.auth) {
-        sessionHandler.update((data: AuthSessionData) => {
+      
+      // Get current session data to check if auth exists
+      const sessionData = getSession<AuthSessionData>(event);
+      
+      if (sessionData?.auth) {
+        // Clear auth data first
+        await updateSession<AuthSessionData>(event, (data) => {
           const updatedData = { ...data };
           delete updatedData.auth;
           return updatedData;
         });
       }
 
-      // Destroy the session
-      await sessionHandler.destroy();
-
-      // Clear session from context
-      delete event.context['sessionHandler'];
-      delete event.context['session'];
-      delete event.context['sessionId'];
+      // Destroy the session using new API
+      await destroySession(event);
+      
     } catch (error) {
       this.logger.error('Session destruction failed', error);
       throw createError({
@@ -149,7 +182,15 @@ export class SessionService {
     key: keyof AuthSessionData
   ): Promise<T | null> {
     await this.initSession(event);
-    return (event.context['sessionHandler'].data[key] as T) || null;
+    
+    const sessionData = getSession<AuthSessionData>(event);
+    
+    this.logger.debug(
+      `Retrieved session data`,
+      sessionData
+    );
+
+    return (sessionData?.[key] as T) || null;
   }
 
   async setSessionData<T>(
@@ -158,15 +199,16 @@ export class SessionService {
     value: T
   ): Promise<void> {
     await this.initSession(event);
-    event.context['sessionHandler'].update((data: AuthSessionData) => ({
+    
+    await updateSession<AuthSessionData>(event, (data) => ({
       ...data,
       [key]: value,
     }));
-    await event.context['sessionHandler'].save();
   }
 
   async isValidSession(event: H3Event): Promise<boolean> {
     await this.initSession(event);
-    return !!event.context['sessionHandler']?.data;
+    const sessionData = getSession<AuthSessionData>(event);
+    return !!sessionData;
   }
 }

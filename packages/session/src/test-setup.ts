@@ -46,4 +46,4 @@ global.TextEncoder = class {
   encode(input: string) {
     return new Uint8Array([...input].map(char => char.charCodeAt(0)));
   }
-};
+} as unknown as typeof TextEncoder;

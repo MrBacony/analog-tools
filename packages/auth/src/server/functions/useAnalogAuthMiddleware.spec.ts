@@ -35,8 +35,11 @@ describe('useAnalogAuthMiddleware', () => {
   };
   let mockEvent: H3Event;
   // Using ReturnType of vi.fn to maintain type safety
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockGetHeader: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockGetRequestURL: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockCheckAuthentication: any;
   let mockLoggerInstance: {
     debug: ReturnType<typeof vi.fn>;
