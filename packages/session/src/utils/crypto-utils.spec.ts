@@ -85,7 +85,7 @@ describe('crypto-utils', () => {
 
   describe('getCryptoVerifyKey', () => {
     it('should throw error if key import fails', async () => {
-      vi.mocked(subtle.importKey).mockRejectedValue(new Error('Import failed'));
+      vi.spyOn(subtle, 'importKey').mockRejectedValue(new Error('Import failed'));
 
       await expect(getCryptoVerifyKey('test-secret')).rejects.toThrow(
         'Failed to create verification key'
@@ -108,11 +108,13 @@ describe('crypto-utils', () => {
     });
 
     it('should return cached key on subsequent calls with same parameters', async () => {
+      const spy = vi.spyOn(subtle, 'importKey').mockResolvedValue(mockCryptoKey);
+
       // First call
       await getCryptoVerifyKey('test-secret');
 
       // Reset mock to verify it's not called again
-      vi.mocked(subtle.importKey).mockClear();
+      spy.mockClear();
 
       // Second call with same parameters
       const result = await getCryptoVerifyKey('test-secret');
@@ -208,7 +210,7 @@ describe('crypto-utils', () => {
     });
 
     it('should throw error if signing fails', async () => {
-      vi.mocked(subtle.sign).mockRejectedValue(new Error('Signing failed'));
+      vi.spyOn(subtle, 'sign').mockRejectedValue(new Error('Signing failed'));
 
       await expect(signCookie('test-value', 'test-secret')).rejects.toThrow(
         'Failed to sign cookie'
