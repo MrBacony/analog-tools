@@ -58,6 +58,7 @@ export interface SessionOperationResult {
  */
 export interface SessionError {
   code:
+    | 'COOKIE_ERROR'
     | 'INVALID_SESSION'
     | 'CRYPTO_ERROR'
     | 'STORAGE_ERROR'

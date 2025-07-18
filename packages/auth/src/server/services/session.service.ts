@@ -127,8 +127,8 @@ export class SessionService {
           if (!sessionData) return null;
 
           // Extract session ID from the key (remove prefix if exists)
-          const sessionId = this.storageConfig.config.prefix 
-            ? key.replace(`${this.storageConfig.config.prefix}:`, '')
+          const sessionId = this.storageConfig.config.prefix && key.startsWith(`${this.storageConfig.config.prefix}:`)
+            ? key.substring(`${this.storageConfig.config.prefix}:`.length)
             : key;
 
           return {

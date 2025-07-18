@@ -56,22 +56,29 @@ export async function useSession<T extends SessionData = SessionData>(
     event.context[SESSION_CONTEXT_KEY] = sessionData;
     event.context[SESSION_ID_CONTEXT_KEY] = sessionId;
     
-    // Set signed cookie
-    const signedId = await signCookie(sessionId, secrets[0]);
-    setCookie(event, cookieName, signedId, {
-      maxAge: config.maxAge || 86400,
-      httpOnly: config.cookie?.httpOnly ?? true,
-      secure: config.cookie?.secure ?? false,
-      sameSite: config.cookie?.sameSite ?? 'lax',
-      domain: config.cookie?.domain,
-      path: config.cookie?.path || '/',
-    });
+     try {
+      // Set signed cookie
+      const signedId = await signCookie(sessionId, secrets[0]);
+      setCookie(event, cookieName, signedId, {
+        maxAge: config.maxAge || 86400,
+        httpOnly: config.cookie?.httpOnly ?? true,
+        secure: config.cookie?.secure ?? false,
+        sameSite: config.cookie?.sameSite ?? 'lax',
+        domain: config.cookie?.domain,
+        path: config.cookie?.path || '/',
+      });
+    } catch (error) {
+      throw createSessionError('COOKIE_ERROR', 'Failed to sign or set session cookie', { error });
+    }
     
-    // Save initial session data
-    await config.store.setItem(sessionId, sessionData);
-    
+    try {
+      // Save initial session data
+      await config.store.setItem(sessionId, sessionData);
+    } catch (error) {
+      throw createSessionError('STORAGE_ERROR', 'Failed to save session data to store', { error });
+    }
   } catch (error) {
-    throw createSessionError('CRYPTO_ERROR', 'Failed to initialize session', { error });
+    throw createSessionError('CRYPTO_ERROR', 'An unexpected error occurred during session initialization', { error });
   }
 }
 
