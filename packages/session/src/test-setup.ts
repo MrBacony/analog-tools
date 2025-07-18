@@ -28,7 +28,7 @@ vi.mock('node:buffer', async (importOriginal) => {
     ...actual,
     Buffer: {
       ...actual.Buffer,
-      from: vi.fn().mockImplementation((data, encoding) => ({
+      from: vi.fn().mockImplementation(() => ({
         toString: vi
           .fn()
           .mockReturnValue('signature-part-exactly-43-characters-long-x'),

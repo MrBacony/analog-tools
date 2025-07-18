@@ -65,15 +65,3 @@ export interface SessionError {
   message: string;
   details?: Record<string, unknown>;
 }
-
-/**
- * H3 Event type for session operations
- * Re-export for convenience without adding dependency
- */
-export interface H3Event {
-  node: {
-    req: any;
-    res: any;
-  };
-  context: Record<string, any>;
-}

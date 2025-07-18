@@ -18,7 +18,7 @@ describe('Storage Factory Functions', () => {
     });
 
     it('should create store with optional prefix', () => {
-      const store = createMemoryStore({ prefix: 'test:' });
+      const store = createMemoryStore();
       
       expect(store).toBeDefined();
       // Basic functionality should work regardless of prefix
