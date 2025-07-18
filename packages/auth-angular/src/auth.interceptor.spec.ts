@@ -28,14 +28,33 @@ describe('AuthInterceptor', () => {
     req = new HttpRequest('GET', 'https://example.com/api/data');
   });
   
-  it('should skip interception for auth endpoints', () => {
-    const authReq = new HttpRequest('GET', 'https://example.com/api/auth/user');
-    // Call the interceptor inside Angular injection context
+  it('should skip interception only for /api/auth/callback and /api/auth/login', () => {
+    const callbackReq = new HttpRequest('GET', 'https://example.com/api/auth/callback');
+    const loginReq = new HttpRequest('GET', 'https://example.com/api/auth/login');
+    const userReq = new HttpRequest('GET', 'https://example.com/api/auth/user');
+
+    // Should skip for /api/auth/callback
     TestBed.runInInjectionContext(() => {
-      authInterceptor(authReq, nextHandlerFn);
+      authInterceptor(callbackReq, nextHandlerFn);
     });
-    // Should call next handler with the original request
-    expect(nextHandlerFn).toHaveBeenCalledWith(authReq);
+    expect(nextHandlerFn).toHaveBeenCalledWith(callbackReq);
+
+    // Should skip for /api/auth/login
+    TestBed.runInInjectionContext(() => {
+      authInterceptor(loginReq, nextHandlerFn);
+    });
+    expect(nextHandlerFn).toHaveBeenCalledWith(loginReq);
+
+    // Should NOT skip for /api/auth/user (should modify request)
+    TestBed.runInInjectionContext(() => {
+      authInterceptor(userReq, nextHandlerFn);
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const calledReq = ((nextHandlerFn as any).mock.calls.find(([req]: [HttpRequest<unknown>]) => req.url === userReq.url))[0];
+    expect(calledReq).not.toBe(userReq);
+    expect(calledReq.headers.has('fetch')).toBe(true);
+    expect(calledReq.headers.get('fetch')).toBe('true');
+    expect(calledReq.withCredentials).toBe(true);
   });
   
   it('should add fetch header to non-auth requests', () => {
@@ -45,7 +64,8 @@ describe('AuthInterceptor', () => {
     });
     // Verify the request was modified with the fetch header
     expect(nextHandlerFn).toHaveBeenCalled();
-    const modifiedReq = nextHandlerFn.mock.calls[0][0] as HttpRequest<unknown>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const modifiedReq = (nextHandlerFn as any).mock.calls[0][0] as HttpRequest<unknown>;
     expect(modifiedReq.headers.has('fetch')).toBe(true);
     expect(modifiedReq.headers.get('fetch')).toBe('true');
   });

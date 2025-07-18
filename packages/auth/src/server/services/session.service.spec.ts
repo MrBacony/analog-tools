@@ -208,11 +208,13 @@ describe('SessionService', () => {
         id: 'session-1',
         data: { auth: { isAuthenticated: true } },
         save: expect.any(Function),
+        update: expect.any(Function),
       });
       expect(result[1]).toEqual({
         id: 'session-2',
         data: { auth: { isAuthenticated: false } },
         save: expect.any(Function),
+        update: expect.any(Function),
       });
     });
 
@@ -245,6 +247,27 @@ describe('SessionService', () => {
       expect(mockStore.setItem).toHaveBeenCalledWith('session-1', {
         auth: { isAuthenticated: true },
       });
+    });
+
+    it('should provide a working update method for each session', async () => {
+      // Mock store.getItem to return session data
+      const getItemMock = mockStore.getItem as ReturnType<typeof vi.fn>;
+      const mockSessionData = { auth: { isAuthenticated: true } } as AuthSessionData;
+      getItemMock.mockImplementation((key) => {
+        if (key === 'session-1') return Promise.resolve(mockSessionData);
+        return Promise.resolve(null);
+      });
+
+      const sessions = await service.getActiveSessions();
+
+      // Use the update method to modify the session
+      sessions[0].update((data) => ({
+        ...data,
+        auth: { ...data.auth, isAuthenticated: false },
+      }));
+
+      // Check that the data was updated
+      expect(sessions?.[0].data.auth?.isAuthenticated).toBe(false);
     });
   });
 
