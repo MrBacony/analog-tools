@@ -31,6 +31,7 @@ describe('Types - SessionConfig', () => {
   it('should require store and secret properties', () => {
     // This test validates type compilation - if it compiles, the interface is correct
     const config: SessionConfig = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       store: {} as any, // Mock storage
       secret: 'test-secret',
     };
@@ -41,6 +42,7 @@ describe('Types - SessionConfig', () => {
 
   it('should support multiple secrets for rotation', () => {
     const config: SessionConfig = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       store: {} as any,
       secret: ['current-secret', 'old-secret'],
     };
@@ -51,6 +53,7 @@ describe('Types - SessionConfig', () => {
 
   it('should have proper default values for optional properties', () => {
     const config: SessionConfig = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       store: {} as any,
       secret: 'test-secret',
       name: 'connect.sid',
@@ -69,6 +72,7 @@ describe('Types - SessionConfig', () => {
 
   it('should support custom session data generator', () => {
     const config: SessionConfig<{ userId: string }> = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       store: {} as any,
       secret: 'test-secret',
       generate: () => ({ userId: 'anonymous' }),

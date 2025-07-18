@@ -36,6 +36,7 @@ interface TestSessionData extends SessionData {
 }
 
 describe('Core Session Functions', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockEvent: any; // Using any for testing purposes
   let store: ReturnType<typeof createMemoryStore>;
   let config: SessionConfig<TestSessionData>;

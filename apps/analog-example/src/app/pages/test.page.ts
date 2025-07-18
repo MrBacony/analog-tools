@@ -1,6 +1,7 @@
 import { authGuard } from "@analog-tools/auth/angular";
 import { RouteMeta } from "@analogjs/router";
 import { Component } from "@angular/core";
+import { RouterLink } from "@angular/router";
 
 export const routeMeta: RouteMeta = {
     title: "Test Page",
@@ -10,7 +11,8 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'analog-example-test',
   standalone: true,
-  imports: [],
-  template: ` Hallo `,
+  imports: [RouterLink],
+  template: ` Hallo <br />           <a routerLink="/">Go to Main Page</a>
+`,
 })
 export default class TestComponent {}

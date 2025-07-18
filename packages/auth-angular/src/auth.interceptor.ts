@@ -16,7 +16,7 @@ import { injectRequest } from '@analogjs/router/tokens';
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   // Skip interception for auth endpoints to avoid circular issues
-  if (req.url.includes('/api/auth/')) {
+  if (req.url.includes('/api/auth/callback') || req.url.includes('/api/auth/login')) {
     return next(req);
   }
 
