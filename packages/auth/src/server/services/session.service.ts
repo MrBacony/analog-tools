@@ -8,7 +8,7 @@ import {
   createRedisStore,
 } from '@analog-tools/session';
 import type { Storage } from 'unstorage';
-import { AuthSessionData, SessionWithSave } from '../types/auth-session.types';
+import { AuthSessionData, SessionWithSave, SessionWithHandler } from '../types/auth-session.types';
 import { LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
 import { type SessionStorageConfig } from '../types/auth.types';
@@ -113,9 +113,9 @@ export class SessionService {
 
   /**
    * Get all active sessions from storage
-   * @returns Array of session objects
+   * @returns Array of session objects with update capability
    */
-  async getActiveSessions(): Promise<SessionWithSave[]> {
+  async getActiveSessions(): Promise<SessionWithHandler[]> {
     try {
       // Get all session keys from storage
       const sessionKeys = await this.store.getKeys();
@@ -134,6 +134,12 @@ export class SessionService {
           return {
             id: sessionId,
             data: sessionData,
+            update: (updater: (data: AuthSessionData) => AuthSessionData) => {
+              // Apply the updater function to get new data
+              const updatedData = updater(sessionData as AuthSessionData);
+              // Update the local data reference
+              Object.assign(sessionData, updatedData);
+            },
             save: async () => {
               await this.store.setItem(key, sessionData);
             },
@@ -142,7 +148,7 @@ export class SessionService {
       );
 
       // Filter out null values
-      return sessions.filter((session): session is SessionWithSave => session !== null);
+      return sessions.filter((session): session is SessionWithHandler => session !== null);
     } catch (error) {
       this.logger.error('Error retrieving active sessions', error);
       return [];

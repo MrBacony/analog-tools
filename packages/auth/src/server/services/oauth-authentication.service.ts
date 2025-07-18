@@ -399,31 +399,115 @@ export class OAuthAuthenticationService {
    * Serverless-compatible method to refresh expiring tokens
    * This should be called by a scheduled function/CRON job
    * rather than using setInterval which doesn't work reliably in serverless
-   *
-   * Note: This method is currently not fully implemented with the new session API
-   * as it requires bulk session operations that are not yet available.
    */
   async refreshExpiringTokens(): Promise<{
     refreshed: number;
     failed: number;
     total: number;
   }> {
-    // TODO: Implement bulk session refresh with new session API
-    // The new session API doesn't currently support bulk operations like getActiveSessions()
-    // This would require either:
-    // 1. Adding bulk operations to the session package
-    // 2. Implementing a different approach for background token refresh
-    // 3. Moving this functionality to a separate service
-
-    this.logger.warn(
-      'refreshExpiringTokens is not yet implemented with the new session API'
-    );
-
-    return {
-      refreshed: 0,
-      failed: 0,
-      total: 0,
-    };
+    this.logger.debug('Starting bulk token refresh process');
+    
+    try {
+      // Get all active sessions from the session service
+      const sessionService = inject(SessionService);
+      const activeSessions = await sessionService.getActiveSessions();
+      
+      let refreshed = 0;
+      let failed = 0;
+      const total = activeSessions.length;
+      
+      this.logger.debug(`Found ${total} active sessions to check`);
+      
+      // Process each session
+      for (const session of activeSessions) {
+        try {
+          // Skip sessions without valid auth data
+          if (!session.data.auth?.isAuthenticated || 
+              !session.data.auth.refreshToken || 
+              !session.data.auth.expiresAt) {
+            this.logger.debug(`Skipping session ${session.id} - no valid auth data`);
+            continue;
+          }
+          
+          // Check if token needs refresh (within safety margin)
+          if (!this.shouldRefreshToken(session.data.auth.expiresAt)) {
+            this.logger.debug(`Skipping session ${session.id} - token not expiring soon`);
+            continue;
+          }
+          
+          this.logger.debug(`Refreshing token for session ${session.id}`);
+          
+          // Refresh the token
+          const tokens = await this.refreshTokens(session.data.auth.refreshToken);
+          
+          // Update session data
+          session.update((data) => {
+            const currentAuth = data.auth;
+            if (!currentAuth) return data;
+            
+            return {
+              ...data,
+              auth: {
+                ...currentAuth,
+                accessToken: tokens.access_token,
+                idToken: tokens.id_token || currentAuth.idToken,
+                refreshToken: tokens.refresh_token || currentAuth.refreshToken,
+                expiresAt: Date.now() + tokens.expires_in * 1000,
+              },
+            };
+          });
+          
+          // Save the updated session
+          await session.save();
+          
+          refreshed++;
+          this.logger.debug(`Successfully refreshed token for session ${session.id}`);
+          
+        } catch (error) {
+          failed++;
+          this.logger.error(
+            'Failed to refresh token for session',
+            error,
+            { sessionId: session.id }
+          );
+          
+          // Mark session as unauthenticated on refresh failure
+          try {
+            session.update((data) => {
+              const currentAuth = data.auth;
+              if (!currentAuth) return data;
+              
+              return {
+                ...data,
+                auth: {
+                  ...currentAuth,
+                  isAuthenticated: false,
+                },
+              };
+            });
+            await session.save();
+          } catch (updateError) {
+            this.logger.error(
+              'Failed to update session after refresh failure',
+              updateError,
+              { sessionId: session.id }
+            );
+          }
+        }
+      }
+      
+      const result = { refreshed, failed, total };
+      this.logger.info(`Bulk token refresh completed`, result);
+      
+      return result;
+      
+    } catch (error) {
+      this.logger.error('Error during bulk token refresh', error);
+      throw createError({
+        statusCode: 500,
+        message: 'Failed to refresh expiring tokens',
+      });
+    }
   }
 
   /**
