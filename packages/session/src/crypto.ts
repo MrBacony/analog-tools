@@ -29,7 +29,7 @@ export async function signCookie(value: string, secret: string): Promise<string>
   }
   
   // Fallback for environments without crypto
-  throw new Error('Crypto API not available');
+  throw new Error('Crypto API not available - ensure you are running in a compatible environment with Web Crypto API support');
 }
 
 /**
