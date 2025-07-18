@@ -13,7 +13,6 @@ const SESSION_ID_CONTEXT_KEY = '__session_id__';
 
 /**
  * Initialize session middleware for an H3 event
- * Replaces complex Session class instantiation and configuration
  */
 export async function useSession<T extends SessionData = SessionData>(
   event: H3Event,
@@ -84,7 +83,6 @@ export async function useSession<T extends SessionData = SessionData>(
 
 /**
  * Get current session data from H3 event context
- * Replaces complex Session class data getters
  */
 export function getSession<T extends SessionData = SessionData>(
   event: H3Event
@@ -94,7 +92,6 @@ export function getSession<T extends SessionData = SessionData>(
 
 /**
  * Update session data immutably
- * Replaces Session class update methods and SessionState manipulation
  */
 export async function updateSession<T extends SessionData = SessionData>(
   event: H3Event,
@@ -123,7 +120,6 @@ export async function updateSession<T extends SessionData = SessionData>(
 
 /**
  * Destroy current session
- * Replaces Session class destroy method and complex cleanup
  */
 export async function destroySession(event: H3Event): Promise<void> {
   const sessionId = event.context[SESSION_ID_CONTEXT_KEY] as string;
@@ -158,7 +154,6 @@ export async function destroySession(event: H3Event): Promise<void> {
 
 /**
  * Regenerate session ID while preserving data
- * Replaces complex Session class regeneration logic
  */
 export async function regenerateSession<T extends SessionData = SessionData>(
   event: H3Event
@@ -205,7 +200,6 @@ export async function regenerateSession<T extends SessionData = SessionData>(
 
 /**
  * Create a standardized session error
- * Replaces complex error enum hierarchies
  */
 function createSessionError(
   code: SessionError['code'],

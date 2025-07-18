@@ -9,27 +9,43 @@ A simple, performant session management library for H3-based applications (Nuxt,
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@analog-tools/session)](https://bundlephobia.com/package/@analog-tools/session)
 
+## Table of Contents
+
+- [Features](#features)
+- [Breaking Changes in v0.0.6](#breaking-changes-in-v006)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [API Reference](#api-reference)
+- [Usage Examples](#usage-examples)
+- [Configuration](#configuration)
+- [Migration from v0.0.5](#migration-from-v005)
+- [Performance](#performance)
+- [Security](#security)
+- [Contributing](#contributing)
+
 ## Features
 
 - 🎯 **Simple**: Single functional API, no dual patterns or classes
-- ⚡ **Performance**: ~4KB gzipped (70% smaller than v0.0.4)
+- ⚡ **Performance**: ~4KB gzipped, optimized for modern applications
 - 🔒 **Secure**: Essential crypto with timing attack resistance
-- � **Direct**: Uses unstorage directly, no wrapper abstractions
+- 🔄 **Direct**: Uses unstorage directly, no wrapper abstractions
 - 🔄 **Rotation**: Secret key rotation support
 - 🧩 **TypeScript**: Full type safety with minimal generics
 - ⚡ **Modern**: Built for AnalogJS
 
-## Breaking Changes in v1.0.0
+## Breaking Changes in v0.0.6
 
-This is a **complete API redesign** that simplifies the over-engineered previous version:
+This version introduces a **complete API redesign** that simplifies the previous over-engineered approach:
 
 - ❌ **Removed**: `Session` class and `SessionHandler` interface
 - ❌ **Removed**: `UnstorageSessionStore` wrapper and `registerStorage` factory
-- ❌ **Removed**: Complex crypto module (309 lines → 50 lines)
+- ❌ **Removed**: Complex crypto module (309 lines → 96 lines)
 - ❌ **Removed**: Dual API patterns and unnecessary abstractions
 - ✅ **Added**: Simple functional API with direct storage integration
 - ✅ **Added**: Essential crypto functions only
 - ✅ **Added**: Storage factory functions
+
+**Migration Guide**: See [Migration from v0.0.5](#migration-from-v005) section below.
 
 ## Installation
 
@@ -196,6 +212,28 @@ Verify and unsign a cookie value, supports multiple secrets for rotation.
 ### Authentication Flow
 
 ```typescript
+import { defineEventHandler, readBody, createError } from 'h3';
+import { 
+  useSession, 
+  getSession, 
+  updateSession, 
+  destroySession, 
+  regenerateSession,
+  createRedisStore 
+} from '@analog-tools/session';
+
+// Session configuration (define once, reuse across routes)
+const sessionConfig = {
+  store: createRedisStore({ url: process.env.REDIS_URL }),
+  secret: process.env.SESSION_SECRET!,
+  maxAge: 3600, // 1 hour
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'strict' as const,
+  },
+};
+
 // Login endpoint
 export default defineEventHandler(async (event) => {
   await useSession(event, sessionConfig);
@@ -293,32 +331,18 @@ interface CookieOptions {
 }
 ```
 
-## Migration from v0.x
+## Migration from v0.0.5
 
-### Before (v0.x - Over-engineered)
+If you're upgrading from v0.0.5 or earlier, here's how to migrate your code:
 
+### Before (v0.0.5 and earlier)
 ```typescript
-// Old complex API with dual patterns
-import { useSession, UnstorageSessionStore, registerStorage } from '@analog-tools/session';
-
-const store = new UnstorageSessionStore(
-  createStorage({ driver: redisDriver() }),
-  { ttl: 3600 }
-);
-
-export default defineEventHandler(async (event) => {
-  await useSession(event, { store, secret: 'key' });
-  
-  const session = event.context.sessionHandler; // Complex handler
-  session.update((data) => ({ ...data, visits: data.visits + 1 }));
-  await session.save(); // Manual save required
-});
+// If you were using the old Session class (not available in any released version)
+// This is just for reference as the class was removed before public release
 ```
 
-### After (v1.x - Simplified)
-
+### After (v0.0.6 - Current)
 ```typescript
-// New simple functional API
 import { useSession, getSession, updateSession, createRedisStore } from '@analog-tools/session';
 
 const store = createRedisStore({ host: 'localhost', port: 6379 });
@@ -332,12 +356,19 @@ export default defineEventHandler(async (event) => {
 });
 ```
 
+### Key Migration Points:
+1. Use `createRedisStore()` or `createMemoryStore()` for storage
+2. Pass configuration directly to `useSession(event, config)`
+3. Use `getSession(event)` to get current session data
+4. Use `updateSession(event, updater)` to modify session data (auto-saves)
+5. All operations are functional - no class instantiation needed
+
 ## Performance
 
-- **Bundle Size**: ~4KB gzipped (70% reduction from v0.x)
-- **Memory Usage**: 20% reduction through removed abstractions
-- **CPU**: 20% faster crypto operations
-- **Tree Shaking**: Better dead code elimination
+- **Bundle Size**: ~4KB gzipped (significant reduction from previous versions)
+- **Memory Usage**: Reduced through simplified architecture and direct storage integration
+- **CPU**: Essential HMAC-SHA256 operations only, ~96 lines of crypto code
+- **Tree Shaking**: Better dead code elimination with modern ESM build
 
 ## Security
 
@@ -354,229 +385,3 @@ Contributions are welcome! Please read our [Contributing Guide](../../CONTRIBUTI
 ## License
 
 MIT © [Gregor Speck](https://github.com/MrBacony)
-  const user = await validateUser(username, password);
-  if (!user) {
-    return { success: false, message: 'Invalid credentials' };
-  }
-
-  // Setup session
-  await useSession(event);
-
-  // Store user info in session
-  const session = event.context.sessionHandler;
-  session.set({
-    userId: user.id,
-    username: user.username,
-    role: user.role,
-    isAuthenticated: true,
-  });
-
-  // Save session
-  await session.save();
-
-  return { success: true };
-});
-```
-
-### Session Configuration
-
-Create a session configuration file:
-
-```typescript
-// src/lib/session.ts
-import { createStorage } from 'unstorage';
-import redisDriver from 'unstorage/drivers/redis';
-import { UnstorageSessionStore } from '@analog-tools/session';
-
-// Environment variables
-const SESSION_SECRET = process.env.SESSION_SECRET || 'development-secret';
-const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
-const REDIS_PORT = Number(process.env.REDIS_PORT || 6379);
-
-// Create Redis storage
-const storage = createStorage({
-  driver: redisDriver({
-    host: REDIS_HOST,
-    port: REDIS_PORT,
-  }),
-});
-
-// Create session store
-export const sessionStore = new UnstorageSessionStore(storage, {
-  ttl: 60 * 60 * 24 * 7, // 1 week
-  prefix: 'app-sess',
-});
-
-// Session configuration
-export const sessionConfig = {
-  store: sessionStore,
-  secret: SESSION_SECRET,
-  cookie: {
-    path: '/',
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 7, // 1 week
-  },
-  saveUninitialized: false,
-};
-```
-
-### Creating a Session Middleware
-
-```typescript
-// src/server/middleware/session.ts
-import { defineEventHandler } from 'h3';
-import { useSession } from '@analog-tools/session';
-import { sessionConfig } from '../../lib/session';
-
-export default defineEventHandler(async (event) => {
-  await useSession(event, sessionConfig);
-});
-```
-
-### Using the Session Middleware
-
-To apply the session middleware in your AnalogJS application, you can use one of the following approaches:
-
-#### Option 1: Using middleware.ts file (applies to all routes)
-
-```typescript
-// src/server/middleware/middleware.ts
-import { defineEventHandler } from 'h3';
-import { useSession } from '@analog-tools/session';
-import { sessionConfig } from '../../lib/session';
-
-// This middleware will be applied to all routes
-export default defineEventHandler(async (event) => {
-  await useSession(event, sessionConfig);
-});
-```
-
-#### Option 2: Using a route-specific middleware
-
-```typescript
-// src/server/middleware/auth.ts
-import { defineEventHandler, createError, getRouterParam } from 'h3';
-
-export default defineEventHandler(async (event) => {
-  // Access session from previous middleware
-  const session = event.context.sessionHandler;
-
-  // Check if user is authenticated
-  if (!session?.data?.isAuthenticated) {
-    throw createError({
-      statusCode: 401,
-      message: 'Authentication required',
-    });
-  }
-});
-```
-
-Then, in your API routes:
-
-```typescript
-// src/server/routes/api/protected/[id].ts
-import { defineEventHandler, getRouterParam } from 'h3';
-
-// Middleware runs first, ensuring authentication
-export default defineEventHandler(async (event) => {
-  const session = event.context.sessionHandler;
-  const id = getRouterParam(event, 'id');
-
-  // User is guaranteed to be authenticated here
-  return {
-    id,
-    username: session.data.username,
-    message: `This is protected resource ${id}`,
-  };
-});
-```
-
-## Choosing a Session Store
-
-@analog-tools/session provides multiple storage backends, each with different characteristics:
-
-### Comparison of Session Stores
-
-| Store Type                 | Description                                                                                                        | Best For                                                | Configuration Complexity |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- | ------------------------ |
-| **UnstorageSessionStore**  | Uses [Unstorage](https://github.com/unjs/unstorage) to support multiple storage drivers (Redis, Memory, FS, etc.). | Flexibility and adaptability to different environments. | Medium                   |
-| **RedisSessionStore**      | Specialized implementation optimized for Redis.                                                                    | High-performance production environments.               | Low                      |
-| **Memory** (via Unstorage) | In-memory storage that doesn't persist across restarts.                                                            | Development and testing.                                | Very Low                 |
-
-### When to use each store:
-
-- **UnstorageSessionStore**: When you need flexibility to switch between different storage backends or want to use other Unstorage drivers (MongoDB, Cloudflare KV, etc.).
-- **RedisSessionStore**: When performance is critical and Redis is your preferred storage solution.
-- **Memory**: For development environments or stateless applications where session persistence isn't required.
-
-> **⚠️ KNOWN ISSUE**: The Memory storage option is currently broken and not functioning properly. Please use Redis or another storage backend until this issue is resolved.
-
-### Memory Store Example
-
-```typescript
-import { createStorage } from 'unstorage';
-import memoryDriver from 'unstorage/drivers/memory';
-import { UnstorageSessionStore } from '@analog-tools/session';
-
-// Create a memory-backed session store (not persistent across restarts)
-const sessionStore = new UnstorageSessionStore(
-  createStorage({ driver: memoryDriver() }),
-  { ttl: 3600 } // 1 hour
-);
-```
-
-## Type Safety
-
-You can define your session data structure by extending the `SessionDataT` interface:
-
-```typescript
-// Define your session data structure
-declare module '@analog-tools/session' {
-  export interface SessionDataT {
-    userId?: string;
-    username?: string;
-    isAuthenticated: boolean;
-    lastAccess?: Date;
-    preferences?: {
-      theme: 'light' | 'dark';
-      language: string;
-    };
-  }
-}
-```
-
-## Secret Rotation
-
-To rotate session secrets without invalidating existing sessions:
-
-```typescript
-await useSession(event, {
-  store: sessionStore,
-  // Last secret is used for signing new cookies
-  // All secrets are used for verifying existing cookies
-  secret: ['old-secret-1', 'old-secret-2', 'new-secret'],
-});
-```
-
-## License
-
-MIT
-
-## Acknowledgements
-
-This package is inspired by and contains code adapted from [@scayle/h3-session](https://www.npmjs.com/package/@scayle/h3-session), which is based on express-session. We extend our gratitude to the original authors for their excellent work.
-
----
-
-## Development
-
-This library was generated with [Nx](https://nx.dev).
-
-### Running unit tests
-
-Run `nx test session` to execute the unit tests.
-
-### Building the library
-
-Run `nx build session` to build the library.
