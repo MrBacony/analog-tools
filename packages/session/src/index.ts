@@ -1,10 +1,9 @@
-// Simplified Session Package - Export the new functional API
-// Replaces complex dual API pattern (Session class + functional approach)
+// Session package - functional API for H3-based applications
 
 // Export types
 export * from './types';
 
-// Export core session functions (replaces Session class + SessionHandler + SessionState)
+// Export core session functions
 export {
   useSession,
   getSession,
@@ -13,13 +12,13 @@ export {
   regenerateSession,
 } from './session';
 
-// Export storage factory functions (replaces UnstorageSessionStore wrapper + registerStorage)
+// Export storage factory functions
 export {
   createMemoryStore,
   createRedisStore,
 } from './storage';
 
-// Export essential crypto functions (replaces 309-line crypto module)
+// Export crypto functions
 export {
   signCookie,
   unsignCookie,

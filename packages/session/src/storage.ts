@@ -1,6 +1,5 @@
 /**
  * Storage factory functions for session package
- * Simplified storage creation without wrapper abstractions
  */
 
 import { createStorage } from 'unstorage';

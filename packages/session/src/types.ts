@@ -1,15 +1,13 @@
 import type { Storage } from 'unstorage';
 
 /**
- * Base session data interface - simple record type
- * Replaces complex SessionDataT generics from old implementation
+ * Base session data interface
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-empty-interface
 export interface SessionData extends Record<string, unknown> {}
 
 /**
  * Cookie configuration options
- * Standard HTTP cookie options without over-engineering
  */
 export interface CookieOptions {
   domain?: string;
@@ -21,10 +19,9 @@ export interface CookieOptions {
 
 /**
  * Session configuration interface
- * Simplified from previous complex configuration layers
  */
 export interface SessionConfig<T extends SessionData = SessionData> {
-  /** Direct unstorage Storage instance - no wrapper abstractions */
+  /** Direct unstorage Storage instance */
   store: Storage<T>;
 
   /** Secret(s) for signing cookies - supports rotation with array */
@@ -45,7 +42,6 @@ export interface SessionConfig<T extends SessionData = SessionData> {
 
 /**
  * Session operation result
- * Simplified error handling without complex error enums
  */
 export interface SessionOperationResult {
   success: boolean;
@@ -54,7 +50,6 @@ export interface SessionOperationResult {
 
 /**
  * Session error interface
- * Simple error structure without over-engineered error hierarchies
  */
 export interface SessionError {
   code:

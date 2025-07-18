@@ -1,7 +1,6 @@
 /**
- * Simplified crypto utilities for session package
- * Replaces 309-line complex crypto module with essential functions
- * Under 50 lines total as per taskplan requirements
+ * Crypto utilities for session package
+ * Essential HMAC-SHA256 operations for cookie signing
  */
 
 /**
