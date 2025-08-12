@@ -1,6 +1,6 @@
 {
   "name": "@analog-tools/session",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Session management for AnalogJS server-side applications",
   "main": "./index.cjs",
   "module": "./index.js",
@@ -28,7 +28,7 @@
     "defu": "^6.1.4",
     "uncrypto": "^0.1.3",
     "unstorage": "^1.16.0",
-    "@analog-tools/inject": "^0.0.6"
+    "@analog-tools/inject": "^0.0.7"
   },
   "peerDependencies": {
     "h3": "^1.15.2"
