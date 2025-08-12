@@ -68,7 +68,7 @@ export class SessionService {
         cookie: {
           httpOnly: true,
           secure: process.env['NODE_ENV'] === 'production',
-          sameSite: process.env['NODE_ENV'] === 'production' ? 'lax' : 'strict',
+          sameSite: 'lax', // Always use 'lax' to allow OAuth redirects
         },
         // Initialize default session structure with auth property
         generate: () => ({
