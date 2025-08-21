@@ -67,6 +67,8 @@ export class AuthService implements OnDestroy {
   readonly userResource = httpResource<AuthUser | null>(
     () => {
       if (this.isAuthenticated()) {
+        console.log('userResource called');
+
         return {
           url: '/api/auth/user',
           method: 'GET',
@@ -74,14 +76,16 @@ export class AuthService implements OnDestroy {
             accept: 'application/json',
           }),
           withCredentials: true,
-          parse: (raw: GenericUserInfo) => {
-            return transformUserFromProvider(raw);
-          },
         };
       }
       return;
     },
-    { defaultValue: null }
+    {
+      defaultValue: null,
+      parse: (raw: unknown) => {
+        return transformUserFromProvider(raw as GenericUserInfo);
+      },
+    }
   );
 
   readonly user = this.userResource.asReadonly().value;
