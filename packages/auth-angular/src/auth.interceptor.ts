@@ -1,11 +1,8 @@
-import {
-  HttpErrorResponse,
-  HttpHeaders,
-  HttpInterceptorFn,
-} from '@angular/common/http';
+import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { catchError, EMPTY } from 'rxjs';
 import { login } from './functions/login';
 import { injectRequest } from '@analogjs/router/tokens';
+import { mergeRequest } from './functions/utils/merge-request';
 
 /**
  * HTTP interceptor that:
@@ -16,42 +13,22 @@ import { injectRequest } from '@analogjs/router/tokens';
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   // Skip interception for auth endpoints to avoid circular issues
-  if (req.url.includes('/api/auth/callback') || req.url.includes('/api/auth/login')) {
+  if (
+    req.url.includes('/api/auth/callback') ||
+    req.url.includes('/api/auth/login')
+  ) {
     return next(req);
   }
 
   // Clone the request and add the fetch=true header
   const request = injectRequest();
 
-  let modifiedReq;
-
-  if (request) {
-    let headers = new HttpHeaders();
-    Object.entries(request.headers).forEach(([key, value]) => {
-      if (value !== null && value !== undefined && typeof value === 'string') {
-        headers = headers.set(key, value);
-      }
-    });
-    headers = headers.set('fetch', 'true');
-
-    modifiedReq = req.clone({
-      headers: headers,
-      withCredentials: true,
-    });
-  } else {
-    modifiedReq = req.clone({
-      headers: req.headers.set('fetch', 'true'),
-      withCredentials: true,
-    });
-  }
-
+  const modifiedReq = mergeRequest(req, request);
   // Use the modified request with the added header
   return next(modifiedReq).pipe(
     catchError((error: unknown) => {
       // Only handle HttpErrorResponse with 401 status
       if (error instanceof HttpErrorResponse && error.status === 401) {
-        console.log('Session expired, redirecting to login');
-
         // Get current URL to redirect back after login
         const currentUrl = window.location.pathname + window.location.search;
 
