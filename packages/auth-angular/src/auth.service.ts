@@ -67,8 +67,6 @@ export class AuthService implements OnDestroy {
   readonly userResource = httpResource<AuthUser | null>(
     () => {
       if (this.isAuthenticated()) {
-        console.log('userResource called');
-
         return {
           url: '/api/auth/user',
           method: 'GET',
