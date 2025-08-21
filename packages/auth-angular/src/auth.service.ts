@@ -8,13 +8,13 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { isPlatformBrowser } from '@angular/common';
-import { HttpClient, httpResource } from '@angular/common/http';
+import { httpResource } from '@angular/common/http';
 import {
   GenericUserInfo,
   transformUserFromProvider,
 } from './functions/user-transformer';
-import { lastValueFrom } from 'rxjs/internal/lastValueFrom';
-import { map } from 'rxjs';
+import { getRequestHeaders } from './functions/utils/get-request-headers';
+import { injectRequest } from '@analogjs/router/tokens';
 
 export interface AuthUser {
   username: string;
@@ -41,7 +41,7 @@ export class AuthService implements OnDestroy {
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
   private document = inject(DOCUMENT);
-  private httpClient = inject(HttpClient);
+  private httpRequest = injectRequest();
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
 
   // Auth state - order matters: isAuthenticatedResource and isAuthenticated must be defined first
@@ -49,9 +49,9 @@ export class AuthService implements OnDestroy {
     () => ({
       url: '/api/auth/authenticated',
       method: 'GET',
-      headers: {
+      headers: getRequestHeaders(this.httpRequest, {
         accept: 'application/json',
-      },
+      }),
       withCredentials: true,
     }),
     {
@@ -70,9 +70,9 @@ export class AuthService implements OnDestroy {
         return {
           url: '/api/auth/user',
           method: 'GET',
-          headers: {
+          headers: getRequestHeaders(this.httpRequest, {
             accept: 'application/json',
-          },
+          }),
           withCredentials: true,
           parse: (raw: GenericUserInfo) => {
             return transformUserFromProvider(raw);
@@ -88,9 +88,9 @@ export class AuthService implements OnDestroy {
 
   constructor() {
     // Check authentication status on startup
-    if (isPlatformBrowser(this.platformId)) {
-      this.isAuthenticatedResource.reload();
+    this.isAuthenticatedResource.reload();
 
+    if (isPlatformBrowser(this.platformId)) {
       // Set up periodic check for authentication status
       this.checkAuthInterval = setInterval(() => {
         this.isAuthenticatedResource.reload();
@@ -157,14 +157,4 @@ export class AuthService implements OnDestroy {
 
     return roles.some((role) => user.roles?.lastIndexOf(role) !== -1);
   }
-
-  async isAuthenticatedAsync(): Promise<boolean> {
-    return lastValueFrom(this.httpClient.get<{ authenticated: boolean }>('/api/auth/authenticated', {
-      headers: {
-        accept: 'application/json',
-      },
-      withCredentials: true,
-    }).pipe(map((value) => value.authenticated)));
-  }
-  
 }

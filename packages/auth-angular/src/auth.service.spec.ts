@@ -1,17 +1,20 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { PLATFORM_ID, DOCUMENT } from '@angular/core';
+import { DOCUMENT, PLATFORM_ID } from '@angular/core';
 import { AuthService } from './auth.service';
 import { httpResource, provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock httpResource
 vi.mock('@angular/common/http', async () => {
   const actual = await vi.importActual('@angular/common/http');
   return {
     ...actual,
-    httpResource: vi.fn()
+    httpResource: vi.fn(),
   };
 });
 
@@ -26,7 +29,7 @@ describe('AuthService', () => {
     givenName: 'Test',
     familyName: 'User',
     email: 'test@example.com',
-    roles: ['user', 'admin']
+    roles: ['user', 'admin'],
   };
 
   beforeEach(async () => {
@@ -34,8 +37,8 @@ describe('AuthService', () => {
     mockDocument = {
       location: {
         href: '',
-        origin: 'http://localhost:3000'
-      } as Location
+        origin: 'http://localhost:3000',
+      } as Location,
     };
 
     // Mock httpResource to create simple mock resources
@@ -51,21 +54,24 @@ describe('AuthService', () => {
       isLoading: vi.fn(() => false),
       isFetching: vi.fn(() => false),
       error: vi.fn(() => null),
-      request: vi.fn()
+      request: vi.fn(),
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (httpResource as any).mockImplementation((configOrFn: any, options?: any) => {
-      const config = typeof configOrFn === 'function' ? configOrFn() : configOrFn;
-      
-      if (config?.url === '/api/auth/user') {
-        return createMockResource(options?.defaultValue || mockUser);
-      } else if (config?.url === '/api/auth/authenticated') {
-        return createMockResource(options?.defaultValue || true);
+    (httpResource as any).mockImplementation(
+      (configOrFn: any, options?: any) => {
+        const config =
+          typeof configOrFn === 'function' ? configOrFn() : configOrFn;
+
+        if (config?.url === '/api/auth/user') {
+          return createMockResource(options?.defaultValue || mockUser);
+        } else if (config?.url === '/api/auth/authenticated') {
+          return createMockResource(options?.defaultValue || true);
+        }
+
+        return createMockResource(options?.defaultValue || null);
       }
-      
-      return createMockResource(options?.defaultValue || null);
-    });
+    );
 
     await TestBed.configureTestingModule({
       providers: [
@@ -111,7 +117,7 @@ describe('AuthService', () => {
     // Mock router.url
     const router = TestBed.inject(Router);
     Object.defineProperty(router, 'url', { value: '/current-page' });
-    
+
     service.login();
     expect(mockDocument.location?.href).toBe(
       '/api/auth/login?redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcurrent-page'
@@ -121,17 +127,19 @@ describe('AuthService', () => {
   it('should logout and redirect to home', () => {
     // Spy on the userResource set method
     const setSpy = vi.spyOn(service.userResource, 'set');
-    
+
     service.logout();
-    
+
     expect(setSpy).toHaveBeenCalledWith(null);
-    expect(mockDocument.location?.href).toBe('/api/auth/logout?redirect_uri=%2F');
+    expect(mockDocument.location?.href).toBe(
+      '/api/auth/logout?redirect_uri=%2F'
+    );
   });
 
   it('should check if user has required roles (user with matching role)', () => {
     // Mock the value function to return our test user with admin role
     vi.spyOn(service.userResource, 'value').mockReturnValue(mockUser);
-    
+
     const hasRole = service.hasRoles(['admin']);
     expect(hasRole).toBe(true);
   });
@@ -140,17 +148,19 @@ describe('AuthService', () => {
     // Mock user without admin role
     const userWithoutAdminRole = {
       ...mockUser,
-      roles: ['user']
+      roles: ['user'],
     };
-    vi.spyOn(service.userResource, 'value').mockReturnValue(userWithoutAdminRole);
-    
+    vi.spyOn(service.userResource, 'value').mockReturnValue(
+      userWithoutAdminRole
+    );
+
     const hasRole = service.hasRoles(['admin']);
     expect(hasRole).toBe(false);
   });
 
   it('should return false for roles when user is null', () => {
     vi.spyOn(service.userResource, 'value').mockReturnValue(null);
-    
+
     const hasRole = service.hasRoles(['admin']);
     expect(hasRole).toBe(false);
   });
@@ -158,10 +168,10 @@ describe('AuthService', () => {
   it('should return false for roles when user has no roles', () => {
     const userWithoutRoles = {
       ...mockUser,
-      roles: undefined
+      roles: undefined,
     };
     vi.spyOn(service.userResource, 'value').mockReturnValue(userWithoutRoles);
-    
+
     const hasRole = service.hasRoles(['admin']);
     expect(hasRole).toBe(false);
   });
@@ -169,24 +179,10 @@ describe('AuthService', () => {
   it('should fetch user data when authenticated', () => {
     // Simply verify that userResource.reload can be called
     const reloadSpy = vi.spyOn(service.userResource, 'reload');
-    
+
     // Manually call reload to simulate the effect
     service.userResource.reload();
-    
-    expect(reloadSpy).toHaveBeenCalled();
-  });
 
-  it('should handle async authentication check', async () => {
-    const resultPromise = service.isAuthenticatedAsync();
-    
-    // Expect HTTP request
-    const req = httpTestingController.expectOne('/api/auth/authenticated');
-    expect(req.request.method).toBe('GET');
-    
-    // Respond with mock data
-    req.flush({ authenticated: true });
-    
-    const result = await resultPromise;
-    expect(result).toBe(true);
+    expect(reloadSpy).toHaveBeenCalled();
   });
 });

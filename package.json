@@ -22,7 +22,6 @@
     "analog-tools"
   ],
   "dependencies": {
-    "@analog-tools/session": "^0.0.6",
     "@analogjs/content": "1.19.4",
     "@analogjs/router": "1.19.4",
     "@analogjs/trpc": "0.4.0",
