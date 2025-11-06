@@ -7,11 +7,14 @@ import * as path from 'path';
 export default defineConfig(() => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/packages/session',
-  plugins: [nxViteTsPaths(), nxCopyAssetsPlugin(['*.md']),
+  plugins: [
+    nxViteTsPaths(),
+    nxCopyAssetsPlugin(['*.md']),
     dts({
       entryRoot: 'src',
       tsconfigPath: path.join(__dirname, 'tsconfig.lib.json'),
-    }),],
+    }),
+  ],
   // Uncomment this if you are using workers.
   // worker: {
   //  plugins: [ nxViteTsPaths() ],
@@ -32,6 +35,9 @@ export default defineConfig(() => ({
         if (format === 'cjs') {
           prefix = 'cjs';
         }
+        if (format === 'es') {
+          prefix = 'mjs';
+        }
 
         return `index.${prefix}`;
       },
@@ -47,7 +53,7 @@ export default defineConfig(() => ({
         'defu',
         'uncrypto',
         'unstorage',
-        'ioredis'
+        'ioredis',
       ],
     },
   },
