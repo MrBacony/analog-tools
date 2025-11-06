@@ -1,0 +1,11 @@
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: 'lib-<%= fileName %>',
+  standalone: true,
+  imports: [CommonModule],
+  template: `<p><%= className %> works!</p>`,
+  styles: ``,
+})
+export class <%= className %>Component {}

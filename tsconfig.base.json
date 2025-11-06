@@ -19,7 +19,8 @@
       "@analog-tools/auth/angular": ["packages/auth-angular/src/index.ts"],
       "@analog-tools/inject": ["packages/inject/src/index.ts"],
       "@analog-tools/logger": ["packages/logger/src/index.ts"],
-      "@analog-tools/session": ["packages/session/src/index.ts"]
+      "@analog-tools/session": ["packages/session/src/index.ts"],
+      "@app/analog": ["tools/analog/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

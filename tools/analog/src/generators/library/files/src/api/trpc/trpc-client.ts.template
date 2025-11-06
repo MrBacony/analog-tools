@@ -1,0 +1,19 @@
+import { LibRouter } from './routers';
+import { createTrpcClient } from '@analogjs/trpc';
+import { inject } from '@angular/core';
+import { SuperJSON } from 'superjson';
+
+export const { provideTrpcClient, TrpcClient: Trpc<%= className %>Client } = createTrpcClient<LibRouter>({
+  url: '/api/notes/trpc',
+  options: {
+    transformer: SuperJSON,
+  },
+});
+
+export function provideTrpc<%= className %>Client() {
+  return provideTrpcClient();
+}
+
+export function injectTrpcLibClient() {
+  return inject(Trpc<%= className %>Client);
+}

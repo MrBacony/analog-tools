@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/schema",
+  "$id": "Library",
+  "title": "Generate a Library with module routing",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "How should the library be named?",
+      "$default": {
+        "$source": "argv",
+        "index": 0
+      },
+      "x-prompt": "What name would you like to use?"
+    },
+    "project": {
+      "type": "string",
+      "description": "Which application project should this library be added to?",
+      "alias": "p",
+      "x-prompt": "What is the name of the application project?",
+      "x-dropdown": "projects"
+    },
+    "trpc": {
+      "type": "boolean",
+      "description": "Should the library include a trpc router?",
+      "x-prompt": {
+        "type": "confirmation",
+        "message": "Do you want this library to include a tRPC router?"
+      }
+    },
+    "pages": {
+      "type": "boolean",
+      "description": "Should the library include pages?",
+      "x-prompt": {
+        "type": "confirmation",
+        "message": "Do you want this library to include pages?"
+      }
+    },
+    "contentRoutes": {
+      "type": "boolean",
+      "description": "Should the library include content routes?",
+      "x-prompt": {
+        "type": "confirmation",
+        "message": "Do you want this library to include content routes?"
+      }
+    },
+    "api": {
+      "type": "boolean",
+      "description": "Should the library include API routes?",
+      "x-prompt": {
+        "type": "confirmation",
+        "message": "Do you want this library to include API routes?"
+      }
+    }
+  },
+  "required": ["name", "project"]
+}

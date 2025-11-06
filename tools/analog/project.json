@@ -1,0 +1,51 @@
+{
+  "name": "@app/analog",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "tools/analog/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/tools/analog",
+        "main": "tools/analog/src/index.ts",
+        "tsConfig": "tools/analog/tsconfig.lib.json",
+        "assets": [
+          "tools/analog/*.md",
+          {
+            "input": "./tools/analog/src",
+            "glob": "**/!(*.ts)",
+            "output": "./src"
+          },
+          {
+            "input": "./tools/analog/src",
+            "glob": "**/*.d.ts",
+            "output": "./src"
+          },
+          {
+            "input": "./tools/analog",
+            "glob": "generators.json",
+            "output": "."
+          },
+          {
+            "input": "./tools/analog",
+            "glob": "executors.json",
+            "output": "."
+          }
+        ]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "outputs": ["{options.reportsDirectory}"],
+      "options": {
+        "reportsDirectory": "../../coverage/tools/analog"
+      }
+    }
+  }
+}

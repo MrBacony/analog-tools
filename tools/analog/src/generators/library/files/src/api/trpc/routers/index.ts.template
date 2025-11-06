@@ -1,0 +1,8 @@
+import { router } from '../trpc';
+import { <%= propertyName %>Router } from './<%= fileName %>';
+
+export const libRouter = router({
+  <%= propertyName %>: <%= propertyName %>Router,
+});
+// export type definition of API
+export type LibRouter = typeof libRouter;

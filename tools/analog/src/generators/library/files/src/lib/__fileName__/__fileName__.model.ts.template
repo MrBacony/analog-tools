@@ -1,0 +1,5 @@
+export type <%= className %> = {
+  id: number;
+  note: string;
+  createdAt: string;
+};
