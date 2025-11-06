@@ -5,4 +5,5 @@ export interface LibraryGeneratorSchema {
   pages?: boolean;
   contentRoutes?: boolean;
   api?: boolean;
+  skipExamples?: boolean;
 }
