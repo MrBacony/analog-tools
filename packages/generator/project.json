@@ -1,7 +1,7 @@
 {
-  "name": "@app/analog",
+  "name": "@analog-tools/generator",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "tools/analog/src",
+  "sourceRoot": "packages/generator/src",
   "projectType": "library",
   "tags": [],
   "targets": {
@@ -9,28 +9,28 @@
       "executor": "@nx/js:tsc",
       "outputs": ["{options.outputPath}"],
       "options": {
-        "outputPath": "dist/tools/analog",
-        "main": "tools/analog/src/index.ts",
-        "tsConfig": "tools/analog/tsconfig.lib.json",
+        "outputPath": "dist/packages/generator",
+        "main": "packages/generator/src/index.ts",
+        "tsConfig": "packages/generator/tsconfig.lib.json",
         "assets": [
-          "tools/analog/*.md",
+          "packages/generator/*.md",
           {
-            "input": "./tools/analog/src",
+            "input": "./packages/generator/src",
             "glob": "**/!(*.ts)",
             "output": "./src"
           },
           {
-            "input": "./tools/analog/src",
+            "input": "./packages/generator/src",
             "glob": "**/*.d.ts",
             "output": "./src"
           },
           {
-            "input": "./tools/analog",
+            "input": "./packages/generator",
             "glob": "generators.json",
             "output": "."
           },
           {
-            "input": "./tools/analog",
+            "input": "./packages/generator",
             "glob": "executors.json",
             "output": "."
           }
@@ -44,7 +44,7 @@
       "executor": "@nx/vite:test",
       "outputs": ["{options.reportsDirectory}"],
       "options": {
-        "reportsDirectory": "../../coverage/tools/analog"
+        "reportsDirectory": "../../coverage/packages/generator"
       }
     }
   }
