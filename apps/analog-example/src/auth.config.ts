@@ -5,22 +5,27 @@ export const authConfig: AnalogAuthConfig = {
   clientId: process.env['AUTH_CLIENT_ID'] || '',
   clientSecret: process.env['AUTH_CLIENT_SECRET'] || '',
   audience: process.env['AUTH_AUDIENCE'] || '',
-  scope: process.env['AUTH_SCOPE'] || '',
+  scope: process.env['AUTH_SCOPE'] || 'openid profile email',
   callbackUri: process.env['AUTH_CALLBACK_URL'] || '',
-  /*
-  sessionStorage: {
-    type: 'memory', // Use 'redis' for Redis-backed sessions
-    config: {
-      prefix: 'sess', // Session key prefix
-      ttl: 60 * 60, // Session TTL in seconds (default: 1 hour)
-      sessionSecret: process.env['SESSION_SECRET'] || 'dev-secret-change-me-in-production'
-    },
-  },*/
+  // Critical: Define unprotected routes to prevent authentication loops
+  unprotectedRoutes: [],
+  /*userHandler: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        createOrUpdateUser: async (userData: any) => {
+            const userService = UserService.getInstance();
+            await userService.createOrUpdateUser(userData as RawUserProfile);
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        mapUserToLocal: (data: any) => {
+            return transformUserDBtoUser(data);
+        },
+    },*/
   sessionStorage: {
     type: 'redis',
     config: {
-      url: process.env['REDIS_HOST'] || 'localhost',
-      port: process.env['REDIS_PORT'] || 6379,
+      url: process.env['REDIS_URL'] || 'redis://localhost:6379',
+      sessionSecret: process.env['SESSION_SECRET'] || 'default-dev-secret',
+      ttl: 86400, // 24 hours
     },
   },
 };
