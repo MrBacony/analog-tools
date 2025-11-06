@@ -1,0 +1,7 @@
+import { z } from 'zod';
+import { publicProcedure, router } from '../trpc';
+
+const data: string[] = ["Hello", "World"];
+export const <%= propertyName %>Router = router({
+  list: publicProcedure.query(() => data),
+});
