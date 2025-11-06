@@ -43,6 +43,7 @@ export async function libraryGenerator(
   options.pages = options.pages === true;
   options.contentRoutes = options.contentRoutes === true;
   options.api = options.api === true;
+  options.skipExamples = options.skipExamples === true;
 
   const templateOptions = {
     ...options,
@@ -57,6 +58,47 @@ export async function libraryGenerator(
     projectRoot,
     templateOptions
   );
+
+  // Remove example files if skipExamples is enabled
+  if (options.skipExamples) {
+    const exampleFiles = [
+      `${libSourceRoot}/lib/${moduleNames.fileName}/${moduleNames.fileName}.component.ts`,
+      `${libSourceRoot}/lib/${moduleNames.fileName}/${moduleNames.fileName}.component.spec.ts`,
+      `${libSourceRoot}/lib/${moduleNames.fileName}/${moduleNames.fileName}.model.ts`,
+    ];
+
+    // Remove example API route if api flag is enabled
+    if (options.api) {
+      exampleFiles.push(
+        `${libSourceRoot}/api/routes/api/${moduleNames.fileName}/hello.ts`
+      );
+    }
+
+    // Remove example page files if pages flag is enabled
+    if (options.pages) {
+      exampleFiles.push(
+        `${libSourceRoot}/pages/${moduleNames.fileName}/${moduleNames.fileName}.page.ts`,
+        `${libSourceRoot}/pages/${moduleNames.fileName}/(${moduleNames.fileName}).page.ts`
+      );
+    }
+
+    exampleFiles.forEach(file => {
+      if (tree.exists(file)) {
+        tree.delete(file);
+      }
+    });
+
+    // Add .gitkeep files to preserve empty directories
+    tree.write(`${libSourceRoot}/lib/${moduleNames.fileName}/.gitkeep`, '');
+
+    if (options.pages) {
+      tree.write(`${libSourceRoot}/pages/${moduleNames.fileName}/.gitkeep`, '');
+    }
+
+    if (options.api) {
+      tree.write(`${libSourceRoot}/api/routes/api/${moduleNames.fileName}/.gitkeep`, '');
+    }
+  }
 
   // Remove files based on options
   if (!options.trpc) {

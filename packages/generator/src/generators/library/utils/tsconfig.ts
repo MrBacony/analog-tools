@@ -26,10 +26,13 @@ export function updateTsConfigBase(
   }
 
   // Construct the paths
-  // Ensure options.name is treated as the full logical name for the path
+  // Main library import path: @scope/libname
   const importPath = `${npmScope}/${options.name}`;
-  // Nx usually expects paths relative to the workspace root in tsconfig.base.json
   const relativeLibIndexPath = joinPathFragments(libSourceRoot, 'index.ts');
+
+  // Backend import path: @scope/libname/backend
+  const backendImportPath = `${npmScope}/${options.name}/backend`;
+  const relativeBackendIndexPath = joinPathFragments(libSourceRoot, 'api/index.ts');
 
   try {
     updateJson(tree, tsConfigBasePath, (tsConfigJson) => {
@@ -37,8 +40,13 @@ export function updateTsConfigBase(
       tsConfigJson.compilerOptions = tsConfigJson.compilerOptions ?? {};
       const paths = tsConfigJson.compilerOptions.paths ?? {};
 
-      // Add the new path mapping
+      // Add the main library path mapping
       paths[importPath] = [relativeLibIndexPath];
+
+      // Add the backend path mapping if api or trpc is enabled
+      if (options.api || options.trpc) {
+        paths[backendImportPath] = [relativeBackendIndexPath];
+      }
 
       // Sort paths for consistency (optional but nice)
       const sortedPaths = Object.keys(paths)
@@ -53,6 +61,11 @@ export function updateTsConfigBase(
       logger.info(
         `Updated ${tsConfigBasePath} with path mapping for ${importPath}`
       );
+      if (options.api || options.trpc) {
+        logger.info(
+          `Updated ${tsConfigBasePath} with path mapping for ${backendImportPath}`
+        );
+      }
       return tsConfigJson;
     });
   } catch (error) {

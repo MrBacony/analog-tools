@@ -51,6 +51,15 @@
         "type": "confirmation",
         "message": "Do you want this library to include API routes?"
       }
+    },
+    "skipExamples": {
+      "type": "boolean",
+      "description": "Skip generating example files (component, model, pages)?",
+      "default": false,
+      "x-prompt": {
+        "type": "confirmation",
+        "message": "Do you want to skip generating example files?"
+      }
     }
   },
   "required": ["name", "project"]
