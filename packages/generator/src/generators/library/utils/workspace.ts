@@ -10,7 +10,8 @@ export function getWorkspaceScope(tree: Tree): string | null {
     // Use type assertion if we are confident it exists, or check dynamically
     const scopeFromNx = (nxJson as any)?.npmScope;
     if (typeof scopeFromNx === 'string') {
-      return scopeFromNx;
+      // Ensure scope starts with @
+      return scopeFromNx.startsWith('@') ? scopeFromNx : `@${scopeFromNx}`;
     }
   } catch (e) {
     logger.warn('Could not read nx.json or find npmScope, trying package.json');

@@ -1,0 +1,50 @@
+---
+title: 'Example <%= className %> Post'
+slug: 'example-<%= fileName %>-post'
+description: 'This is an example markdown content file for the <%= name %> library'
+publishedAt: '2025-01-15'
+author:
+  name: 'Your Name'
+  avatar: '/avatars/default.jpg'
+tags: ['<%= fileName %>', 'example', 'analogjs']
+featured: false
+---
+
+# Welcome to <%= className %>
+
+This is an example markdown content file that demonstrates how to structure content for the **<%= name %>** library.
+
+## Features
+
+Content files in AnalogJS support:
+
+- **Frontmatter** for metadata (title, slug, description, etc.)
+- **Markdown** syntax for rich text formatting
+- **Code blocks** with syntax highlighting
+- **Mermaid diagrams** for visualizations
+
+## Example Code
+
+```typescript
+import { Component } from '@angular/core';
+import { injectContent, MarkdownComponent } from '@analogjs/content';
+
+@Component({
+  standalone: true,
+  imports: [MarkdownComponent],
+  template: `
+    <analog-markdown [content]="content"></analog-markdown>
+  `
+})
+export default class ExamplePage {
+  content = injectContent();
+}
+```
+
+## Next Steps
+
+1. Create more content files in this directory
+2. Update the frontmatter with your own metadata
+3. Use `injectContent()` or `injectContentFiles()` to load content in your pages
+
+For more information, visit the [AnalogJS Content documentation](https://analogjs.org/docs/features/routing/content).

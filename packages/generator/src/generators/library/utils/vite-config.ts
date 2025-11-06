@@ -67,14 +67,12 @@ export function updateViteConfig(
   const shouldAddPages = options.addPages !== false;
   const shouldAddApi = options.addApi !== false;
 
-  // Ensure paths start with a slash and use forward slashes
-  const pagesDir = path.join(libSrcRoot, 'pages');
-  const pagesDirPath = pagesDir.replace(/\\/g, '/');
-  const pagesDirFormatted = `'/${pagesDirPath.replace(/^\//, '')}'`;
+  // Ensure paths use forward slashes and don't start with /
+  const pagesDir = path.join(libSrcRoot, 'pages').replace(/\\/g, '/');
+  const pagesDirFormatted = `'${pagesDir}'`;
 
-  const apiDir = path.join(libSrcRoot, 'api');
-  const apiDirPath = apiDir.replace(/\\/g, '/');
-  const apiDirFormatted = `'/${apiDirPath.replace(/^\//, '')}'`;
+  const apiDir = path.join(libSrcRoot, 'api').replace(/\\/g, '/');
+  const apiDirFormatted = `'${apiDir}'`;
 
   // Find the analog() call and its content
   const analogCallRegex = /analog\s*\(/;
@@ -126,23 +124,28 @@ export function updateViteConfig(
 
   const analogContent = updatedContent.substring(startPos, endPos).trim();
 
-  // Check if it's analog() with no arguments or analog({})
-  const isEmpty = analogContent === '' || analogContent === '{}';
+  // Check if it's analog() with no arguments or analog({}) or only comments/whitespace
+  const contentWithoutCommentsAndWhitespace = analogContent
+    .replace(/\/\/.*$/gm, '') // Remove single-line comments
+    .replace(/\/\*[\s\S]*?\*\//g, '') // Remove multi-line comments
+    .replace(/\s+/g, ''); // Remove all whitespace
+  
+  const isEmpty = contentWithoutCommentsAndWhitespace === '' || contentWithoutCommentsAndWhitespace === '{}';
 
   let newAnalogContent = analogContent;
 
   if (isEmpty) {
     // Start fresh with new options
-    const options: string[] = [];
+    const newOptions: string[] = [];
     if (shouldAddPages) {
-      options.push(`additionalPagesDirs: [${pagesDirFormatted}]`);
+      newOptions.push(`additionalPagesDirs: [${pagesDirFormatted}]`);
     }
     if (shouldAddApi) {
-      options.push(`additionalAPIDirs: [${apiDirFormatted}]`);
+      newOptions.push(`additionalAPIDirs: [${apiDirFormatted}]`);
     }
-    newAnalogContent = options.length > 0
-      ? `{\n        ${options.join(',\n        ')}\n      }`
-      : '';
+    newAnalogContent = newOptions.length > 0
+      ? `{\n        ${newOptions.join(',\n        ')}\n      }`
+      : '{}';
   } else {
     // analog() has existing content
     // Remove outer braces if present

@@ -22,6 +22,7 @@ export function updateTsConfigBase(
 
   const npmScope = getWorkspaceScope(tree);
   if (!npmScope) {
+    logger.warn('Could not determine workspace scope. Skipping path mapping update.');
     return; // Warning already logged by getWorkspaceScope
   }
 
