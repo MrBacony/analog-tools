@@ -123,8 +123,8 @@ describe('library generator', () => {
     expect(backendIndexExists).toBe(false);
   });
 
-  it('should update vite.config.ts with additional dirs', async () => {
-    await libraryGenerator(tree, options);
+  it('should update vite.config.ts with additional dirs when pages and api are explicitly enabled', async () => {
+    await libraryGenerator(tree, { ...options, pages: true, api: true });
     const viteConfigContent = tree
       .read(`apps/${options.project}/vite.config.ts`)
       ?.toString('utf-8');
@@ -133,6 +133,44 @@ describe('library generator', () => {
     expect(viteConfigContent).toContain(
       `additionalPagesDirs: ['libs/${options.name}/src/pages']`
     );
+    expect(viteConfigContent).toContain(
+      `additionalAPIDirs: ['libs/${options.name}/src/api']`
+    );
+  });
+
+  it('should update vite.config.ts with pages dir when pages is not explicitly disabled', async () => {
+    // When pages is undefined (not specified), it defaults to being added
+    await libraryGenerator(tree, { ...options, api: false });
+    const viteConfigContent = tree
+      .read(`apps/${options.project}/vite.config.ts`)
+      ?.toString('utf-8');
+    expect(viteConfigContent).toBeDefined();
+    // Pages should be added by default
+    expect(viteConfigContent).toContain(
+      `additionalPagesDirs: ['libs/${options.name}/src/pages']`
+    );
+    // API should not be added when explicitly false
+    expect(viteConfigContent).not.toContain('additionalAPIDirs');
+  });
+
+  it('should not update vite.config.ts when pages and api are explicitly false', async () => {
+    await libraryGenerator(tree, { ...options, pages: false, api: false });
+    const viteConfigContent = tree
+      .read(`apps/${options.project}/vite.config.ts`)
+      ?.toString('utf-8');
+    expect(viteConfigContent).toBeDefined();
+    // Neither should be added when both are false
+    expect(viteConfigContent).not.toContain('additionalPagesDirs');
+    expect(viteConfigContent).not.toContain('additionalAPIDirs');
+  });
+
+  it('should update vite.config.ts with API dir when trpc is enabled', async () => {
+    await libraryGenerator(tree, { ...options, trpc: true, pages: false });
+    const viteConfigContent = tree
+      .read(`apps/${options.project}/vite.config.ts`)
+      ?.toString('utf-8');
+    expect(viteConfigContent).toBeDefined();
+    // API should be added when trpc is enabled
     expect(viteConfigContent).toContain(
       `additionalAPIDirs: ['libs/${options.name}/src/api']`
     );
@@ -151,7 +189,7 @@ describe('library generator', () => {
          ],
        }));`
     );
-    await libraryGenerator(tree, options);
+    await libraryGenerator(tree, { ...options, pages: true, api: true });
     const viteConfigContent = tree
       .read(`apps/${options.project}/vite.config.ts`)
       ?.toString('utf-8');
@@ -293,5 +331,54 @@ describe('library generator', () => {
 
     expect(apiDirExists).toBe(true);
     expect(gitkeepExists).toBe(true);
+  });
+
+  it('should create example content file when contentRoutes is true and skipExamples is false', async () => {
+    await libraryGenerator(tree, {
+      ...options,
+      contentRoutes: true,
+      skipExamples: false,
+    });
+    const contentFileExists = tree.exists(
+      `libs/${options.name}/src/content/test-lib/example-post.md`
+    );
+
+    expect(contentFileExists).toBe(true);
+  });
+
+  it('should remove example content file when skipExamples is true and contentRoutes is true', async () => {
+    await libraryGenerator(tree, {
+      ...options,
+      contentRoutes: true,
+      skipExamples: true,
+    });
+    const contentFileExists = tree.exists(
+      `libs/${options.name}/src/content/test-lib/example-post.md`
+    );
+
+    expect(contentFileExists).toBe(false);
+  });
+
+  it('should keep content directory when skipExamples is true and contentRoutes is true', async () => {
+    await libraryGenerator(tree, {
+      ...options,
+      contentRoutes: true,
+      skipExamples: true,
+    });
+    const contentDirExists = tree.exists(`libs/${options.name}/src/content/test-lib`);
+    const gitkeepExists = tree.exists(`libs/${options.name}/src/content/test-lib/.gitkeep`);
+
+    expect(contentDirExists).toBe(true);
+    expect(gitkeepExists).toBe(true);
+  });
+
+  it('should remove entire content directory when contentRoutes is false', async () => {
+    await libraryGenerator(tree, {
+      ...options,
+      contentRoutes: false,
+    });
+    const contentDirExists = tree.exists(`libs/${options.name}/src/content`);
+
+    expect(contentDirExists).toBe(false);
   });
 });

@@ -1,0 +1,9 @@
+// Backend exports for <%= name %> library
+// This file is used for server-side imports
+
+<% if (trpc) { %>export * from './trpc/trpc-client';
+export * from './trpc/routers';
+export type { Context } from './trpc/context';
+<% } %>
+<% if (api) { %>// Export API route handlers if needed
+<% } %>

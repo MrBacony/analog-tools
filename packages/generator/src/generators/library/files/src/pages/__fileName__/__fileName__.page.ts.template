@@ -4,7 +4,7 @@ import {lastValueFrom} from "rxjs";
 
 @Component(
   {
-    selector: 'lib-mono-<%= fileName %>-page',
+    selector: 'lib-<%= fileName %>-page',
     standalone: true,
     template: `
       <div class="flex flex-col gap-4">
@@ -27,11 +27,11 @@ export default class <%= className %>PageComponent {
   public <%= propertyName %> = resource({
     loader: () => lastValueFrom(this.trpc.<%= propertyName %>.list.query()),
   });
-}<% } else { %>import {Component, signal} from "@angular/core";
+})<% } else { %>import {Component, signal} from "@angular/core";
 
 @Component(
   {
-    selector: 'lib-mono-<%= fileName %>-page',
+    selector: 'lib-<%= fileName %>-page',
     standalone: true,
     template: `
       <div class="flex flex-col gap-4">

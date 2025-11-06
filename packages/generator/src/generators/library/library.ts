@@ -38,12 +38,21 @@ export async function libraryGenerator(
     },
   });
 
-  // Ensure all boolean options have the correct type
+  // Ensure all boolean options have the correct type for template generation
+  // Keep pages and contentRoutes as undefined if not specified (they default to enabled)
+  // Force trpc, api, and skipExamples to boolean
   options.trpc = options.trpc === true;
-  options.pages = options.pages === true;
-  options.contentRoutes = options.contentRoutes === true;
   options.api = options.api === true;
   options.skipExamples = options.skipExamples === true;
+  
+  // For pages and contentRoutes: undefined means "not specified", which should generate files
+  // but for cleanup logic we need explicit booleans
+  const shouldGeneratePages = options.pages !== false;
+  const shouldGenerateContentRoutes = options.contentRoutes !== false;
+  
+  // Normalize for template processing (templates need explicit boolean)
+  options.pages = shouldGeneratePages;
+  options.contentRoutes = shouldGenerateContentRoutes;
 
   const templateOptions = {
     ...options,
@@ -82,6 +91,13 @@ export async function libraryGenerator(
       );
     }
 
+    // Remove example content file if contentRoutes flag is enabled
+    if (options.contentRoutes) {
+      exampleFiles.push(
+        `${libSourceRoot}/content/${moduleNames.fileName}/example-post.md`
+      );
+    }
+
     exampleFiles.forEach(file => {
       if (tree.exists(file)) {
         tree.delete(file);
@@ -97,6 +113,10 @@ export async function libraryGenerator(
 
     if (options.api) {
       tree.write(`${libSourceRoot}/api/routes/api/${moduleNames.fileName}/.gitkeep`, '');
+    }
+
+    if (options.contentRoutes) {
+      tree.write(`${libSourceRoot}/content/${moduleNames.fileName}/.gitkeep`, '');
     }
   }
 
@@ -148,6 +168,12 @@ export async function libraryGenerator(
 
   // Clean up the api/routes directory structure if both API and tRPC are disabled
   if (!options.api && !options.trpc) {
+    // First delete the backend index file
+    const backendIndexPath = `${libSourceRoot}/api/index.ts`;
+    if (tree.exists(backendIndexPath)) {
+      tree.delete(backendIndexPath);
+    }
+
     const apiRouteDirs = [
       `${libSourceRoot}/api/routes/api/${moduleNames.fileName}`,
       `${libSourceRoot}/api/routes/api`,
@@ -184,6 +210,30 @@ export async function libraryGenerator(
       };
 
       deleteRecursively(pagesPath);
+    }
+  }
+
+  if (!options.contentRoutes) {
+    // Clean up content directory if contentRoutes is disabled
+    const contentPath = `${libSourceRoot}/content`;
+    if (tree.exists(contentPath)) {
+      const deleteRecursively = (dirPath: string) => {
+        tree.children(dirPath).forEach(child => {
+          const fullPath = `${dirPath}/${child}`;
+          if (tree.isFile(fullPath)) {
+            tree.delete(fullPath);
+          } else {
+            deleteRecursively(fullPath);
+          }
+        });
+
+        // If the directory is now empty, delete it too
+        if (tree.children(dirPath).length === 0) {
+          tree.delete(dirPath);
+        }
+      };
+
+      deleteRecursively(contentPath);
     }
   }
 
@@ -246,8 +296,10 @@ export async function libraryGenerator(
         viteConfigContent,
         libSourceRoot,
         {
-          addPages: options.pages,
-          addApi: options.api || options.trpc,
+          // Always add pages unless explicitly disabled
+          addPages: options.pages !== false,
+          // Add API if either api or trpc is enabled
+          addApi: options.api === true || options.trpc === true,
         }
       );
       tree.write(viteConfigPath, updatedViteConfig);
