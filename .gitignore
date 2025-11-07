@@ -54,3 +54,5 @@ vitest.config.*.timestamp*
 .github/prompts/*.md
 
 docs/issues
+.env.local
+.env.*.local
