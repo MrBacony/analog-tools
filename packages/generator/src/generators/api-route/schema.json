@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/schema",
+  "$id": "ApiRoute",
+  "title": "Generate an AnalogJS API route",
+  "type": "object",
+  "properties": {
+    "route": {
+      "type": "string",
+      "description": "Route path relative to the API directory (e.g. v1/users or v1/users/[id])",
+      "$default": {
+        "$source": "argv",
+        "index": 0
+      },
+      "x-prompt": "What route path should be created?"
+    },
+    "project": {
+      "type": "string",
+      "description": "Project where the API route should be added",
+      "alias": "p",
+      "x-prompt": "Which project hosts the API routes?",
+      "x-dropdown": "projects"
+    },
+    "method": {
+      "type": "string",
+      "description": "Optional HTTP method for a method-specific handler (leave empty for a generic handler)",
+      "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
+    }
+  },
+  "required": ["route", "project"]
+}

@@ -4,6 +4,11 @@
       "factory": "./src/generators/library/library",
       "schema": "./src/generators/library/schema.json",
       "description": "Generate an analog library with module routing"
+    },
+    "api-route": {
+      "factory": "./src/generators/api-route/api-route",
+      "schema": "./src/generators/api-route/schema.json",
+      "description": "Generate an AnalogJS API route inside an Nx project"
     }
   }
 }
