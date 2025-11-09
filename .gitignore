@@ -17,6 +17,9 @@ node_modules
 .settings/
 *.sublime-workspace
 
+# AI tools
+.serena
+
 # IDE - VSCode
 .vscode/*
 !.vscode/settings.json
