@@ -9,6 +9,11 @@
       "factory": "./src/generators/api-route/api-route",
       "schema": "./src/generators/api-route/schema.json",
       "description": "Generate an AnalogJS API route inside an Nx project"
+    },
+    "init-auth": {
+      "factory": "./src/generators/init-auth/init-auth",
+      "schema": "./src/generators/init-auth/schema.json",
+      "description": "Initialize authentication setup for an AnalogJS application"
     }
   }
 }
