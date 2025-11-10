@@ -44,6 +44,7 @@ export async function libraryGenerator(
   options.skipExamples = options.skipExamples === true;
   options.pages = options.pages === true;
   options.contentRoutes = options.contentRoutes === true;
+  options.componentPrefix = options.componentPrefix || 'lib';
 
   const templateOptions = {
     ...options,

@@ -4,10 +4,10 @@ import { lastValueFrom } from 'rxjs';
 import { <%= className %>Component } from '../../lib/pages/<%= fileName %>';
 
 @Component({
-  selector: 'lib-<%= fileName %>-index-page',
+  selector: '<%= componentPrefix %>-<%= fileName %>-index-page',
   standalone: true,
   imports: [<%= className %>Component],
-  template: `<lib-<%= fileName %> [items]="<%= propertyName %>.value() ?? []" />`,
+  template: `<<%= componentPrefix %>-<%= fileName %> [items]="<%= propertyName %>.value() ?? []" />`,
 })
 export default class <%= className %>IndexPageComponent {
   private trpc = injectTrpcLibClient();
@@ -20,10 +20,10 @@ export default class <%= className %>IndexPageComponent {
 import { <%= className %>Component } from '../../lib/pages/<%= fileName %>';
 
 @Component({
-  selector: 'lib-<%= fileName %>-index-page',
+  selector: '<%= componentPrefix %>-<%= fileName %>-index-page',
   standalone: true,
   imports: [<%= className %>Component],
-  template: `<lib-<%= fileName %> />`,
+  template: `<<%= componentPrefix %>-<%= fileName %> />`,
 })
 export default class <%= className %>IndexPageComponent {}
 <% } %>
