@@ -73,8 +73,10 @@ export async function libraryGenerator(
   tree.write(path.join(libPath, 'pages/.gitkeep'), '');
   tree.write(path.join(libPath, 'services/.gitkeep'), '');
   
-  // Create models folder in src/
-  tree.write(path.join(projectRoot, 'src/models/.gitkeep'), '');
+  // Create models folder in src/ (only .gitkeep if no schema will be generated)
+  if (!(options.api && !options.skipExamples)) {
+    tree.write(path.join(projectRoot, 'src/models/.gitkeep'), '');
+  }
 
   // Conditionally generate pages
   if (options.pages) {

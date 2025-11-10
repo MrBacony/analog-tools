@@ -1,0 +1,7 @@
+import { z } from 'zod';
+
+export const ExampleMessageSchema = z.object({
+  message: z.string(),
+});
+
+export type ExampleMessage = z.infer<typeof ExampleMessageSchema>;
