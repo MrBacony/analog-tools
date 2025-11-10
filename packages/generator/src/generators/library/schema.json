@@ -60,6 +60,12 @@
         "type": "confirmation",
         "message": "Do you want to skip generating example files?"
       }
+    },
+    "componentPrefix": {
+      "type": "string",
+      "description": "The prefix to use for component selectors",
+      "default": "lib",
+      "x-prompt": "What prefix would you like to use for component selectors?"
     }
   },
   "required": ["name", "project"]

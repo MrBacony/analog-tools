@@ -6,4 +6,5 @@ export interface LibraryGeneratorSchema {
   contentRoutes?: boolean;
   api?: boolean;
   skipExamples?: boolean;
+  componentPrefix?: string;
 }
