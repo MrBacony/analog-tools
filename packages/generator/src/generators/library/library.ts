@@ -67,13 +67,14 @@ export async function libraryGenerator(
     templateOptions
   );
 
-  // Generate lib files (always generated)
-  generateFiles(
-    tree,
-    path.join(__dirname, 'files', 'lib'),
-    projectRoot,
-    templateOptions
-  );
+  // Create standard lib folder structure with .gitkeep files
+  const libPath = path.join(projectRoot, 'src/lib');
+  tree.write(path.join(libPath, 'components/.gitkeep'), '');
+  tree.write(path.join(libPath, 'pages/.gitkeep'), '');
+  tree.write(path.join(libPath, 'services/.gitkeep'), '');
+  
+  // Create models folder in src/
+  tree.write(path.join(projectRoot, 'src/models/.gitkeep'), '');
 
   // Conditionally generate pages
   if (options.pages) {
