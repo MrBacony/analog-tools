@@ -69,10 +69,10 @@ export function updateViteConfig(
 
   // Ensure paths use forward slashes and don't start with /
   const pagesDir = path.join(libSrcRoot, 'pages').replace(/\\/g, '/');
-  const pagesDirFormatted = `'${pagesDir}'`;
+  const pagesDirFormatted = `'/${pagesDir}'`;
 
   const apiDir = path.join(libSrcRoot, 'backend', 'api').replace(/\\/g, '/');
-  const apiDirFormatted = `'${apiDir}'`;
+  const apiDirFormatted = `'/${apiDir}'`;
 
   // Find the analog() call and its content
   const analogCallRegex = /analog\s*\(/;
