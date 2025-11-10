@@ -22,7 +22,7 @@ export class <%= className %>Component {
 <% } else if (api) { %>import { Component, resource, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
-import type { ExampleMessage } from '../../../models/example-message';
+import type { ExampleMessage } from '../../models/example-message';
 
 @Component({
   selector: '<%= componentPrefix %>-<%= fileName %>',
