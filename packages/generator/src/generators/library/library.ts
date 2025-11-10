@@ -70,7 +70,10 @@ export async function libraryGenerator(
   // Create standard lib folder structure with .gitkeep files
   const libPath = path.join(projectRoot, 'src/lib');
   tree.write(path.join(libPath, 'components/.gitkeep'), '');
-  tree.write(path.join(libPath, 'pages/.gitkeep'), '');
+  // Only add .gitkeep for pages folder if pages are not generated
+  if (!options.pages) {
+    tree.write(path.join(libPath, 'pages/.gitkeep'), '');
+  }
   tree.write(path.join(libPath, 'services/.gitkeep'), '');
   
   // Create models folder in src/ (only .gitkeep if no schema will be generated)

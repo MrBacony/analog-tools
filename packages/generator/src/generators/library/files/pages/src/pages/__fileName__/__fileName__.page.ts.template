@@ -1,26 +1,14 @@
-<% if (trpc) { %>import {Component, resource} from "@angular/core";
-import {injectTrpcLibClient} from "../../api/trpc/trpc-client";
-import {lastValueFrom} from "rxjs";
+<% if (trpc) { %>import { Component, resource } from '@angular/core';
+import { injectTrpcLibClient } from '../../api/trpc/trpc-client';
+import { lastValueFrom } from 'rxjs';
+import { <%= className %>Component } from '../../lib/pages/<%= fileName %>';
 
-@Component(
-  {
-    selector: 'lib-<%= fileName %>-page',
-    standalone: true,
-    template: `
-      <div class="flex flex-col gap-4">
-        <h1><%= className %></h1>
-        <p>This is an Example Page</p>
-
-        @for (item of <%= propertyName %>.value(); track item) {
-            <div class="item">
-              <p>{{item}}</p>
-            </div>
-        }
-
-      </div>
-    `,
-  }
-)
+@Component({
+  selector: 'lib-<%= fileName %>-page',
+  standalone: true,
+  imports: [<%= className %>Component],
+  template: `<lib-<%= fileName %> [items]="<%= propertyName %>.value() ?? []" />`,
+})
 export default class <%= className %>PageComponent {
   private trpc = injectTrpcLibClient();
 
@@ -28,37 +16,14 @@ export default class <%= className %>PageComponent {
     loader: () => lastValueFrom(this.trpc.<%= propertyName %>.list.query()),
   });
 }
-<% } else { %>import {Component, signal} from "@angular/core";
+<% } else { %>import { Component } from '@angular/core';
+import { <%= className %>Component } from '../../lib/pages/<%= fileName %>';
 
-@Component(
-  {
-    selector: 'lib-<%= fileName %>-page',
-    standalone: true,
-    template: `
-      <div class="flex flex-col gap-4">
-        <h1><%= className %></h1>
-        <p>This is an Example Page</p>
-
-        @for (character of lotrCharacters(); track character) {
-            <div class="item">
-              <p>{{character}}</p>
-            </div>
-        }
-
-      </div>
-    `,
-  }
-)
-export default class <%= className %>PageComponent {
-  public lotrCharacters = signal([
-    'Galadriel',
-    'Elrond',
-    'Saruman',
-    'Sauron',
-    'Bilbo Baggins',
-    'Gollum',
-    'Theoden',
-    'Eowyn',
-    'Faramir'
-  ]);
-}<% } %>
+@Component({
+  selector: 'lib-<%= fileName %>-page',
+  standalone: true,
+  imports: [<%= className %>Component],
+  template: `<lib-<%= fileName %> />`,
+})
+export default class <%= className %>PageComponent {}
+<% } %>
