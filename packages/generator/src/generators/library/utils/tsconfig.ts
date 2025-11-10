@@ -33,7 +33,7 @@ export function updateTsConfigBase(
 
   // Backend import path: @scope/libname/backend
   const backendImportPath = `${npmScope}/${options.name}/backend`;
-  const relativeBackendIndexPath = joinPathFragments(libSourceRoot, 'api/index.ts');
+  const relativeBackendIndexPath = joinPathFragments(libSourceRoot, 'backend/index.ts');
 
   try {
     updateJson(tree, tsConfigBasePath, (tsConfigJson) => {
