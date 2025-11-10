@@ -7,19 +7,8 @@ export const authConfig: AnalogAuthConfig = {
   audience: process.env['AUTH_AUDIENCE'] || '',
   scope: process.env['AUTH_SCOPE'] || 'openid profile email',
   callbackUri: process.env['AUTH_CALLBACK_URL'] || '',
-  // Critical: Define unprotected routes to prevent authentication loops
   unprotectedRoutes: [],
-  /*userHandler: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        createOrUpdateUser: async (userData: any) => {
-            const userService = UserService.getInstance();
-            await userService.createOrUpdateUser(userData as RawUserProfile);
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mapUserToLocal: (data: any) => {
-            return transformUserDBtoUser(data);
-        },
-    },*/
+
   sessionStorage: {
     type: 'redis',
     config: {
