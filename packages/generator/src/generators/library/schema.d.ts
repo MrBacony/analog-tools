@@ -7,4 +7,5 @@ export interface LibraryGeneratorSchema {
   trpc?: boolean;
   skipExamples?: boolean;
   componentPrefix?: string;
+  patchTailwind?: boolean;
 }
