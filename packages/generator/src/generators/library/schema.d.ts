@@ -1,10 +1,10 @@
 export interface LibraryGeneratorSchema {
   name: string;
   project: string;
-  trpc?: boolean;
   pages?: boolean;
-  contentRoutes?: boolean;
   api?: boolean;
+  contentRoutes?: boolean;
+  trpc?: boolean;
   skipExamples?: boolean;
   componentPrefix?: string;
 }

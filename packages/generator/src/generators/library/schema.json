@@ -11,22 +11,20 @@
         "$source": "argv",
         "index": 0
       },
-      "x-prompt": "What name would you like to use?"
+      "x-prompt": "What name would you like to use?",
+      "x-priority": "important"
     },
     "project": {
       "type": "string",
       "description": "Which application project should this library be added to?",
       "alias": "p",
       "x-prompt": "What is the name of the application project?",
-      "x-dropdown": "projects"
-    },
-    "trpc": {
-      "type": "boolean",
-      "description": "Should the library include a trpc router?",
-      "x-prompt": {
-        "type": "confirmation",
-        "message": "Do you want this library to include a tRPC router?"
-      }
+      "x-dropdown": "projects",
+      "$default": {
+        "$source": "argv",
+        "index": 1
+      },
+      "x-priority": "important"
     },
     "pages": {
       "type": "boolean",
@@ -34,15 +32,12 @@
       "x-prompt": {
         "type": "confirmation",
         "message": "Do you want this library to include pages?"
-      }
-    },
-    "contentRoutes": {
-      "type": "boolean",
-      "description": "Should the library include content routes?",
-      "x-prompt": {
-        "type": "confirmation",
-        "message": "Do you want this library to include content routes?"
-      }
+      },
+      "$default": {
+        "$source": "argv",
+        "index": 2
+      },
+      "x-priority": "important"
     },
     "api": {
       "type": "boolean",
@@ -50,6 +45,24 @@
       "x-prompt": {
         "type": "confirmation",
         "message": "Do you want this library to include API routes?"
+      },
+      "x-priority": "important"
+    },
+    "contentRoutes": {
+      "type": "boolean",
+      "description": "Should the library include content routes?",
+      "x-prompt": {
+        "type": "confirmation",
+        "message": "Do you want this library to include content routes?"
+      },
+      "x-priority": "important"
+    },
+    "trpc": {
+      "type": "boolean",
+      "description": "Should the library include a trpc router?",
+      "x-prompt": {
+        "type": "confirmation",
+        "message": "Do you want this library to include a tRPC router?"
       }
     },
     "skipExamples": {
