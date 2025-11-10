@@ -76,7 +76,7 @@ describe('library generator', () => {
     await libraryGenerator(tree, { ...options, api: true });
     const tsConfig = readJson(tree, 'tsconfig.base.json');
     const expectedPath = `@${npmScope}/${options.name}/backend`;
-    const expectedFilePath = [`libs/${options.name}/src/api/index.ts`];
+    const expectedFilePath = [`libs/${options.name}/src/backend/index.ts`];
 
     expect(tsConfig.compilerOptions.paths[expectedPath]).toEqual(
       expectedFilePath
@@ -87,7 +87,7 @@ describe('library generator', () => {
     await libraryGenerator(tree, { ...options, trpc: true });
     const tsConfig = readJson(tree, 'tsconfig.base.json');
     const expectedPath = `@${npmScope}/${options.name}/backend`;
-    const expectedFilePath = [`libs/${options.name}/src/api/index.ts`];
+    const expectedFilePath = [`libs/${options.name}/src/backend/index.ts`];
 
     expect(tsConfig.compilerOptions.paths[expectedPath]).toEqual(
       expectedFilePath
@@ -104,21 +104,21 @@ describe('library generator', () => {
 
   it('should create backend index.ts when api is enabled', async () => {
     await libraryGenerator(tree, { ...options, api: true });
-    const backendIndexExists = tree.exists(`libs/${options.name}/src/api/index.ts`);
+    const backendIndexExists = tree.exists(`libs/${options.name}/src/backend/index.ts`);
 
     expect(backendIndexExists).toBe(true);
   });
 
   it('should create backend index.ts when trpc is enabled', async () => {
     await libraryGenerator(tree, { ...options, trpc: true });
-    const backendIndexExists = tree.exists(`libs/${options.name}/src/api/index.ts`);
+    const backendIndexExists = tree.exists(`libs/${options.name}/src/backend/index.ts`);
 
     expect(backendIndexExists).toBe(true);
   });
 
   it('should not create backend index.ts when both api and trpc are disabled', async () => {
     await libraryGenerator(tree, { ...options, api: false, trpc: false });
-    const backendIndexExists = tree.exists(`libs/${options.name}/src/api/index.ts`);
+    const backendIndexExists = tree.exists(`libs/${options.name}/src/backend/index.ts`);
 
     expect(backendIndexExists).toBe(false);
   });
@@ -134,18 +134,18 @@ describe('library generator', () => {
       `additionalPagesDirs: ['libs/${options.name}/src/pages']`
     );
     expect(viteConfigContent).toContain(
-      `additionalAPIDirs: ['libs/${options.name}/src/api']`
+      `additionalAPIDirs: ['libs/${options.name}/src/backend/api']`
     );
   });
 
-  it('should update vite.config.ts with pages dir when pages is not explicitly disabled', async () => {
-    // When pages is undefined (not specified), it defaults to being added
-    await libraryGenerator(tree, { ...options, api: false });
+  it('should update vite.config.ts with pages dir when pages is explicitly enabled', async () => {
+    // When pages is true, it should be added
+    await libraryGenerator(tree, { ...options, pages: true, api: false });
     const viteConfigContent = tree
       .read(`apps/${options.project}/vite.config.ts`)
       ?.toString('utf-8');
     expect(viteConfigContent).toBeDefined();
-    // Pages should be added by default
+    // Pages should be added when explicitly true
     expect(viteConfigContent).toContain(
       `additionalPagesDirs: ['libs/${options.name}/src/pages']`
     );
@@ -172,7 +172,7 @@ describe('library generator', () => {
     expect(viteConfigContent).toBeDefined();
     // API should be added when trpc is enabled
     expect(viteConfigContent).toContain(
-      `additionalAPIDirs: ['libs/${options.name}/src/api']`
+      `additionalAPIDirs: ['libs/${options.name}/src/backend/api']`
     );
   });
 
@@ -199,7 +199,7 @@ describe('library generator', () => {
       `additionalPagesDirs: ['libs/${options.name}/src/pages']`
     );
     expect(viteConfigContent).toContain(
-      `additionalAPIDirs: ['libs/${options.name}/src/api']`
+      `additionalAPIDirs: ['libs/${options.name}/src/backend/api']`
     );
   });
 
@@ -253,7 +253,7 @@ describe('library generator', () => {
       api: true,
     });
     const helloApiExists = tree.exists(
-      `libs/${options.name}/src/api/routes/api/test-lib/hello.ts`
+      `libs/${options.name}/src/backend/api/routes/api/test-lib/hello.ts`
     );
 
     expect(helloApiExists).toBe(false);
@@ -266,7 +266,7 @@ describe('library generator', () => {
       api: true,
     });
     const helloApiExists = tree.exists(
-      `libs/${options.name}/src/api/routes/api/test-lib/hello.ts`
+      `libs/${options.name}/src/backend/api/routes/api/test-lib/hello.ts`
     );
 
     expect(helloApiExists).toBe(true);
@@ -326,8 +326,8 @@ describe('library generator', () => {
       api: true,
       trpc: false,
     });
-    const apiDirExists = tree.exists(`libs/${options.name}/src/api/routes/api/test-lib`);
-    const gitkeepExists = tree.exists(`libs/${options.name}/src/api/routes/api/test-lib/.gitkeep`);
+    const apiDirExists = tree.exists(`libs/${options.name}/src/backend/api/routes/api/test-lib`);
+    const gitkeepExists = tree.exists(`libs/${options.name}/src/backend/api/routes/api/test-lib/.gitkeep`);
 
     expect(apiDirExists).toBe(true);
     expect(gitkeepExists).toBe(true);
@@ -380,5 +380,144 @@ describe('library generator', () => {
     const contentDirExists = tree.exists(`libs/${options.name}/src/content`);
 
     expect(contentDirExists).toBe(false);
+  });
+
+  // Comprehensive tests for all 16 flag combinations
+  describe('all 16 flag combinations', () => {
+    const combinations = [
+      { pages: false, contentRoutes: false, api: false, trpc: false },
+      { pages: false, contentRoutes: false, api: false, trpc: true },
+      { pages: false, contentRoutes: false, api: true, trpc: false },
+      { pages: false, contentRoutes: false, api: true, trpc: true },
+      { pages: false, contentRoutes: true, api: false, trpc: false },
+      { pages: false, contentRoutes: true, api: false, trpc: true },
+      { pages: false, contentRoutes: true, api: true, trpc: false },
+      { pages: false, contentRoutes: true, api: true, trpc: true },
+      { pages: true, contentRoutes: false, api: false, trpc: false },
+      { pages: true, contentRoutes: false, api: false, trpc: true },
+      { pages: true, contentRoutes: false, api: true, trpc: false },
+      { pages: true, contentRoutes: false, api: true, trpc: true },
+      { pages: true, contentRoutes: true, api: false, trpc: false },
+      { pages: true, contentRoutes: true, api: false, trpc: true },
+      { pages: true, contentRoutes: true, api: true, trpc: false },
+      { pages: true, contentRoutes: true, api: true, trpc: true },
+    ];
+
+    combinations.forEach((combo, index) => {
+      it(`should generate correct files for combination ${index + 1}: ${JSON.stringify(combo)}`, async () => {
+        await libraryGenerator(tree, { ...options, ...combo });
+
+        // Check pages directory
+        const pagesExists = tree.exists(`libs/${options.name}/src/pages`);
+        expect(pagesExists).toBe(combo.pages);
+
+        // Check content directory
+        const contentExists = tree.exists(`libs/${options.name}/src/content`);
+        expect(contentExists).toBe(combo.contentRoutes);
+
+        // Check backend directory (should exist if api OR trpc)
+        const backendExists = tree.exists(`libs/${options.name}/src/backend`);
+        expect(backendExists).toBe(combo.api || combo.trpc);
+
+        // Check backend index.ts
+        const backendIndexExists = tree.exists(`libs/${options.name}/src/backend/index.ts`);
+        expect(backendIndexExists).toBe(combo.api || combo.trpc);
+
+        // Check API hello.ts route
+        const helloApiExists = tree.exists(
+          `libs/${options.name}/src/backend/api/routes/api/test-lib/hello.ts`
+        );
+        expect(helloApiExists).toBe(combo.api);
+
+        // Check tRPC files
+        const trpcClientExists = tree.exists(`libs/${options.name}/src/backend/trpc/trpc-client.ts`);
+        expect(trpcClientExists).toBe(combo.trpc);
+
+        const trpcRouterExists = tree.exists(`libs/${options.name}/src/backend/trpc/routers/index.ts`);
+        expect(trpcRouterExists).toBe(combo.trpc);
+
+        const trpcHandlerExists = tree.exists(
+          `libs/${options.name}/src/backend/api/routes/api/test-lib/trpc/[trpc].ts`
+        );
+        expect(trpcHandlerExists).toBe(combo.trpc);
+
+        // Check lib directory (always exists)
+        const libExists = tree.exists(`libs/${options.name}/src/lib`);
+        expect(libExists).toBe(true);
+
+        // Check base files (always exist)
+        const indexExists = tree.exists(`libs/${options.name}/src/index.ts`);
+        expect(indexExists).toBe(true);
+
+        const testSetupExists = tree.exists(`libs/${options.name}/src/test-setup.ts`);
+        expect(testSetupExists).toBe(true);
+      });
+
+      it(`should have correct vite config for combination ${index + 1}: ${JSON.stringify(combo)}`, async () => {
+        await libraryGenerator(tree, { ...options, ...combo });
+        const viteConfigContent = tree
+          .read(`apps/${options.project}/vite.config.ts`)
+          ?.toString('utf-8');
+
+        expect(viteConfigContent).toBeDefined();
+
+        if (combo.pages) {
+          expect(viteConfigContent).toContain(`additionalPagesDirs: ['libs/${options.name}/src/pages']`);
+        } else {
+          expect(viteConfigContent).not.toContain('additionalPagesDirs');
+        }
+
+        if (combo.api || combo.trpc) {
+          expect(viteConfigContent).toContain(`additionalAPIDirs: ['libs/${options.name}/src/backend/api']`);
+        } else {
+          expect(viteConfigContent).not.toContain('additionalAPIDirs');
+        }
+      });
+
+      it(`should have correct tsconfig for combination ${index + 1}: ${JSON.stringify(combo)}`, async () => {
+        await libraryGenerator(tree, { ...options, ...combo });
+        const tsConfig = readJson(tree, 'tsconfig.base.json');
+
+        const mainPath = `@${npmScope}/${options.name}`;
+        expect(tsConfig.compilerOptions.paths[mainPath]).toBeDefined();
+
+        const backendPath = `@${npmScope}/${options.name}/backend`;
+        if (combo.api || combo.trpc) {
+          expect(tsConfig.compilerOptions.paths[backendPath]).toEqual([
+            `libs/${options.name}/src/backend/index.ts`
+          ]);
+        } else {
+          expect(tsConfig.compilerOptions.paths[backendPath]).toBeUndefined();
+        }
+      });
+
+      it(`should handle skipExamples correctly for combination ${index + 1}: ${JSON.stringify(combo)}`, async () => {
+        await libraryGenerator(tree, { ...options, ...combo, skipExamples: true });
+
+        // Check lib .gitkeep
+        const libGitkeepExists = tree.exists(`libs/${options.name}/src/lib/test-lib/.gitkeep`);
+        expect(libGitkeepExists).toBe(true);
+
+        // Check pages .gitkeep
+        if (combo.pages) {
+          const pagesGitkeepExists = tree.exists(`libs/${options.name}/src/pages/test-lib/.gitkeep`);
+          expect(pagesGitkeepExists).toBe(true);
+        }
+
+        // Check content .gitkeep
+        if (combo.contentRoutes) {
+          const contentGitkeepExists = tree.exists(`libs/${options.name}/src/content/test-lib/.gitkeep`);
+          expect(contentGitkeepExists).toBe(true);
+        }
+
+        // Check api .gitkeep
+        if (combo.api) {
+          const apiGitkeepExists = tree.exists(
+            `libs/${options.name}/src/backend/api/routes/api/test-lib/.gitkeep`
+          );
+          expect(apiGitkeepExists).toBe(true);
+        }
+      });
+    });
   });
 });

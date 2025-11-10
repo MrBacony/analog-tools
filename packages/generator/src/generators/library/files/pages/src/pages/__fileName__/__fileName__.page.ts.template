@@ -27,7 +27,8 @@ export default class <%= className %>PageComponent {
   public <%= propertyName %> = resource({
     loader: () => lastValueFrom(this.trpc.<%= propertyName %>.list.query()),
   });
-})<% } else { %>import {Component, signal} from "@angular/core";
+}
+<% } else { %>import {Component, signal} from "@angular/core";
 
 @Component(
   {

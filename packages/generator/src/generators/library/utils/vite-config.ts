@@ -71,7 +71,7 @@ export function updateViteConfig(
   const pagesDir = path.join(libSrcRoot, 'pages').replace(/\\/g, '/');
   const pagesDirFormatted = `'${pagesDir}'`;
 
-  const apiDir = path.join(libSrcRoot, 'api').replace(/\\/g, '/');
+  const apiDir = path.join(libSrcRoot, 'backend', 'api').replace(/\\/g, '/');
   const apiDirFormatted = `'${apiDir}'`;
 
   // Find the analog() call and its content
