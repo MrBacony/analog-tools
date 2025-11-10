@@ -9,6 +9,8 @@ file-based routing, API handlers, and supporting configuration.
 	library with optional pages, content routes, REST endpoints, and tRPC support.
 - `@analog-tools/generator:api-route` – adds a new API handler to an
 	application or library following AnalogJS routing conventions.
+- `@analog-tools/generator:init-auth` – initializes authentication setup for an
+	AnalogJS application using `@analog-tools/auth`.
 
 ## API Route Generator
 
@@ -37,6 +39,38 @@ Omit the flag to generate a generic handler (`hello.ts`).
 When using shells or the Nx Generate UI, enter dynamic parameters with a colon
 syntax (`users/:id`). The generator converts them to AnalogJS bracket routes
 (`users/[id]`) automatically, avoiding the need for shell escaping.
+
+## Init Auth Generator
+
+```
+npx nx generate @analog-tools/generator:init-auth --project=analog-example
+```
+
+This command initializes authentication in your AnalogJS application by:
+
+1. Creating `src/auth.config.ts` with OAuth/OIDC configuration
+2. Creating `src/server/middleware/auth.ts` for API route protection
+3. Updating `src/app/app.config.ts` with auth providers and interceptors
+4. Updating `vite.config.ts` to include `@analog-tools/auth` in SSR configuration
+
+### Post-Generation Steps
+
+After running the generator, you need to:
+
+1. Configure your OAuth/OIDC provider in `auth.config.ts`
+2. Set up environment variables:
+   ```env
+   AUTH_ISSUER=https://your-auth-provider.com
+   AUTH_CLIENT_ID=your-client-id
+   AUTH_CLIENT_SECRET=your-client-secret
+   AUTH_AUDIENCE=your-api-audience
+   AUTH_CALLBACK_URL=http://localhost:4200/api/auth/callback
+   REDIS_URL=redis://localhost:6379
+   SESSION_SECRET=your-secure-random-secret
+   ```
+3. Install and start Redis for session storage
+
+See the [init-auth generator documentation](src/generators/init-auth/README.md) for more details.
 
 ## Testing
 
