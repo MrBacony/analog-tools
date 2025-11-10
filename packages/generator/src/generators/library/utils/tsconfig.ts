@@ -1,5 +1,5 @@
 import { Tree, logger, updateJson, joinPathFragments } from '@nx/devkit';
-import { LibraryGeneratorSchema } from '../schema'; // Adjust import path
+import { LibraryGeneratorSchema } from '../schema'; 
 import { getWorkspaceScope } from './workspace';
 
 /**
@@ -22,8 +22,7 @@ export function updateTsConfigBase(
 
   const npmScope = getWorkspaceScope(tree);
   if (!npmScope) {
-    logger.warn('Could not determine workspace scope. Skipping path mapping update.');
-    return; // Warning already logged by getWorkspaceScope
+    return; 
   }
 
   // Construct the paths
