@@ -19,6 +19,34 @@
 export class <%= className %>Component {
   items = input<string[]>([]);
 }
+<% } else if (api) { %>import { Component, resource, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { lastValueFrom } from 'rxjs';
+import type { ExampleMessage } from '../../../models/example-message';
+
+@Component({
+  selector: '<%= componentPrefix %>-<%= fileName %>',
+  standalone: true,
+  template: `
+    <div class="flex flex-col gap-4">
+      <h1><%= className %></h1>
+      <p>This is an Example Page</p>
+
+      @if (data.value(); as result) {
+        <div class="item">
+          <p>{{ result.message }}</p>
+        </div>
+      }
+    </div>
+  `,
+})
+export class <%= className %>Component {
+  private http = inject(HttpClient);
+
+  public data = resource({
+    loader: () => lastValueFrom(this.http.get<ExampleMessage>('/api/<%= fileName %>/hello')),
+  });
+}
 <% } else { %>import { Component, signal } from '@angular/core';
 
 @Component({
