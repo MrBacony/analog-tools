@@ -10,6 +10,7 @@ import * as path from 'path';
 import { LibraryGeneratorSchema } from './schema';
 import { findViteConfigPath, updateViteConfig } from './utils/vite-config';
 import { updateTsConfigBase } from './utils/tsconfig';
+import { patchTailwindImport } from './utils/tailwind';
 
 export async function libraryGenerator(
   tree: Tree,
@@ -45,6 +46,7 @@ export async function libraryGenerator(
   options.pages = options.pages === true;
   options.contentRoutes = options.contentRoutes === true;
   options.componentPrefix = options.componentPrefix || 'lib';
+  options.patchTailwind = options.patchTailwind !== false; // Default to true
 
   const templateOptions = {
     ...options,
@@ -202,6 +204,11 @@ export async function libraryGenerator(
   }
 
   updateTsConfigBase(tree, options, libSourceRoot);
+
+  // Patch Tailwind CSS import if enabled
+  if (options.patchTailwind) {
+    patchTailwindImport(tree, options.project);
+  }
 
   await formatFiles(tree);
 }
