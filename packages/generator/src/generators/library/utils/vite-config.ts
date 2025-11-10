@@ -137,6 +137,7 @@ export function updateViteConfig(
   if (isEmpty) {
     // Start fresh with new options
     const newOptions: string[] = [];
+    newOptions.push('liveReload: true');
     if (shouldAddPages) {
       newOptions.push(`additionalPagesDirs: [${pagesDirFormatted}]`);
     }
@@ -154,9 +155,18 @@ export function updateViteConfig(
       innerContent = analogContent.substring(1, analogContent.length - 1);
     }
 
-    // Check if additionalPagesDirs or additionalAPIDirs already exist
+    // Check if additionalPagesDirs, additionalAPIDirs, or liveReload already exist
     const hasPagesDir = /additionalPagesDirs\s*:/.test(innerContent);
     const hasApiDir = /additionalAPIDirs\s*:/.test(innerContent);
+    const hasLiveReload = /liveReload\s*:/.test(innerContent);
+
+    // Add liveReload if not present
+    if (!hasLiveReload) {
+      const trimmedInner = innerContent.trim();
+      const needsComma = trimmedInner.length > 0 && !trimmedInner.endsWith(',');
+      newAnalogContent = `{\n${innerContent}${needsComma ? ',' : ''}\n        liveReload: true\n      }`;
+      innerContent = newAnalogContent.substring(1, newAnalogContent.length - 1);
+    }
 
     if (shouldAddPages && hasPagesDir) {
       // Add to existing additionalPagesDirs array
