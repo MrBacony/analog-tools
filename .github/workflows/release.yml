@@ -23,49 +23,47 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Build inject
+      - name: Build and Publish @analog-tools/inject
         run: |
-          npx nx build inject
-
-      - name: Publish @analog-tools/inject
-        working-directory: node_modules/@analog-tools/inject
-        run: npm publish --access public
+          npx nx build inject && \
+          cd node_modules/@analog-tools/inject && \
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+        continue-on-error: true
 
-      - name: Build logger
+      - name: Build and Publish @analog-tools/logger
         run: |
-          npx nx build logger
-
-      - name: Publish @analog-tools/logger
-        working-directory: node_modules/@analog-tools/logger
-        run: npm publish --access public
+          npx nx build logger && \
+          cd node_modules/@analog-tools/logger && \
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+        continue-on-error: true
 
-      - name: Build session
+      - name: Build and Publish @analog-tools/session
         run: |
-          npx nx build session
-          npx nx build auth
-
-      - name: Publish @analog-tools/session
-        working-directory: node_modules/@analog-tools/session
-        run: npm publish --access public
+          npx nx build session && \
+          cd node_modules/@analog-tools/session && \
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+        continue-on-error: true
 
-      - name: Build auth
+      - name: Build and Publish @analog-tools/auth
         run: |
-          npx nx build auth
-
-      - name: Publish @analog-tools/auth
-        working-directory: node_modules/@analog-tools/auth
-        run: npm publish --access public
+          npx nx build auth && \
+          cd node_modules/@analog-tools/auth && \
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+        continue-on-error: true
 
-      - name: Publish Package @analog-tools/generator
-        working-directory: node_modules/@analog-tools/generator
-        run: npm publish --access public
+      - name: Build and Publish @analog-tools/generator
+        run: |
+          npx nx build generator && \
+          cd node_modules/@analog-tools/generator && \
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+        continue-on-error: true
