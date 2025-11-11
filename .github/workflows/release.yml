@@ -64,7 +64,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
-      - name: Publish @analog-tools/generator
+      - name: Publish Package @analog-tools/generator
         working-directory: node_modules/@analog-tools/generator
         run: npm publish --access public
         env:
