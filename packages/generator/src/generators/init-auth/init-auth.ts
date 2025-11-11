@@ -9,7 +9,6 @@ import {
 } from '@nx/devkit';
 import { InitAuthGeneratorSchema } from './schema';
 import * as path from 'path';
-import * as fs from 'fs';
 
 /**
  * Gets the version of the generator package to use for installing dependencies
