@@ -203,7 +203,7 @@ describe('library generator', () => {
     );
   });
 
-  it('should create example files by default', async () => {
+  it('should not create example files', async () => {
     await libraryGenerator(tree, options);
     const componentExists = tree.exists(
       `libs/${options.name}/src/lib/test-lib/test-lib.component.ts`
@@ -215,12 +215,12 @@ describe('library generator', () => {
       `libs/${options.name}/src/lib/test-lib/test-lib.model.ts`
     );
 
-    expect(componentExists).toBe(true);
-    expect(specExists).toBe(true);
-    expect(modelExists).toBe(true);
+    expect(componentExists).toBe(false);
+    expect(specExists).toBe(false);
+    expect(modelExists).toBe(false);
   });
 
-  it('should skip example files when skipExamples is true', async () => {
+  it('should not create example files when skipExamples is true', async () => {
     await libraryGenerator(tree, { ...options, skipExamples: true });
     const componentExists = tree.exists(
       `libs/${options.name}/src/lib/test-lib/test-lib.component.ts`
@@ -239,11 +239,9 @@ describe('library generator', () => {
 
   it('should keep lib directory when skipExamples is true', async () => {
     await libraryGenerator(tree, { ...options, skipExamples: true });
-    const libDirExists = tree.exists(`libs/${options.name}/src/lib/test-lib`);
-    const gitkeepExists = tree.exists(`libs/${options.name}/src/lib/test-lib/.gitkeep`);
+    const libDirExists = tree.exists(`libs/${options.name}/src/lib`);
 
     expect(libDirExists).toBe(true);
-    expect(gitkeepExists).toBe(true);
   });
 
   it('should remove hello.ts API route when skipExamples is true and api is true', async () => {
@@ -494,9 +492,9 @@ describe('library generator', () => {
       it(`should handle skipExamples correctly for combination ${index + 1}: ${JSON.stringify(combo)}`, async () => {
         await libraryGenerator(tree, { ...options, ...combo, skipExamples: true });
 
-        // Check lib .gitkeep
-        const libGitkeepExists = tree.exists(`libs/${options.name}/src/lib/test-lib/.gitkeep`);
-        expect(libGitkeepExists).toBe(true);
+        // Check lib directory exists
+        const libDirExists = tree.exists(`libs/${options.name}/src/lib`);
+        expect(libDirExists).toBe(true);
 
         // Check pages .gitkeep
         if (combo.pages) {
