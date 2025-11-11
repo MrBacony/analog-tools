@@ -2,6 +2,69 @@ import { Tree, logger, readProjectConfiguration } from '@nx/devkit';
 import * as path from 'path';
 
 /**
+ * Removes single-line and multi-line comments from code while respecting string boundaries.
+ * Prevents incorrect removal of // inside strings (e.g., URLs like 'http://example.com').
+ */
+function removeComments(code: string): string {
+  let result = '';
+  let i = 0;
+
+  while (i < code.length) {
+    // Check for string literals (', ", `)
+    if (code[i] === "'" || code[i] === '"' || code[i] === '`') {
+      const stringDelimiter = code[i];
+      result += code[i];
+      i++;
+
+      // Read the entire string, handling escape sequences
+      while (i < code.length) {
+        if (code[i] === '\\') {
+          // Skip escaped character
+          result += code[i] + code[i + 1];
+          i += 2;
+        } else if (code[i] === stringDelimiter) {
+          result += code[i];
+          i++;
+          break;
+        } else {
+          result += code[i];
+          i++;
+        }
+      }
+    }
+    // Check for single-line comment
+    else if (code[i] === '/' && code[i + 1] === '/') {
+      // Skip until end of line
+      while (i < code.length && code[i] !== '\n') {
+        i++;
+      }
+      // Include the newline
+      if (i < code.length && code[i] === '\n') {
+        result += '\n';
+        i++;
+      }
+    }
+    // Check for multi-line comment
+    else if (code[i] === '/' && code[i + 1] === '*') {
+      // Skip until */
+      i += 2;
+      while (i < code.length - 1) {
+        if (code[i] === '*' && code[i + 1] === '/') {
+          i += 2;
+          break;
+        }
+        i++;
+      }
+    } else {
+      result += code[i];
+      i++;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Finds the vite.config.* file path for a given project.
  * Checks the project root first, then common locations.
  */
@@ -67,12 +130,12 @@ export function updateViteConfig(
   const shouldAddPages = options.addPages !== false;
   const shouldAddApi = options.addApi !== false;
 
-  // Ensure paths use forward slashes and don't start with /
+  // Ensure paths use forward slashes (relative paths, no leading /)
   const pagesDir = path.join(libSrcRoot, 'pages').replace(/\\/g, '/');
-  const pagesDirFormatted = `'/${pagesDir}'`;
+  const pagesDirFormatted = `'${pagesDir}'`;
 
   const apiDir = path.join(libSrcRoot, 'backend', 'api').replace(/\\/g, '/');
-  const apiDirFormatted = `'/${apiDir}'`;
+  const apiDirFormatted = `'${apiDir}'`;
 
   // Find the analog() call and its content
   const analogCallRegex = /analog\s*\(/;
@@ -125,9 +188,7 @@ export function updateViteConfig(
   const analogContent = updatedContent.substring(startPos, endPos).trim();
 
   // Check if it's analog() with no arguments or analog({}) or only comments/whitespace
-  const contentWithoutCommentsAndWhitespace = analogContent
-    .replace(/\/\/.*$/gm, '') // Remove single-line comments
-    .replace(/\/\*[\s\S]*?\*\//g, '') // Remove multi-line comments
+  const contentWithoutCommentsAndWhitespace = removeComments(analogContent)
     .replace(/\s+/g, ''); // Remove all whitespace
   
   const isEmpty = contentWithoutCommentsAndWhitespace === '' || contentWithoutCommentsAndWhitespace === '{}';
