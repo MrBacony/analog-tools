@@ -7,9 +7,9 @@
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
-      "outputs": ["{options.outputPath}"],
+      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
       "options": {
-        "outputPath": "dist/packages/generator",
+        "outputPath": "{workspaceRoot}/node_modules/@analog-tools/generator/",
         "main": "packages/generator/src/index.ts",
         "tsConfig": "packages/generator/tsconfig.lib.json",
         "assets": [

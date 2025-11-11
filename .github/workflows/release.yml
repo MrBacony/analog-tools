@@ -38,7 +38,7 @@ jobs:
           npx nx build logger
 
       - name: Publish @analog-tools/logger
-        working-directory: node_modules/@analog-tools/logger  
+        working-directory: node_modules/@analog-tools/logger
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
@@ -65,7 +65,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
       - name: Publish @analog-tools/generator
-        working-directory: dist/packages/generator
+        working-directory: node_modules/@analog-tools/generator
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
