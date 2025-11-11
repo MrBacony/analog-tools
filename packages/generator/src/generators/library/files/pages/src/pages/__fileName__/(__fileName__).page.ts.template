@@ -1,5 +1,5 @@
 <% if (trpc) { %>import { Component, resource } from '@angular/core';
-import { injectTrpcLibClient } from '../../api/trpc/trpc-client';
+import { injectTrpcLibClient } from '../../backend/trpc/trpc-client';
 import { lastValueFrom } from 'rxjs';
 import { <%= className %>Component } from '../../lib/pages/<%= fileName %>';
 
