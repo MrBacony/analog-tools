@@ -46,6 +46,21 @@
       "options": {
         "reportsDirectory": "../../coverage/packages/generator"
       }
+    },
+     "pack": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx run @analog-tools/generator:build",
+          "cd dist/packages/generator && npm pack --pack-destination ~"
+        ],
+        "parallel": false
+      },
+      "dependsOn": [
+        {
+          "target": "build"
+        }
+      ]
     }
   }
 }
