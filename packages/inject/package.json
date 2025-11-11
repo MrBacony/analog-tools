@@ -1,6 +1,6 @@
 {
   "name": "@analog-tools/inject",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Dependency injection for AnalogJS server-side applications",
   "main": "./index.cjs",
   "module": "./index.js",
