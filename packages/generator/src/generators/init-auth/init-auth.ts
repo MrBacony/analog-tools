@@ -1,13 +1,102 @@
 import {
+  addDependenciesToPackageJson,
   formatFiles,
-  generateFiles,
   joinPathFragments,
   logger,
+  readJson,
   readProjectConfiguration,
   Tree,
 } from '@nx/devkit';
-import * as path from 'path';
 import { InitAuthGeneratorSchema } from './schema';
+import * as path from 'path';
+import * as fs from 'fs';
+
+/**
+ * Gets the version of the generator package to use for installing dependencies
+ */
+function getGeneratorVersion(tree: Tree): string {
+  try {
+    const nodeModulesPath = 'node_modules/@analog-tools/generator/package.json';
+    if (tree.exists(nodeModulesPath)) {
+      const generatorPackageJson = readJson(tree, nodeModulesPath);
+      if (generatorPackageJson.version) {
+        return generatorPackageJson.version;
+      }
+    }
+    
+    const monorepoPath = 'packages/generator/package.json';
+    if (tree.exists(monorepoPath)) {
+      const generatorPackageJson = readJson(tree, monorepoPath);
+      if (generatorPackageJson.version) {
+        return generatorPackageJson.version;
+      }
+    }
+    
+    logger.warn('Could not determine generator version from package.json, using "latest"');
+    return 'latest';
+  } catch (e) {
+    logger.warn('Could not read generator version, using "latest"');
+    return 'latest';
+  }
+}
+
+/**
+ * Checks if required packages are installed and adds them if missing
+ */
+function ensureAuthPackages(tree: Tree) {
+  const packageJsonPath = 'package.json';
+  
+  if (!tree.exists(packageJsonPath)) {
+    logger.warn('package.json not found. Skipping package installation.');
+    return null;
+  }
+
+  const packageJson = JSON.parse(tree.read(packageJsonPath)!.toString('utf-8'));
+  
+  // Check if we're in the analog-tools monorepo itself
+  const isAnalogToolsRepo = packageJson.name === 'analog-tools' || 
+                            packageJson.name === '@analog-tools/root';
+  
+  if (isAnalogToolsRepo) {
+    logger.info('✓ Running in analog-tools workspace, packages available locally');
+    return null;
+  }
+
+  const requiredPackages = [
+    '@analog-tools/auth',
+    '@analog-tools/inject',
+    '@analog-tools/logger',
+    '@analog-tools/session',
+  ];
+
+  const missingPackages: string[] = [];
+  
+  for (const pkg of requiredPackages) {
+    const isInstalled = 
+      (packageJson.dependencies && packageJson.dependencies[pkg]) ||
+      (packageJson.devDependencies && packageJson.devDependencies[pkg]);
+    
+    if (!isInstalled) {
+      missingPackages.push(pkg);
+    }
+  }
+
+  if (missingPackages.length === 0) {
+    logger.info('✓ All required auth packages are already installed');
+    return null;
+  }
+
+  const version = getGeneratorVersion(tree);
+  logger.info(`Installing missing packages (version ${version}): ${missingPackages.join(', ')}`);
+  
+  // Add packages with the same version as the generator
+  const dependencies: Record<string, string> = {};
+  missingPackages.forEach(pkg => {
+    dependencies[pkg] = version;
+  });
+
+  return addDependenciesToPackageJson(tree, dependencies, {});
+}
 
 /**
  * Updates app.config.ts to add auth providers and interceptor
@@ -202,6 +291,9 @@ export async function initAuthGenerator(
 
   logger.info(`Initializing authentication for ${options.project}...`);
 
+  // Step 0: Ensure required packages are installed
+  const installTask = ensureAuthPackages(tree);
+
   // Step 1: Create auth.config.ts in src/
   const authConfigContent = `import { AnalogAuthConfig } from '@analog-tools/auth';
 
@@ -268,11 +360,18 @@ export default defineEventHandler(async (event: H3Event) => {
   logger.info('');
   logger.info('✓ Authentication initialization complete!');
   logger.info('');
+  
+  if (installTask) {
+    logger.info('Installing packages...');
+  }
+  
   logger.info('Next steps:');
   logger.info('  1. Configure your authentication provider in auth.config.ts');
   logger.info('  2. Set up environment variables (AUTH_ISSUER, AUTH_CLIENT_ID, etc.)');
   logger.info('  3. Configure Redis connection (REDIS_URL, SESSION_SECRET)');
   logger.info('');
+  
+  return installTask;
 }
 
 export default initAuthGenerator;
