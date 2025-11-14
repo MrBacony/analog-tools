@@ -85,7 +85,7 @@ describe('SessionService', () => {
 
     // Set up mock session config
     mockSessionConfig = {
-      driverOptions: {
+      driver: {
         type: 'memory',
       },
     };
@@ -153,7 +153,7 @@ describe('SessionService', () => {
       // Mock no existing session
       vi.mocked(getSession).mockReturnValue(null);
 
-      const driverOptions = {
+      const driver = {
         type: 'cloudflare-kv-binding' as const,
         options: {
           binding: 'MY_KV',
@@ -161,7 +161,7 @@ describe('SessionService', () => {
       };
 
       const customConfig: SessionStorageConfig = {
-        driverOptions,
+        driver,
         sessionSecret: 'test-secret',
       };
 
@@ -169,7 +169,7 @@ describe('SessionService', () => {
 
       await customService.initSession(mockEvent);
 
-      expect(createUnstorageStore).toHaveBeenCalledWith(driverOptions);
+      expect(createUnstorageStore).toHaveBeenCalledWith(driver);
       expect(createUnstorageStore).toHaveBeenCalledTimes(1);
     });
 
@@ -208,7 +208,7 @@ describe('SessionService', () => {
       vi.mocked(getSession).mockReturnValue(null);
 
       const memoryConfig: SessionStorageConfig = {
-        driverOptions: {
+        driver: {
           type: 'memory',
         },
       };
@@ -227,7 +227,7 @@ describe('SessionService', () => {
       vi.mocked(getSession).mockReturnValue(null);
 
       const redisConfig: SessionStorageConfig = {
-        driverOptions: {
+        driver: {
           type: 'redis',
           options: {
             host: 'localhost',
@@ -258,7 +258,7 @@ describe('SessionService', () => {
       vi.mocked(getSession).mockReturnValue(null);
 
       const configWithSecret: SessionStorageConfig = {
-        driverOptions: {
+        driver: {
           type: 'memory',
         },
         sessionSecret: 'my-production-secret',
