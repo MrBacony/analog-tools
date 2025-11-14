@@ -148,6 +148,147 @@ describe('SessionService', () => {
         },
       });
     });
+
+    it('should call createUnstorageStore with correct driverOptions from storageConfig', async () => {
+      // Mock no existing session
+      vi.mocked(getSession).mockReturnValue(null);
+
+      const driverOptions = {
+        type: 'cloudflare-kv-binding' as const,
+        options: {
+          binding: 'MY_KV',
+        },
+      };
+
+      const customConfig: SessionStorageConfig = {
+        driverOptions,
+        sessionSecret: 'test-secret',
+      };
+
+      const customService = new SessionService(customConfig);
+
+      await customService.initSession(mockEvent);
+
+      expect(createUnstorageStore).toHaveBeenCalledWith(driverOptions);
+      expect(createUnstorageStore).toHaveBeenCalledTimes(1);
+    });
+
+    it('should reuse the same store instance across multiple initSession calls', async () => {
+      // Mock no existing session for both calls
+      vi.mocked(getSession).mockReturnValue(null);
+
+      await service.initSession(mockEvent);
+      const firstCallCount = vi.mocked(createUnstorageStore).mock.calls.length;
+
+      // Second call should reuse the store
+      await service.initSession(mockEvent);
+      const secondCallCount = vi.mocked(createUnstorageStore).mock.calls.length;
+
+      expect(secondCallCount).toBe(firstCallCount);
+    });
+
+    it('should create store only once for multiple different events', async () => {
+      // Mock no existing session
+      vi.mocked(getSession).mockReturnValue(null);
+
+      const event1 = { context: {} } as unknown as H3Event;
+      const event2 = { context: {} } as unknown as H3Event;
+
+      await service.initSession(event1);
+      await service.initSession(event2);
+
+      // createUnstorageStore should only be called once
+      expect(createUnstorageStore).toHaveBeenCalledTimes(1);
+      // But useSession should be called for each event
+      expect(useSession).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle memory driver configuration', async () => {
+      // Mock no existing session
+      vi.mocked(getSession).mockReturnValue(null);
+
+      const memoryConfig: SessionStorageConfig = {
+        driverOptions: {
+          type: 'memory',
+        },
+      };
+
+      const memoryService = new SessionService(memoryConfig);
+
+      await memoryService.initSession(mockEvent);
+
+      expect(createUnstorageStore).toHaveBeenCalledWith({
+        type: 'memory',
+      });
+    });
+
+    it('should pass through driver options with additional configuration', async () => {
+      // Mock no existing session
+      vi.mocked(getSession).mockReturnValue(null);
+
+      const redisConfig: SessionStorageConfig = {
+        driverOptions: {
+          type: 'redis',
+          options: {
+            host: 'localhost',
+            port: 6379,
+            password: 'secret',
+          },
+        },
+        prefix: 'auth',
+        ttl: 3600,
+      };
+
+      const redisService = new SessionService(redisConfig);
+
+      await redisService.initSession(mockEvent);
+
+      expect(createUnstorageStore).toHaveBeenCalledWith({
+        type: 'redis',
+        options: {
+          host: 'localhost',
+          port: 6379,
+          password: 'secret',
+        },
+      });
+    });
+
+    it('should use sessionSecret from storageConfig in useSession', async () => {
+      // Mock no existing session
+      vi.mocked(getSession).mockReturnValue(null);
+
+      const configWithSecret: SessionStorageConfig = {
+        driverOptions: {
+          type: 'memory',
+        },
+        sessionSecret: 'my-production-secret',
+      };
+
+      const serviceWithSecret = new SessionService(configWithSecret);
+
+      await serviceWithSecret.initSession(mockEvent);
+
+      expect(useSession).toHaveBeenCalledWith(
+        mockEvent,
+        expect.objectContaining({
+          secret: 'my-production-secret',
+        })
+      );
+    });
+
+    it('should use default sessionSecret if not provided in storageConfig', async () => {
+      // Mock no existing session
+      vi.mocked(getSession).mockReturnValue(null);
+
+      await service.initSession(mockEvent);
+
+      expect(useSession).toHaveBeenCalledWith(
+        mockEvent,
+        expect.objectContaining({
+          secret: 'change-me-in-production',
+        })
+      );
+    });
   });
 
   describe('getSession', () => {
