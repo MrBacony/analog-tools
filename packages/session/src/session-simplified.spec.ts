@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { signCookie, unsignCookie } from './crypto';
-import { createMemoryStore } from './storage';
+import { createUnstorageStore } from './storage';
 
 describe('Session Package - Simplified API', () => {
   describe('Crypto Functions', () => {
@@ -27,8 +27,8 @@ describe('Session Package - Simplified API', () => {
   });
 
   describe('Storage Factories', () => {
-    it('should create memory store', () => {
-      const store = createMemoryStore();
+    it('should create memory store', async () => {
+      const store = await createUnstorageStore({ type: 'memory' });
       expect(store).toBeDefined();
       expect(typeof store.getItem).toBe('function');
       expect(typeof store.setItem).toBe('function');
@@ -36,7 +36,7 @@ describe('Session Package - Simplified API', () => {
     });
 
     it('should handle basic storage operations', async () => {
-      const store = createMemoryStore();
+      const store = await createUnstorageStore({ type: 'memory' });
       const testData = { userId: '123', name: 'Test' };
       
       await store.setItem('test', testData);
@@ -57,7 +57,7 @@ describe('Session Package - Simplified API', () => {
         updateSession, 
         destroySession, 
         regenerateSession,
-        createMemoryStore: memStore,
+        createUnstorageStore,
         signCookie: sign,
         unsignCookie: unsign 
       } = await import('./index');
@@ -67,7 +67,7 @@ describe('Session Package - Simplified API', () => {
       expect(typeof updateSession).toBe('function');
       expect(typeof destroySession).toBe('function');
       expect(typeof regenerateSession).toBe('function');
-      expect(typeof memStore).toBe('function');
+      expect(typeof createUnstorageStore).toBe('function');
       expect(typeof sign).toBe('function');
       expect(typeof unsign).toBe('function');
     });

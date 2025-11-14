@@ -59,9 +59,9 @@ npm install @analog-tools/session
 
 ```typescript
 import { defineEventHandler } from 'h3';
-import { useSession, getSession, updateSession, createMemoryStore } from '@analog-tools/session';
+import { useSession, getSession, updateSession, createUnstorageStore } from '@analog-tools/session';
 
-const store = createMemoryStore();
+const store = await createUnstorageStore({ type: 'memory' });
 
 export default defineEventHandler(async (event) => {
   // Initialize session middleware
@@ -90,12 +90,15 @@ export default defineEventHandler(async (event) => {
 ### With Redis Storage
 
 ```typescript
-import { createRedisStore } from '@analog-tools/session';
+import { createUnstorageStore } from '@analog-tools/session';
 
-const store = createRedisStore({
-  host: 'localhost',
-  port: 6379,
-  // Optional: password, db, etc.
+const store = await createUnstorageStore({
+  type: 'redis',
+  options: {
+    host: 'localhost',
+    port: 6379,
+    // Optional: password, db, etc.
+  }
 });
 
 export default defineEventHandler(async (event) => {
@@ -172,29 +175,31 @@ Regenerate session ID while preserving data (useful after login).
 await regenerateSession(event);
 ```
 
-### Storage Factories
+### Storage Factory
 
-#### `createMemoryStore<T>(options?)`
+#### `createUnstorageStore<T>(options)`
 
-Create in-memory storage for development and testing.
-
-```typescript
-const store = createMemoryStore();
-```
-
-#### `createRedisStore<T>(options)`
-
-Create Redis-backed storage for production.
+Create a storage instance using unstorage drivers.
 
 ```typescript
-const store = createRedisStore({
-  url: 'redis://localhost:6379',
-  // or individual options:
-  host: 'localhost',
-  port: 6379,
-  password: 'optional',
-  db: 0,
+// Memory storage (development/testing)
+const memoryStore = await createUnstorageStore({ type: 'memory' });
+
+// Redis storage (production)
+const redisStore = await createUnstorageStore({
+  type: 'redis',
+  options: {
+    url: 'redis://localhost:6379',
+    // or individual options:
+    host: 'localhost',
+    port: 6379,
+    password: 'optional',
+    db: 0,
+  }
 });
+
+// Other supported drivers: fs, cloudflare-kv-binding, etc.
+// See unstorage documentation for all available drivers
 ```
 
 ### Crypto Functions
@@ -219,12 +224,15 @@ import {
   updateSession, 
   destroySession, 
   regenerateSession,
-  createRedisStore 
+  createUnstorageStore 
 } from '@analog-tools/session';
 
 // Session configuration (define once, reuse across routes)
 const sessionConfig = {
-  store: createRedisStore({ url: process.env.REDIS_URL }),
+  store: await createUnstorageStore({ 
+    type: 'redis', 
+    options: { url: process.env.REDIS_URL } 
+  }),
   secret: process.env.SESSION_SECRET!,
   maxAge: 3600, // 1 hour
   cookie: {
@@ -294,7 +302,10 @@ interface UserSession {
 
 export default defineEventHandler(async (event) => {
   await useSession<UserSession>(event, {
-    store: createRedisStore({ url: process.env.REDIS_URL }),
+    store: await createUnstorageStore({ 
+      type: 'redis', 
+      options: { url: process.env.REDIS_URL } 
+    }),
     secret: process.env.SESSION_SECRET!,
     generate: () => ({ lastActivity: Date.now() }),
   });
@@ -343,9 +354,12 @@ If you're upgrading from v0.0.5 or earlier, here's how to migrate your code:
 
 ### After (v0.0.6 - Current)
 ```typescript
-import { useSession, getSession, updateSession, createRedisStore } from '@analog-tools/session';
+import { useSession, getSession, updateSession, createUnstorageStore } from '@analog-tools/session';
 
-const store = createRedisStore({ host: 'localhost', port: 6379 });
+const store = await createUnstorageStore({ 
+  type: 'redis', 
+  options: { host: 'localhost', port: 6379 } 
+});
 
 export default defineEventHandler(async (event) => {
   await useSession(event, { store, secret: 'key' });
@@ -357,7 +371,7 @@ export default defineEventHandler(async (event) => {
 ```
 
 ### Key Migration Points:
-1. Use `createRedisStore()` or `createMemoryStore()` for storage
+1. Use `createUnstorageStore()` with appropriate driver type
 2. Pass configuration directly to `useSession(event, config)`
 3. Use `getSession(event)` to get current session data
 4. Use `updateSession(event, updater)` to modify session data (auto-saves)
