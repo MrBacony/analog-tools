@@ -7,10 +7,9 @@ import {
   getSession,
   updateSession,
   destroySession,
-  createMemoryStore,
-  createRedisStore,
-  type Storage,
+  createUnstorageStore,
 } from '@analog-tools/session';
+import type { Storage } from 'unstorage';
 import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 import { SessionStorageConfig } from '../types/auth.types';
@@ -21,8 +20,7 @@ vi.mock('@analog-tools/session', () => ({
   getSession: vi.fn(),
   updateSession: vi.fn(),
   destroySession: vi.fn(),
-  createMemoryStore: vi.fn(),
-  createRedisStore: vi.fn(),
+  createUnstorageStore: vi.fn(),
 }));
 
 vi.mock('h3', async () => {
@@ -87,16 +85,16 @@ describe('SessionService', () => {
 
     // Set up mock session config
     mockSessionConfig = {
-      type: 'memory',
-      config: {},
+      driverOptions: {
+        type: 'memory',
+      },
     };
 
     // Register services
     registerMockService(LoggerService, mockLogger);
 
-    // Mock createMemoryStore and createRedisStore to return our mockStore
-    vi.mocked(createMemoryStore).mockReturnValue(mockStore as Storage<AuthSessionData>);
-    vi.mocked(createRedisStore).mockReturnValue(mockStore as Storage<AuthSessionData>);
+    // Mock createUnstorageStore to return our mockStore
+    vi.mocked(createUnstorageStore).mockResolvedValue(mockStore as Storage<AuthSessionData>);
 
     // Create service instance
     service = new SessionService(mockSessionConfig);
@@ -130,7 +128,7 @@ describe('SessionService', () => {
 
       await service.initSession(mockEvent);
 
-      expect(createMemoryStore).toHaveBeenCalled();
+      expect(createUnstorageStore).toHaveBeenCalled();
       expect(useSession).toHaveBeenCalledWith(
         mockEvent,
         expect.objectContaining({
