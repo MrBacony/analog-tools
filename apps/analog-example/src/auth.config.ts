@@ -10,11 +10,14 @@ export const authConfig: AnalogAuthConfig = {
   unprotectedRoutes: [],
 
   sessionStorage: {
-    type: 'redis',
-    config: {
-      url: process.env['REDIS_URL'] || 'redis://localhost:6379',
-      sessionSecret: process.env['SESSION_SECRET'] || 'default-dev-secret',
-      ttl: 86400, // 24 hours
+    sessionSecret: process.env['SESSION_SECRET'] || 'default-dev-secret',
+
+    driverOptions: {
+      type: 'redis',
+      options: {
+        url: process.env['REDIS_URL'] || 'redis://localhost:6379',
+        ttl: 86400, // 24 hours
+      },
     },
   },
 };

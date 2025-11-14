@@ -16,6 +16,7 @@ export {
 export {
   createMemoryStore,
   createRedisStore,
+  createUnstorageStore,
 } from './storage';
 
 // Export crypto functions
@@ -25,3 +26,5 @@ export {
 } from './crypto';
 
 export { type Storage } from 'unstorage';
+
+export { type AvailableDrivers, type DriverOptions } from './types';

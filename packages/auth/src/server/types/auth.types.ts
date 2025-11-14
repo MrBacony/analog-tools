@@ -1,3 +1,4 @@
+import { DriverOptions } from '@analog-tools/session';
 import { H3Event } from 'h3';
 
 /**
@@ -63,10 +64,9 @@ export type CookieSessionConfig = StorageBasicConfig &{
 /**
  * Type-safe session storage configuration using discriminated union
  */
-export type SessionStorageConfig =
-  | { type: 'redis'; config: RedisSessionConfig }
-  | { type: 'memory'; config: MemorySessionConfig }
-  | { type: 'cookie'; config: CookieSessionConfig };
+export type SessionStorageConfig = StorageBasicConfig & {
+  driverOptions: DriverOptions;
+}
 
 export type UserHandler = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,4 +1,4 @@
-import type { Storage } from 'unstorage';
+import type { BuiltinDriverOptions, Storage } from 'unstorage';
 
 /**
  * Base session data interface
@@ -61,3 +61,22 @@ export interface SessionError {
   message: string;
   details?: Record<string, unknown>;
 }
+
+export type AvailableDrivers = keyof BuiltinDriverOptions;
+
+/**
+ * Type-safe driver options - maps driver type to corresponding options
+ * TypeScript will enforce that options match the selected driver type
+ */
+export type DriverOptions = {
+  [K in AvailableDrivers]: {
+    type: K;
+    options: BuiltinDriverOptions[K];
+  }
+}[AvailableDrivers];
+
+/**
+ * Helper type to extract specific driver options
+ * @example ExtractDriverOptions<'redis'> gives { type: 'redis', options: RedisOptions }
+ */
+export type ExtractDriverOptions<T extends AvailableDrivers> = Extract<DriverOptions, { type: T }>;
