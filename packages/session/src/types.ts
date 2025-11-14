@@ -73,7 +73,7 @@ export type DriverOptions = {
     type: K;
     options: BuiltinDriverOptions[K];
   }
-}[AvailableDrivers];
+}[AvailableDrivers] | { type: 'memory' };
 
 /**
  * Helper type to extract specific driver options

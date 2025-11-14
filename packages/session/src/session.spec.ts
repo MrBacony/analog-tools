@@ -11,7 +11,7 @@ import {
   destroySession, 
   regenerateSession 
 } from './session';
-import { createMemoryStore } from './storage';
+import { createUnstorageStore } from './storage';
 import type { SessionData, SessionConfig } from './types';
 
 // Mock H3 functions
@@ -38,10 +38,10 @@ interface TestSessionData extends SessionData {
 describe('Core Session Functions', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockEvent: any; // Using any for testing purposes
-  let store: ReturnType<typeof createMemoryStore>;
+  let store: Awaited<ReturnType<typeof createUnstorageStore>>;
   let config: SessionConfig<TestSessionData>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset mocks
     vi.clearAllMocks();
     
@@ -55,7 +55,7 @@ describe('Core Session Functions', () => {
     };
 
     // Create test storage
-    store = createMemoryStore<TestSessionData>();
+    store = await createUnstorageStore<TestSessionData>({ type: 'memory' });
     
     // Create test configuration
     config = {

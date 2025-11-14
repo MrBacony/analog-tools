@@ -14,8 +14,6 @@ export {
 
 // Export storage factory functions
 export {
-  createMemoryStore,
-  createRedisStore,
   createUnstorageStore,
 } from './storage';
 
