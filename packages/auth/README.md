@@ -140,11 +140,13 @@ useAnalogAuth(
   {
     // ...other options
     sessionStorage: {
-      type: 'cloudflare-kv-binding',
-      config: {
-        binding: 'MY_KV_NAMESPACE',
-        sessionSecret: 'your-session-secret',
-        maxAge: 86400
+      sessionSecret: 'your-session-secret',
+      maxAge: 86400,
+      driverOptions: {
+        type: 'cloudflare-kv-binding',
+        options: {
+          binding: 'MY_KV_NAMESPACE'
+        }
       }
     }
   }, 
