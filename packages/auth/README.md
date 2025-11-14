@@ -8,6 +8,33 @@ A comprehensive authentication and authorization solution for AnalogJS applicati
 [![npm version](https://img.shields.io/npm/v/@analog-tools/auth.svg)](https://www.npmjs.com/package/@analog-tools/auth)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
+## Table of Contents
+
+- [Related Packages](#related-packages)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Breaking Changes](#breaking-changes)
+- [Configuration Options](#configuration-options)
+  - [Session Storage Options](#session-storage-options)
+  - [User Data Handling](#user-data-handling)
+- [Advanced Usage](#advanced-usage)
+  - [Token Refresh Strategy](#token-refresh-strategy)
+  - [CSRF Protection](#csrf-protection)
+  - [Securing API Routes](#securing-api-routes)
+  - [Client-Side Authentication](#client-side-authentication)
+  - [TRPC Integration](#trpc-integration)
+- [Security Considerations](#security-considerations)
+  - [Authentication Best Practices](#authentication-best-practices)
+  - [Production Setup Checklist](#production-setup-checklist)
+- [Vite Configuration](#vite-configuration)
+- [Troubleshooting](#troubleshooting)
+- [Environment Setup](#environment-setup)
+- [Examples](#examples)
+- [Package Architecture](#package-architecture)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Related Packages
 
 This package builds upon other `@analog-tools` packages:
@@ -31,6 +58,104 @@ This package builds upon other `@analog-tools` packages:
 npm install @analog-tools/auth
 ```
 
+## Breaking Changes
+
+### Version 0.x.x (Current)
+
+> **Note**: As this package is in early development (pre-1.0.0), breaking changes may occur without major version bumps. We recommend:
+> - Pinning to specific versions in production
+> - Reviewing changelogs before updating
+> - Testing thoroughly after updates
+
+#### Known Breaking Changes
+
+**v0.0.12** - Session Storage Configuration Type Change
+
+The `SessionStorageConfig` type has been refactored to use a unified driver-based approach:
+
+**Before (v0.0.11)**:
+```typescript
+sessionStorage: {
+  type: 'redis' | 'memory' | 'cloudflare-kv',
+  config: RedisSessionConfig | MemorySessionConfig | CookieSessionConfig
+}
+```
+
+**After (v0.0.12)**:
+```typescript
+sessionStorage: {
+  ttl?: number;
+  prefix?: string;
+  sessionSecret?: string;
+  driver: {
+    type: string; // 'redis', 'cloudflare-kv-binding', 'fs', etc.
+    options: Record<string, any>;
+  }
+}
+```
+
+**Migration Guide**:
+
+If you were using Redis storage:
+```typescript
+// Before
+sessionStorage: {
+  type: 'redis',
+  config: {
+    host: 'localhost',
+    port: 6379,
+    password: 'your-password',
+    db: 0,
+    sessionSecret: 'your-secret',
+    maxAge: 86400
+  }
+}
+
+// After
+sessionStorage: {
+  sessionSecret: 'your-secret',
+  ttl: 86400,
+  driver: {
+    type: 'redis',
+    options: {
+      host: 'localhost',
+      port: 6379,
+      password: 'your-password',
+      db: 0
+    }
+  }
+}
+```
+
+If you were using Cloudflare KV:
+```typescript
+// Before - Not supported
+
+// After
+sessionStorage: {
+  sessionSecret: 'your-secret',
+  ttl: 86400,
+  driver: {
+    type: 'cloudflare-kv-binding',
+    options: {
+      binding: 'MY_KV_NAMESPACE'
+    }
+  }
+}
+```
+
+For other supported drivers, see the [@analog-tools/session Storage Factory documentation](https://github.com/MrBacony/analog-tools/tree/main/packages/session#storage-factory).
+
+- **Memory Storage**: The memory storage option is currently non-functional and should not be used. Use Redis, Cloudflare KV, or other persistent storage backends instead.
+
+#### Upcoming Changes
+
+The following changes are planned for future releases:
+
+- User handler callback signatures may be enhanced
+- Additional authentication strategies may be added
+
+We will maintain this section with detailed migration guides as the package matures toward a stable 1.0.0 release.
 
 ## Quick Start
 
@@ -142,7 +267,7 @@ useAnalogAuth(
     sessionStorage: {
       sessionSecret: 'your-session-secret',
       maxAge: 86400,
-      driverOptions: {
+      driver: {
         type: 'cloudflare-kv-binding',
         options: {
           binding: 'MY_KV_NAMESPACE'

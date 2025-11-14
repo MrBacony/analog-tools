@@ -65,7 +65,7 @@ export type CookieSessionConfig = StorageBasicConfig &{
  * Type-safe session storage configuration using discriminated union
  */
 export type SessionStorageConfig = StorageBasicConfig & {
-  driverOptions: DriverOptions;
+  driver: DriverOptions;
 }
 
 export type UserHandler = {
