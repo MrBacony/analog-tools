@@ -8,7 +8,7 @@ import type { DriverOptions, SessionData } from './types';
 
 export async function createUnstorageStore<T extends SessionData = SessionData>(options: DriverOptions): Promise<Storage<T>> {
 
-  const driver = await import( /* @vite-ignore */builtinDrivers[options.type]);
+  const driver = await import(/* @vite-ignore */`${builtinDrivers[options.type]}`);
   // async import of the driver based on the name
   if(options.type === 'memory') {
     return createStorage({
