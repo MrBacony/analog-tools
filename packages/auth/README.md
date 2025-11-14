@@ -106,9 +106,12 @@ useAnalogAuth(
 
 Alternative storage options:
 
-**Memory Storage** (not recommended for production):
+**Memory Storage**:
+
+> **⚠️ WARNING: NOT WORKING** - Memory storage is currently not functioning properly. Do not use this option. Use Redis, Cloudflare KV, or another storage backend instead.
 
 ```typescript
+// ❌ DO NOT USE - Currently not working
 useAnalogAuth(
   {
     // ...other options
@@ -123,8 +126,6 @@ useAnalogAuth(
   event
 );
 ```
-
-> **⚠️ KNOWN ISSUE**: The Memory storage option is currently broken and not functioning properly. Please use Redis or another storage backend until this issue is resolved.
 
 **Other Storage Options:**
 

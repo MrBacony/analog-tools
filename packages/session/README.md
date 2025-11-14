@@ -57,6 +57,8 @@ npm install @analog-tools/session
 
 ### Basic Usage with Memory Storage
 
+> **⚠️ WARNING**: Memory storage is currently not working. For production or reliable development, use Redis or another storage driver.
+
 ```typescript
 import { defineEventHandler } from 'h3';
 import { useSession, getSession, updateSession, createUnstorageStore } from '@analog-tools/session';
@@ -183,6 +185,7 @@ Create a storage instance using unstorage drivers.
 
 ```typescript
 // Memory storage (development/testing)
+// ⚠️ WARNING: Memory storage is currently not working. Use Redis or another storage driver.
 const memoryStore = await createUnstorageStore({ type: 'memory' });
 
 // Redis storage (production)
@@ -219,8 +222,8 @@ const fsStore = await createUnstorageStore({
 
 The package supports all [Unstorage drivers](https://unstorage.unjs.io/drivers). Popular options include:
 
-- **Memory**: In-memory storage (development only)
-- **Redis**: Redis database storage
+- **Memory**: In-memory storage ⚠️ **Currently not working - use alternatives**
+- **Redis**: Redis database storage (recommended for production)
 - **Cloudflare KV**: Cloudflare Workers KV storage
 - **File System**: Local file system storage
 - **HTTP**: Remote HTTP storage
