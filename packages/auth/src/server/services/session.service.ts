@@ -4,8 +4,7 @@ import {
   getSession,
   updateSession,
   destroySession,
-  createMemoryStore,
-  createRedisStore,
+  createUnstorageStore,
 } from '@analog-tools/session';
 import type { Storage } from 'unstorage';
 import { AuthSessionData, SessionWithSave, SessionWithHandler } from '../types/auth-session.types';
@@ -34,35 +33,13 @@ export class SessionService {
       
       // Create appropriate store based on config
       if (!this.store) {
-        if (this.storageConfig.type === 'redis') {
-          // Convert Redis config to match createRedisStore expectations
-          const redisConfig = { ...this.storageConfig.config };
-          
-          // Handle different Redis configuration types (URL vs host/port)
-          if ('url' in redisConfig) {
-            // URL-based configuration
-            this.store = createRedisStore<AuthSessionData>(redisConfig);
-          } else if ('host' in redisConfig) {
-            // Host/port-based configuration - ensure port is number
-            const hostPortConfig = {
-              ...redisConfig,
-              port: typeof redisConfig.port === 'string' 
-                ? parseInt(redisConfig.port, 10) 
-                : redisConfig.port
-            };
-            this.store = createRedisStore<AuthSessionData>(hostPortConfig);
-          } else {
-            throw new Error('Invalid Redis configuration: must provide either url or host/port');
-          }
-        } else {
-          this.store = createMemoryStore<AuthSessionData>();
-        }
+        this.store = await createUnstorageStore<AuthSessionData>(this.storageConfig.driverOptions);
       }
       
       await useSession<AuthSessionData>(event, {
         store: this.store,
         secret:
-          this.storageConfig.config.sessionSecret || 'change-me-in-production',
+          this.storageConfig.sessionSecret || 'change-me-in-production',
         name: 'auth.session',
         maxAge: 60 * 60 * 24, // 24 hours
         cookie: {
@@ -127,8 +104,8 @@ export class SessionService {
           if (!sessionData) return null;
 
           // Extract session ID from the key (remove prefix if exists)
-          const sessionId = this.storageConfig.config.prefix && key.startsWith(`${this.storageConfig.config.prefix}:`)
-            ? key.substring(`${this.storageConfig.config.prefix}:`.length)
+          const sessionId = this.storageConfig.prefix && key.startsWith(`${this.storageConfig.prefix}:`)
+            ? key.substring(`${this.storageConfig.prefix}:`.length)
             : key;
 
           return {

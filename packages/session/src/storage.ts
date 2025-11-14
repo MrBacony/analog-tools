@@ -1,12 +1,20 @@
 /**
  * Storage factory functions for session package
  */
-
-import { createStorage } from 'unstorage';
+import { createStorage, builtinDrivers } from 'unstorage';
 import memoryDriver from 'unstorage/drivers/memory';
 import redisDriver from 'unstorage/drivers/redis';
 import type { Storage } from 'unstorage';
-import type { SessionData } from './types';
+import type { DriverOptions, SessionData } from './types';
+
+
+export async function createUnstorageStore<T extends SessionData = SessionData>(options: DriverOptions): Promise<Storage<T>> {
+  const driver = await import(builtinDrivers[options.type]);
+  // async import of the driver based on the name
+  return createStorage({
+    driver: driver.default(options.options),
+  });
+}
 
 /**
  * Create a memory storage instance for sessions
