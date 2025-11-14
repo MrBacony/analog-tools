@@ -198,9 +198,35 @@ const redisStore = await createUnstorageStore({
   }
 });
 
-// Other supported drivers: fs, cloudflare-kv-binding, etc.
-// See unstorage documentation for all available drivers
+// Cloudflare KV storage
+const kvStore = await createUnstorageStore({
+  type: 'cloudflare-kv-binding',
+  options: {
+    binding: 'MY_KV_NAMESPACE',
+  }
+});
+
+// File system storage
+const fsStore = await createUnstorageStore({
+  type: 'fs',
+  options: {
+    base: './data/sessions',
+  }
+});
 ```
+
+**Available Storage Drivers:**
+
+The package supports all [Unstorage drivers](https://unstorage.unjs.io/drivers). Popular options include:
+
+- **Memory**: In-memory storage (development only)
+- **Redis**: Redis database storage
+- **Cloudflare KV**: Cloudflare Workers KV storage
+- **File System**: Local file system storage
+- **HTTP**: Remote HTTP storage
+- **And many more**: MongoDB, Vercel KV, Planetscale, Azure, etc.
+
+> 📚 For detailed configuration options for each driver, see the [Unstorage Drivers Documentation](https://unstorage.unjs.io/drivers)
 
 ### Crypto Functions
 
