@@ -33,7 +33,7 @@ export class SessionService {
       
       // Create appropriate store based on config
       if (!this.store) {
-        this.store = await createUnstorageStore<AuthSessionData>(this.storageConfig.driverOptions);
+        this.store = await createUnstorageStore<AuthSessionData>(this.storageConfig.driver);
       }
       
       await useSession<AuthSessionData>(event, {
