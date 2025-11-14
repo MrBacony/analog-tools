@@ -8,12 +8,20 @@ A comprehensive authentication and authorization solution for AnalogJS applicati
 [![npm version](https://img.shields.io/npm/v/@analog-tools/auth.svg)](https://www.npmjs.com/package/@analog-tools/auth)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
+## Related Packages
+
+This package builds upon other `@analog-tools` packages:
+
+- **[@analog-tools/session](https://github.com/MrBacony/analog-tools/tree/main/packages/session)**: For detailed session management and storage configuration options
+- **[@analog-tools/inject](https://github.com/MrBacony/analog-tools/tree/main/packages/inject)**: For dependency injection
+- **[@analog-tools/logger](https://github.com/MrBacony/analog-tools/tree/main/packages/logger)**: For structured logging
+
 ## Features
 
 - 🔐 **OAuth 2.0/OpenID Connect Support**: Seamless integration with OAuth providers (Auth0, Keycloak, etc.)
 - 🚪 **Route Protection**: Easily protect routes requiring authentication
 - 🔄 **Token Management**: Automatic token refresh and expiration handling
-- 🍪 **Session Management**: Secure session handling with customizable storage options
+- 🍪 **Session Management**: Secure session handling with customizable storage options (powered by `@analog-tools/session`)
 - 👤 **User Management**: Extensible user data handling and mapping
 - 🔒 **Security Best Practices**: CSRF protection, secure cookies, and proper token validation
 
@@ -117,6 +125,31 @@ useAnalogAuth(
 ```
 
 > **⚠️ KNOWN ISSUE**: The Memory storage option is currently broken and not functioning properly. Please use Redis or another storage backend until this issue is resolved.
+
+**Other Storage Options:**
+
+The session management in this package is powered by `@analog-tools/session`, which supports all [Unstorage drivers](https://unstorage.unjs.io/drivers).
+
+For a complete list of available storage drivers and detailed configuration examples (including Cloudflare KV, File System, MongoDB, Vercel KV, and more), see the **[@analog-tools/session Storage Factory documentation](https://github.com/MrBacony/analog-tools/tree/main/packages/session#storage-factory)**.
+
+Quick example with Cloudflare KV:
+
+```typescript
+useAnalogAuth(
+  {
+    // ...other options
+    sessionStorage: {
+      type: 'cloudflare-kv-binding',
+      config: {
+        binding: 'MY_KV_NAMESPACE',
+        sessionSecret: 'your-session-secret',
+        maxAge: 86400
+      }
+    }
+  }, 
+  event
+);
+```
 
 ### User Data Handling
 
@@ -732,11 +765,11 @@ export default class ProtectedPage {}
 
 ## Package Architecture
 
-The `@analog-tools/auth` package is structured as a multi-entry point package that provides a comprehensive authentication solution:
+The `@analog-tools/auth` package is structured as a multi-entry point package:
 
 - **Main Entry Point**: `@analog-tools/auth` 
   - Server-side OAuth implementation with H3 middleware
-  - Session management integration
+  - Session management integration (via `@analog-tools/session`)
   - API route handlers
 
 - **Angular Entry Point**: `@analog-tools/auth/angular`
@@ -747,14 +780,6 @@ The `@analog-tools/auth` package is structured as a multi-entry point package th
   - tRPC middleware for protected procedures
   - Authentication utilities for tRPC routes
   - Error handling for authentication failures
-
-### Relationship with Other Packages
-
-This package relies on other `@analog-tools` packages:
-
-- `@analog-tools/session`: For secure session management
-- `@analog-tools/inject`: For dependency injection
-- `@analog-tools/logger`: For structured logging
 
 ## Contributing
 
