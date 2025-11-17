@@ -1,6 +1,6 @@
 {
   "name": "@analog-tools/auth",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "Authentication module for AnalogJS applications",
   "type": "module",
   "main": "./index.cjs",
@@ -30,9 +30,9 @@
     "analog-tools"
   ],
   "dependencies": {
-    "@analog-tools/session": "^0.0.13",
-    "@analog-tools/inject": "^0.0.13",
-    "@analog-tools/logger": "^0.0.13"
+    "@analog-tools/session": "^0.0.14",
+    "@analog-tools/inject": "^0.0.14",
+    "@analog-tools/logger": "^0.0.14"
   },
   "peerDependencies": {
     "h3": "^1.15.2",
