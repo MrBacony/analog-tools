@@ -131,10 +131,10 @@ describe('library generator', () => {
     expect(viteConfigContent).toBeDefined();
     // Check for added paths (use string contains for simplicity)
     expect(viteConfigContent).toContain(
-      `additionalPagesDirs: ['libs/${options.name}/src/pages']`
+      `additionalPagesDirs: ['/libs/${options.name}/src/pages']`
     );
     expect(viteConfigContent).toContain(
-      `additionalAPIDirs: ['libs/${options.name}/src/backend/api']`
+      `additionalAPIDirs: ['/libs/${options.name}/src/backend/api']`
     );
   });
 
@@ -147,7 +147,7 @@ describe('library generator', () => {
     expect(viteConfigContent).toBeDefined();
     // Pages should be added when explicitly true
     expect(viteConfigContent).toContain(
-      `additionalPagesDirs: ['libs/${options.name}/src/pages']`
+      `additionalPagesDirs: ['/libs/${options.name}/src/pages']`
     );
     // API should not be added when explicitly false
     expect(viteConfigContent).not.toContain('additionalAPIDirs');
@@ -172,7 +172,7 @@ describe('library generator', () => {
     expect(viteConfigContent).toBeDefined();
     // API should be added when trpc is enabled
     expect(viteConfigContent).toContain(
-      `additionalAPIDirs: ['libs/${options.name}/src/backend/api']`
+      `additionalAPIDirs: ['/libs/${options.name}/src/backend/api']`
     );
   });
 
@@ -196,10 +196,10 @@ describe('library generator', () => {
     expect(viteConfigContent).toBeDefined();
     // Should still add the properties
     expect(viteConfigContent).toContain(
-      `additionalPagesDirs: ['libs/${options.name}/src/pages']`
+      `additionalPagesDirs: ['/libs/${options.name}/src/pages']`
     );
     expect(viteConfigContent).toContain(
-      `additionalAPIDirs: ['libs/${options.name}/src/backend/api']`
+      `additionalAPIDirs: ['/libs/${options.name}/src/backend/api']`
     );
   });
 
@@ -460,13 +460,13 @@ describe('library generator', () => {
         expect(viteConfigContent).toBeDefined();
 
         if (combo.pages) {
-          expect(viteConfigContent).toContain(`additionalPagesDirs: ['libs/${options.name}/src/pages']`);
+          expect(viteConfigContent).toContain(`additionalPagesDirs: ['/libs/${options.name}/src/pages']`);
         } else {
           expect(viteConfigContent).not.toContain('additionalPagesDirs');
         }
 
         if (combo.api || combo.trpc) {
-          expect(viteConfigContent).toContain(`additionalAPIDirs: ['libs/${options.name}/src/backend/api']`);
+          expect(viteConfigContent).toContain(`additionalAPIDirs: ['/libs/${options.name}/src/backend/api']`);
         } else {
           expect(viteConfigContent).not.toContain('additionalAPIDirs');
         }
