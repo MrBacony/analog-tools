@@ -1,4 +1,4 @@
-import { DriverOptions } from '@analog-tools/session';
+import type { DriverOptions } from '@analog-tools/session';
 import { H3Event } from 'h3';
 
 /**

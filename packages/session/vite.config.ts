@@ -36,7 +36,7 @@ export default defineConfig(() => ({
           prefix = 'cjs';
         }
         if (format === 'es') {
-          prefix = 'mjs';
+          prefix = 'js';
         }
 
         return `index.${prefix}`;

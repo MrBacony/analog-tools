@@ -13,6 +13,7 @@ export default defineConfig(() => ({
     dts({
       entryRoot: 'src',
       tsconfigPath: path.join(__dirname, 'tsconfig.lib.json'),
+      aliasesExclude: [/@analog-tools\/.*/],
     }),
   ],
   build: {
@@ -60,7 +61,8 @@ export default defineConfig(() => ({
         'rxjs',
         '@trpc/server',
         '@trpc/client',
-        /^@angular\/.*/, 'rxjs/operators'
+        /^@angular\/.*/, 'rxjs/operators',
+        '@analog-tools/session',
       ],
     },
   },
