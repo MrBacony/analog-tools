@@ -15,20 +15,18 @@
   },
   "tags": [],
   "targets": {
-    
     "build": {
       "executor": "@nx/angular:package",
       "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
       "options": {
-        "project": "packages/auth-angular/ng-package.json"
+        "project": "packages/auth-angular/ng-package.json",
+        "tsConfig": "packages/auth-angular/tsconfig.lib.json"
       },
       "configurations": {
         "production": {
           "tsConfig": "packages/auth-angular/tsconfig.lib.prod.json"
         },
-        "development": {
-          "tsConfig": "packages/auth-angular/tsconfig.lib.json"
-        }
+        "development": {}
       },
       "defaultConfiguration": "production"
     },

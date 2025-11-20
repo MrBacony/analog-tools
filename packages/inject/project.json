@@ -28,7 +28,9 @@
       },
       "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
       "dependsOn": [
-        {"target": "@analog-tools/logger:test"}
+        {
+          "target": "@analog-tools/logger:test"
+        }
       ]
     },
     "build": {
