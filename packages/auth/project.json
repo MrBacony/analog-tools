@@ -24,8 +24,12 @@
       },
       "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
       "dependsOn": [
-        {"target": "@analog-tools/auth-angular:test"},
-        {"target": "@analog-tools/auth:test"}
+        {
+          "target": "@analog-tools/auth-angular:test"
+        },
+        {
+          "target": "@analog-tools/auth:test"
+        }
       ]
     },
     "build": {
@@ -41,8 +45,12 @@
       },
       "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
       "dependsOn": [
-        {"target": "@analog-tools/auth-angular:build"},
-        {"target": "@analog-tools/auth:vite:build"}
+        {
+          "target": "@analog-tools/auth-angular:build"
+        },
+        {
+          "target": "@analog-tools/auth:vite:build"
+        }
       ]
     },
     "nx-release-publish": {

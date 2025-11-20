@@ -2,9 +2,9 @@
   "name": "@analog-tools/auth-angular",
   "version": "0.0.14",
   "peerDependencies": {
-    "@angular/common": "^19.0.0 || ^20.0.0",
-    "@angular/core": "^19.0.0 || ^20.0.0",
-    "@angular/router": "^19.0.0 || ^20.0.0",
+    "@angular/common": "^19.0.0 || ^20.0.0 || ^21.0.0",
+    "@angular/core": "^19.0.0 || ^20.0.0 || ^21.0.0",
+    "@angular/router": "^19.0.0 || ^20.0.0 || ^21.0.0",
     "rxjs": "~7.8.0"
   },
   "devDependencies": {

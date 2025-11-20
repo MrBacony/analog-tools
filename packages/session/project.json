@@ -23,8 +23,12 @@
       },
       "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
       "dependsOn": [
-        {"target": "@analog-tools/inject:test"},
-        {"target": "@analog-tools/logger:test"}
+        {
+          "target": "@analog-tools/inject:test"
+        },
+        {
+          "target": "@analog-tools/logger:test"
+        }
       ]
     },
     "build": {
@@ -37,8 +41,12 @@
       },
       "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
       "dependsOn": [
-        {"target": "@analog-tools/inject:build"},
-        {"target": "@analog-tools/logger:build"}
+        {
+          "target": "@analog-tools/inject:build"
+        },
+        {
+          "target": "@analog-tools/logger:build"
+        }
       ]
     },
     "pack": {
