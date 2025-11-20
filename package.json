@@ -1,6 +1,6 @@
 {
   "name": "analog-tools",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "Tools and utilities for AnalogJS applications",
   "license": "MIT",
   "scripts": {},
@@ -22,7 +22,7 @@
     "analog-tools"
   ],
   "dependencies": {
-     "@analogjs/content": "2.1.0",
+    "@analogjs/content": "2.1.0",
     "@analogjs/router": "2.1.0",
     "@analogjs/trpc": "0.5.0",
     "@angular/common": "21.0.0",
