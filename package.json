@@ -1,6 +1,6 @@
 {
   "name": "analog-tools",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "Tools and utilities for AnalogJS applications",
   "license": "MIT",
   "scripts": {},
