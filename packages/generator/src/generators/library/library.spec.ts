@@ -203,6 +203,74 @@ describe('library generator', () => {
     );
   });
 
+  it('should add liveReload with mode check when analog has no options', async () => {
+    tree.write(
+      `apps/${options.project}/vite.config.ts`,
+      `import { defineConfig } from 'vite';
+       import analog from '@analogjs/platform';
+
+       export default defineConfig(({ mode }) => ({
+         plugins: [
+           analog(),
+         ],
+       }));`
+    );
+    await libraryGenerator(tree, { ...options, pages: true });
+    const viteConfigContent = tree
+      .read(`apps/${options.project}/vite.config.ts`)
+      ?.toString('utf-8');
+    expect(viteConfigContent).toBeDefined();
+    expect(viteConfigContent).toContain(`liveReload: mode !== 'production'`);
+  });
+
+  it('should add liveReload as true when analog has existing options', async () => {
+    tree.write(
+      `apps/${options.project}/vite.config.ts`,
+      `import { defineConfig } from 'vite';
+       import analog from '@analogjs/platform';
+
+       export default defineConfig(({ mode }) => ({
+         plugins: [
+           analog({
+             ssr: true
+           }),
+         ],
+       }));`
+    );
+    await libraryGenerator(tree, { ...options, pages: true });
+    const viteConfigContent = tree
+      .read(`apps/${options.project}/vite.config.ts`)
+      ?.toString('utf-8');
+    expect(viteConfigContent).toBeDefined();
+    expect(viteConfigContent).toContain(`liveReload: true`);
+    expect(viteConfigContent).toContain(`ssr: true`);
+  });
+
+  it('should not add liveReload when it already exists', async () => {
+    tree.write(
+      `apps/${options.project}/vite.config.ts`,
+      `import { defineConfig } from 'vite';
+       import analog from '@analogjs/platform';
+
+       export default defineConfig(({ mode }) => ({
+         plugins: [
+           analog({
+             liveReload: false
+           }),
+         ],
+       }));`
+    );
+    await libraryGenerator(tree, { ...options, pages: true });
+    const viteConfigContent = tree
+      .read(`apps/${options.project}/vite.config.ts`)
+      ?.toString('utf-8');
+    expect(viteConfigContent).toBeDefined();
+    // Should not duplicate liveReload
+    const liveReloadCount = (viteConfigContent.match(/liveReload/g) || []).length;
+    expect(liveReloadCount).toBe(1);
+    expect(viteConfigContent).toContain(`liveReload: false`);
+  });
+
   it('should not create example files', async () => {
     await libraryGenerator(tree, options);
     const componentExists = tree.exists(
