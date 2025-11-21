@@ -89,9 +89,14 @@ describe('OAuthAuthenticationService', () => {
       unprotectedRoutes: ['/api/auth/login', '/api/auth/callback'],
       tokenRefreshApiKey: 'test-refresh-key',
       sessionStorage: {
-        type: 'redis',
-        config: {
-          url: 'redis://localhost:6379',
+        prefix: 'prefix',
+        ttl: 3600,
+        sessionSecret: 'secret',
+        driver: {
+          type: 'redis',
+          options: {
+            url: 'redis://localhost:6379',
+          },
         },
       },
     };
@@ -219,7 +224,7 @@ describe('OAuthAuthenticationService', () => {
     vi.clearAllMocks();
     // Reset the inject ServiceRegistry
     resetAllInjections();
-    
+
     // Reset session mocks
     vi.mocked(getSession).mockReset();
     vi.mocked(updateSession).mockReset();
@@ -249,9 +254,14 @@ describe('OAuthAuthenticationService', () => {
         scope: 'openid profile',
         callbackUri: 'https://app.example.com/callback',
         sessionStorage: {
-          type: 'redis',
-          config: {
-            url: 'redis://localhost:6379',
+          prefix: 'prefix',
+          ttl: 3600,
+          sessionSecret: 'secret',
+          driver: {
+            type: 'redis',
+            options: {
+              url: 'redis://localhost:6379',
+            },
           },
         },
       };
@@ -274,14 +284,108 @@ describe('OAuthAuthenticationService', () => {
   });
 
   describe('isUnprotectedRoute', () => {
-    it('should return true for routes in unprotectedRoutes', () => {
+    it('should return true for exact routes in unprotectedRoutes', () => {
       expect(service.isUnprotectedRoute('/api/auth/login')).toBe(true);
-      expect(service.isUnprotectedRoute('/api/auth/login/extra')).toBe(true);
+      expect(service.isUnprotectedRoute('/api/auth/callback')).toBe(true);
+    });
+
+    it('should return false for routes with additional paths when no wildcard', () => {
+      expect(service.isUnprotectedRoute('/api/auth/login/extra')).toBe(false);
+      expect(service.isUnprotectedRoute('/api/auth/callback/something')).toBe(
+        false
+      );
     });
 
     it('should return false for protected routes', () => {
       expect(service.isUnprotectedRoute('/api/protected')).toBe(false);
       expect(service.isUnprotectedRoute('/dashboard')).toBe(false);
+    });
+
+    it('should handle wildcard routes correctly', () => {
+      // Create a service with wildcard routes for testing
+      const wildcardConfig = {
+        ...mockConfig,
+        unprotectedRoutes: ['/api/public/*', '/static/*', '/exact-route'],
+      };
+
+      const wildcardService = new OAuthAuthenticationService(wildcardConfig);
+
+      // Wildcard routes should match subpaths but not the exact prefix or just trailing slash
+      expect(wildcardService.isUnprotectedRoute('/api/public')).toBe(false);
+      expect(wildcardService.isUnprotectedRoute('/api/public/')).toBe(false);
+      expect(wildcardService.isUnprotectedRoute('/api/public/images')).toBe(
+        true
+      );
+      expect(
+        wildcardService.isUnprotectedRoute('/api/public/css/style.css')
+      ).toBe(true);
+
+      expect(wildcardService.isUnprotectedRoute('/static')).toBe(false);
+      expect(wildcardService.isUnprotectedRoute('/static/')).toBe(false);
+      expect(
+        wildcardService.isUnprotectedRoute('/static/images/logo.png')
+      ).toBe(true);
+
+      // Exact routes should work as expected
+      expect(wildcardService.isUnprotectedRoute('/exact-route')).toBe(true);
+      expect(wildcardService.isUnprotectedRoute('/exact-route/extra')).toBe(
+        false
+      );
+    });
+
+    it('should handle exact routes with trailing slash normalization', () => {
+      const trailingSlashConfig = {
+        ...mockConfig,
+        unprotectedRoutes: ['/api/public', '/dashboard/'],
+      };
+
+      const trailingSlashService = new OAuthAuthenticationService(
+        trailingSlashConfig
+      );
+
+      // Both routes should match with and without trailing slash
+      expect(trailingSlashService.isUnprotectedRoute('/api/public')).toBe(true);
+      expect(trailingSlashService.isUnprotectedRoute('/api/public/')).toBe(
+        true
+      );
+      expect(trailingSlashService.isUnprotectedRoute('/dashboard')).toBe(true);
+      expect(trailingSlashService.isUnprotectedRoute('/dashboard/')).toBe(true);
+
+      // But not subpaths
+      expect(trailingSlashService.isUnprotectedRoute('/api/public/sub')).toBe(
+        false
+      );
+      expect(trailingSlashService.isUnprotectedRoute('/dashboard/sub')).toBe(
+        false
+      );
+    });
+
+    it('should handle edge cases for wildcard matching', () => {
+      const edgeConfig = {
+        ...mockConfig,
+        unprotectedRoutes: ['/test/*', '/'],
+      };
+
+      const edgeService = new OAuthAuthenticationService(edgeConfig);
+
+      // Root path should match exactly
+      expect(edgeService.isUnprotectedRoute('/')).toBe(true);
+      expect(edgeService.isUnprotectedRoute('/home')).toBe(false);
+
+      // Wildcard should require actual content, not just empty or trailing slash
+      expect(edgeService.isUnprotectedRoute('/test')).toBe(false);
+      expect(edgeService.isUnprotectedRoute('/test/')).toBe(false);
+      expect(edgeService.isUnprotectedRoute('/test/a')).toBe(true);
+    });
+
+    it('should return false when unprotectedRoutes is not an array', () => {
+      const invalidConfig = {
+        ...mockConfig,
+        unprotectedRoutes: undefined as unknown as string[],
+      };
+
+      const invalidService = new OAuthAuthenticationService(invalidConfig);
+      expect(invalidService.isUnprotectedRoute('/api/auth/login')).toBe(false);
     });
   });
 

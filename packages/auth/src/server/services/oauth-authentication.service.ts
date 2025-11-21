@@ -106,10 +106,36 @@ export class OAuthAuthenticationService {
       'unprotectedRoutes',
       [] as string[]
     );
-    return (
-      Array.isArray(unprotectedRoutes) &&
-      unprotectedRoutes.some((route) => path.startsWith(route))
-    );
+    
+    if (!Array.isArray(unprotectedRoutes)) {
+      return false;
+    }
+    
+    return unprotectedRoutes.some((route) => {
+      // Handle wildcard routes (ending with *)
+      if (route.endsWith('*')) {
+        const routePrefix = route.slice(0, -1);
+        
+        // For wildcards, we want to match paths that have actual content after the prefix
+        // Examples:
+        // - `/api/public/*` should NOT match `/api/public` or `/api/public/`
+        // - `/api/public/*` should match `/api/public/subpath`, `/api/public/anything`
+        if (!path.startsWith(routePrefix)) {
+          return false;
+        }
+        
+        // Check if there's actual content after the prefix (not just empty or single slash)
+        const afterPrefix = path.slice(routePrefix.length);
+        return afterPrefix.length > 0 && afterPrefix !== '/';
+      }
+      
+      // Handle exact route matching - normalize trailing slashes
+      const normalizedRoute = route.endsWith('/') ? route : route + '/';
+      const normalizedPath = path.endsWith('/') ? path : path + '/';
+      
+      // Check both with and without trailing slash
+      return path === route || normalizedPath === normalizedRoute;
+    });
   }
 
   /**
