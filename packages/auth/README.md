@@ -177,7 +177,14 @@ const authConfig: AnalogAuthConfig = {
   scope: process.env['AUTH_SCOPE'] || 'openid profile email',
   callbackUri: process.env['AUTH_CALLBACK_URL'] || 'http://localhost:3000/api/auth/callback',
   // Routes that don't require authentication
-  unprotectedRoutes: ['/imprint', '/help'],
+  // Supports both exact matching and wildcard patterns
+  unprotectedRoutes: [
+    '/',                    // Root page (exact match)
+    '/imprint',             // Legal pages (exact match)
+    '/help',                // Help page (exact match)  
+    '/api/public/*',        // All public API endpoints
+    '/static/*',            // Static assets
+  ],
 };
 
 export default defineEventHandler(async (event: H3Event) => {
@@ -198,10 +205,74 @@ The `useAnalogAuth` function accepts a configuration object with the following o
 | `scope`             | string               | OAuth scopes to request (defaults to 'openid profile email') | No       |
 | `callbackUri`       | string               | The callback URL registered with your OAuth provider         | Yes      |
 | `tokenRefreshApiKey`| string               | API key for securing token refresh endpoints                 | No       |
-| `unprotectedRoutes` | string[]             | Array of routes that don't require authentication            | No       |
+| `unprotectedRoutes` | string[]             | Array of routes that don't require authentication (supports exact matching and wildcards) | No       |
 | `logoutUrl`         | string               | URL to redirect to after logout                              | No       |
 | `sessionStorage`    | SessionStorageConfig | Session storage configuration (see below)                    | No       |
 | `userHandler`       | UserHandler          | Callbacks for user data processing (see below)               | No       |
+
+### Route Protection Patterns
+
+The `unprotectedRoutes` configuration supports both exact route matching and wildcard patterns:
+
+#### Exact Route Matching
+
+Routes specified without wildcards require exact matches. Both routes with and without trailing slashes are automatically matched:
+
+```typescript
+unprotectedRoutes: ['/api/public', '/help']
+
+// ✅ Unprotected routes:
+// '/api/public' matches both '/api/public' and '/api/public/'
+// '/help' matches both '/help' and '/help/'
+
+// ❌ Protected routes (require authentication):
+// '/api/public/images' - not an exact match
+// '/help/contact' - not an exact match
+```
+
+#### Wildcard Patterns
+
+Routes ending with `*` will unprotect all subpaths but require actual content after the base path:
+
+```typescript
+unprotectedRoutes: ['/api/public/*', '/static/*']
+
+// ✅ Unprotected routes:
+// '/api/public/images' - has content after base path
+// '/api/public/css/style.css' - has content after base path
+// '/static/assets/logo.png' - has content after base path
+
+// ❌ Protected routes (require authentication):
+// '/api/public' - no wildcard content
+// '/api/public/' - only trailing slash, no actual content
+// '/static' - no wildcard content
+```
+
+#### Practical Examples
+
+```typescript
+const authConfig: AnalogAuthConfig = {
+  // ...other config
+  unprotectedRoutes: [
+    '/',                    // Only the root path
+    '/login',               // Login page (exact match)
+    '/api/health',          // Health check endpoint (exact match)
+    '/api/public/*',        // All public API routes with subpaths
+    '/static/*',            // All static assets with subpaths
+    '/docs/*',              // All documentation routes with subpaths
+  ]
+};
+```
+
+| Route Pattern | Request Path | Protected? | Reason |
+|---------------|-------------|------------|---------|
+| `'/'` | `/` | ❌ No | Exact match for root |
+| `'/'` | `/home` | ✅ Yes | Not an exact match |
+| `'/api/public'` | `/api/public` | ❌ No | Exact match |
+| `'/api/public'` | `/api/public/` | ❌ No | Trailing slash normalized |
+| `'/api/public/*'` | `/api/public` | ✅ Yes | No wildcard content |
+| `'/api/public/*'` | `/api/public/` | ✅ Yes | Only trailing slash |
+| `'/api/public/*'` | `/api/public/images` | ❌ No | Has actual subpath |
 
 ### Session Storage Options
 
@@ -801,7 +872,15 @@ const authConfig: AnalogAuthConfig = {
   clientSecret: process.env['AUTH_CLIENT_SECRET'] || '',
   scope: 'openid profile email',
   callbackUri: 'http://localhost:3000/api/auth/callback',
-  unprotectedRoutes: ['/api/public', '/api/auth/login', '/api/auth/callback'],
+  // Configure route protection with exact matching and wildcards
+  unprotectedRoutes: [
+    '/',                         // Root page (exact match)
+    '/api/public/*',             // All public API routes (wildcard)
+    '/api/auth/login',           // Login endpoint (exact match)
+    '/api/auth/callback',        // OAuth callback (exact match)
+    '/static/*',                 // Static assets (wildcard)
+    '/docs/*',                   // Documentation (wildcard)
+  ],
   // Configure Redis session storage for production
   sessionStorage: {
     type: 'redis',
