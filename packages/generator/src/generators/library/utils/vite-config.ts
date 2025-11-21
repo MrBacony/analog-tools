@@ -198,7 +198,7 @@ export function updateViteConfig(
   if (isEmpty) {
     // Start fresh with new options
     const newOptions: string[] = [];
-    newOptions.push('liveReload: true');
+    newOptions.push(`liveReload: mode !== 'production'`);
     if (shouldAddPages) {
       newOptions.push(`additionalPagesDirs: [${pagesDirFormatted}]`);
     }
