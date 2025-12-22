@@ -102,6 +102,17 @@ export class OAuthAuthenticationService {
    * @returns True if the route is unprotected, false otherwise
    */
   isUnprotectedRoute(path: string): boolean {
+
+    const whitelistFileTypes = this.getConfigValue('whitelistFileTypes', []);
+    if (Array.isArray(whitelistFileTypes) && whitelistFileTypes.length > 0) {
+      const hasWhitelistExtension = whitelistFileTypes.some(ext => 
+        path.toLowerCase().endsWith(ext.toLowerCase())
+      );
+      if (hasWhitelistExtension) {
+        return true;
+      }
+    }
+
     const unprotectedRoutes = this.getConfigValue(
       'unprotectedRoutes',
       [] as string[]

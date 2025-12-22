@@ -89,6 +89,7 @@ export type AnalogAuthConfig = {
   callbackUri: string;
 
   tokenRefreshApiKey?: string;
+  whitelistFileTypes?: string[];
   unprotectedRoutes?: string[];
   logoutUrl?: string;
 
