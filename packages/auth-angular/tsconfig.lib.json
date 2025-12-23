@@ -6,12 +6,12 @@
     "declarationMap": true,
     "inlineSources": true,
     "types": [],
-    "module": "es2015",
+    "module": "preserve",
     "moduleResolution": "bundler",
     "sourceMap": true,
     "experimentalDecorators": true,
     "importHelpers": true,
-    "lib": ["dom", "es2015"]
+    "lib": ["dom", "es2022"]
   },
   "exclude": [
     "src/**/*.spec.ts",
