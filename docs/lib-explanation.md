@@ -344,8 +344,8 @@ npx nx generate @analog-tools/generator:library --name=<library-name> --project=
 Options:
 - `--name`: The library name (kebab-case)
 - `--project`: The app that will consume this library
-- `--pages`: Generate pages directory structure (default: true)
-- `--api`: Generate API routes directory structure (default: true)
+- `--pages`: Generate pages directory structure (default: false)
+- `--api`: Generate API routes directory structure (default: false)
 - `--no-interactive`: Skip prompts and use defaults
 
 The generator will:
@@ -353,3 +353,4 @@ The generator will:
 2. Update `tsconfig.base.json` with path mappings
 3. Update the app's `vite.config.ts` with library paths
 4. Set up example files to get you started
+5. Update Tailwind configuration if applicable
