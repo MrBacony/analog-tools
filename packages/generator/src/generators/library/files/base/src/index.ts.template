@@ -1,2 +1,1 @@
-export * from './lib/<%= fileName %>/<%= fileName %>.component';
 <% if (trpc) { %>export * from './backend/trpc/trpc-client';<% } %>
