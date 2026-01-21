@@ -532,6 +532,46 @@ describe('OAuthAuthenticationService', () => {
       expect(combinedService.isUnprotectedRoute('/admin')).toBe(false);
     });
 
+    it('should verify precedence when path matches both unprotectedRoutes and whitelistFileTypes', () => {
+      const combinedConfig = {
+        ...mockConfig,
+        unprotectedRoutes: ['/api/public/*', '/health', '/static/*'],
+        whitelistFileTypes: ['.js', '.css', '.png', '.woff2'],
+      };
+
+      const combinedService = new OAuthAuthenticationService(combinedConfig);
+
+      // Paths matching both unprotected route patterns and having whitelisted extensions
+      // should be unprotected (both conditions independently grant access)
+      expect(combinedService.isUnprotectedRoute('/api/public/script.js')).toBe(true);
+      expect(combinedService.isUnprotectedRoute('/api/public/styles.css')).toBe(true);
+      expect(combinedService.isUnprotectedRoute('/static/logo.png')).toBe(true);
+      expect(combinedService.isUnprotectedRoute('/static/font.woff2')).toBe(true);
+
+      // Paths with whitelisted extension inside an unprotected wildcard route
+      expect(combinedService.isUnprotectedRoute('/api/public/nested/deep/bundle.js')).toBe(true);
+      expect(combinedService.isUnprotectedRoute('/static/vendor/lib/style.css')).toBe(true);
+
+      // Paths matching exact unprotected route with whitelisted extension
+      expect(combinedService.isUnprotectedRoute('/health.js')).toBe(true); // Matches exact route with whitelisted extension
+      expect(combinedService.isUnprotectedRoute('/health')).toBe(true); // Matches exact route
+
+      // Paths with whitelisted extension but not matching any unprotected route
+      expect(combinedService.isUnprotectedRoute('/protected/app.js')).toBe(true); // Unprotected due to extension
+      expect(combinedService.isUnprotectedRoute('/admin/styles.css')).toBe(true); // Unprotected due to extension
+
+      // Paths without whitelisted extension and not matching unprotected routes
+      expect(combinedService.isUnprotectedRoute('/protected/data')).toBe(false);
+      expect(combinedService.isUnprotectedRoute('/admin/users')).toBe(false);
+
+      // Verify that whitelisted extensions work even with path depth
+      expect(combinedService.isUnprotectedRoute('/api/public/vendor/deep/nested/lib.js')).toBe(true);
+
+      // Verify that non-whitelisted extensions don't bypass unprotected routes
+      expect(combinedService.isUnprotectedRoute('/api/public/data.json')).toBe(true); // Matches unprotected route pattern
+      expect(combinedService.isUnprotectedRoute('/protected/data.json')).toBe(false); // No match
+    });
+
     it('should handle multiple dots in filenames correctly', () => {
       const whitelistConfig = {
         ...mockConfig,
