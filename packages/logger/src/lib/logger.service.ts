@@ -126,7 +126,7 @@ export class LoggerService {
   private resolveMessage(message: LogMessage): string {
     if (typeof message === 'function') {
       try {
-        return (message as () => string)();
+        return message();
       } catch (err) {
         // Avoid throwing from the logger - return an evaluation-failed message
         console.error('Logger: Message evaluation failed:', err);
