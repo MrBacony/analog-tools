@@ -57,7 +57,7 @@ jobs:
           
           # Publish from built output directories
           for project in $publishable_projects; do
-            build_dir="node_modules/@analog-tools/$project"
+            build_dir="node_modules/$project"
             if [ -f "$build_dir/package.json" ]; then
               echo "Publishing $build_dir"
               (cd "$build_dir" && npm publish --provenance --access public)
