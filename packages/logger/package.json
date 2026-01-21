@@ -1,6 +1,6 @@
 {
   "name": "@analog-tools/logger",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "description": "Logging utility for AnalogJS applications",
   "main": "./index.cjs",
   "module": "./index.js",
@@ -24,7 +24,7 @@
     "h3": "^1.10.1"
   },
   "peerDependencies": {
-    "@analog-tools/inject": "^0.0.16"
+    "@analog-tools/inject": "^0.0.17"
   },
   "devDependencies": {},
   "publishConfig": {
