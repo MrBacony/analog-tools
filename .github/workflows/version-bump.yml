@@ -1,0 +1,80 @@
+name: Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Get current version
+        id: current
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      
+      - name: Calculate new version
+        id: new
+        run: |
+          CURRENT="${{ steps.current.outputs.version }}"
+          IFS='.' read -ra PARTS <<< "$CURRENT"
+          MAJOR="${PARTS[0]}"
+          MINOR="${PARTS[1]}"
+          PATCH="${PARTS[2]}"
+          
+          case "${{ inputs.bump }}" in
+            major)
+              NEW_VERSION="$((MAJOR + 1)).0.0"
+              ;;
+            minor)
+              NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
+              ;;
+            patch)
+              NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+              ;;
+          esac
+          
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "Current version: ${CURRENT}"
+          echo "New version: ${NEW_VERSION}"
+      
+      - name: Update versions
+        run: node tools/scripts/update-package-versions.js ${{ steps.new.outputs.version }}
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: bump version to ${{ steps.new.outputs.version }}"
+          title: "chore: release v${{ steps.new.outputs.version }}"
+          body: |
+            ## Version Bump: ${{ steps.current.outputs.version }} → ${{ steps.new.outputs.version }}
+            
+            **Bump type:** `${{ inputs.bump }}`
+            
+            This PR updates all package versions to `${{ steps.new.outputs.version }}`.
+            
+            **Changes:**
+            - Updated version in all package.json files
+            - Updated internal dependencies to `^${{ steps.new.outputs.version }}`
+            
+            Once merged, packages will be automatically published to npm.
+          branch: release/v${{ steps.new.outputs.version }}
+          delete-branch: true
+          labels: |
+            release
+            automated

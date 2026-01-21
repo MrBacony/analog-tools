@@ -3,7 +3,7 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "packages/generator/src",
   "projectType": "library",
-  "tags": [],
+  "tags": ["publishable"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",

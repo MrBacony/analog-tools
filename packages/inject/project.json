@@ -11,7 +11,7 @@
       "manifestRootsToUpdate": ["node_modules/{projectRoot}"]
     }
   },
-  "tags": [],
+  "tags": ["publishable"],
   "targets": {
     "nx-release-publish": {
       "options": {
