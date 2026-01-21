@@ -1,9 +1,16 @@
 {
   "name": "@analog-tools/generator",
   "version": "0.0.17",
+  "description": "Code generation tools for AnalogJS applications",
   "type": "commonjs",
+  "author": "Gregor Speck <gregor.speck@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrBacony/analog-tools.git"
+  },
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
+  "license": "MIT",
   "dependencies": {
     "@nx/devkit": "21.3.11",
     "tslib": "^2.3.0"
