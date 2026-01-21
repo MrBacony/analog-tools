@@ -55,8 +55,14 @@ jobs:
           # Get list of projects tagged as publishable from Nx
           publishable_projects=$(npx nx show projects --with-tag=publishable --json | node -e "let data=''; process.stdin.on('data',d=>data+=d); process.stdin.on('end',()=>{const arr=JSON.parse(data); console.log(arr.join(' '));});")
           
-          # Publish from built output directories
+          # Publish from built output directories (skip internal packages)
           for project in $publishable_projects; do
+            # Skip internal packages that are bundled into other packages
+            if [[ "$project" == *"auth-angular"* ]]; then
+              echo "Skipping internal package $project"
+              continue
+            fi
+            
             build_dir="node_modules/$project"
             if [ -f "$build_dir/package.json" ]; then
               echo "Publishing $build_dir"
