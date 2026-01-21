@@ -1398,7 +1398,7 @@ logger.debug(JSON.stringify(hugeObject)); // Wastes CPU when debug is disabled
 
 // ❌ Anti-pattern: Throwing from message function
 logger.info(() => { 
-  throw new Error('test'); // Could crash logging
+  throw new Error('test'); // Error is caught, but you'll get a placeholder log instead of the intended message
 });
 
 // ✅ Correct: Simple strings directly
