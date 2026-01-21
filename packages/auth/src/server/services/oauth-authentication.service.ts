@@ -1,3 +1,4 @@
+import { extname } from 'path';
 import { createError, H3Event } from 'h3';
 import { SessionService } from './session.service';
 import { AuthSessionData } from '../types/auth-session.types';
@@ -105,9 +106,13 @@ export class OAuthAuthenticationService {
 
     const whitelistFileTypes = this.getConfigValue('whitelistFileTypes', []);
     if (Array.isArray(whitelistFileTypes) && whitelistFileTypes.length > 0) {
-      const hasWhitelistExtension = whitelistFileTypes.some(ext => 
-        path.toLowerCase().endsWith(ext.toLowerCase())
-      );
+      // Use extname() to get the exact file extension (only the final extension)
+      const fileExtension = extname(path).toLowerCase();
+      const hasWhitelistExtension = whitelistFileTypes.some(ext => {
+        // Normalize extension to always have a leading dot
+        const normalizedExt = ext.startsWith('.') ? ext : `.${ext}`;
+        return fileExtension === normalizedExt.toLowerCase();
+      });
       if (hasWhitelistExtension) {
         return true;
       }
