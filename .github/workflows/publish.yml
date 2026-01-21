@@ -51,12 +51,17 @@ jobs:
       
       - name: Publish to npm
         run: |
-          for dir in packages/*; do
+          # Get list of projects tagged as publishable from Nx
+          publishable_projects=$(npx nx show projects --with-tag=publishable --json | node -e "let data=''; process.stdin.on('data',d=>data+=d); process.stdin.on('end',()=>{const arr=JSON.parse(data); console.log(arr.join(' '));});")
+          
+          # Publish only packages corresponding to publishable projects
+          for project in $publishable_projects; do
+            dir="packages/$project"
             if [ -f "$dir/package.json" ]; then
               echo "Publishing $dir"
-              cd "$dir"
-              npm publish --provenance --access public
-              cd ../..
+              (cd "$dir" && npm publish --provenance --access public)
+            else
+              echo "Skipping $dir; package.json not found"
             fi
           done
         env:
