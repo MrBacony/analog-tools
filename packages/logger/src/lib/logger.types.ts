@@ -150,6 +150,13 @@ export interface LogContext {
 }
 
 /**
+ * LogMessage supports either a plain string (fast path) or a function that
+ * returns a string. The function is only evaluated when the logger actually
+ * decides to emit the message (based on level, context, deduplication, etc.)
+ */
+export type LogMessage = string | (() => string);
+
+/**
  * Type guard to check if a string is a valid log level
  * @param level - The string to check
  * @returns True if the string is a valid log level

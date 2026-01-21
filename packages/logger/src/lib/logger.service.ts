@@ -8,6 +8,7 @@ import {
   isValidLogLevel,
   LoggerConfig,
   LogLevelEnum,
+  LogMessage,
   LogStyling,
   LogContext,
 } from './logger.types';
@@ -115,6 +116,24 @@ export class LoggerService {
         this.deduplicator = new LogDeduplicator(dedupeConfig, formatter);
       }
     }
+  }
+
+  /**
+   * Resolve a LogMessage to a string. If the message is a function it will be
+   * called and its result returned. Errors during evaluation are caught and a
+   * placeholder string is returned to avoid throwing from the logger.
+   */
+  private resolveMessage(message: LogMessage): string {
+    if (typeof message === 'function') {
+      try {
+        return message();
+      } catch (err) {
+        // Avoid throwing from the logger - return an evaluation-failed message
+        console.error('Logger: Message evaluation failed:', err);
+        return `[Message evaluation failed: ${err}]`;
+      }
+    }
+    return message as string;
   }
 
   /**
@@ -245,13 +264,14 @@ export class LoggerService {
    * @param data Additional data to log
    * @param metadata Optional metadata for styling and icons
    */
-  trace(message: string, ...data: unknown[]): void;
-  trace(message: string, metadata: LogStyling, ...data: unknown[]): void;
+  trace(message: LogMessage, ...data: unknown[]): void;
+  trace(message: LogMessage, metadata: LogStyling, ...data: unknown[]): void;
   trace(
-    message: string,
+    message: LogMessage,
     metadataOrData?: LogStyling | unknown,
     ...data: unknown[]
   ): void {
+    // Early return before resolving message
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.trace) return;
 
     const { metadata, restData } = this.styleEngine.parseMetadataParameter(
@@ -259,15 +279,19 @@ export class LoggerService {
       data
     );
 
+    // If deduplication might run we need the resolved message to decide.
+    // Only resolve the message if we will actually proceed to logging/dedup.
+    const resolvedMessage = this.resolveMessage(message);
+
     // Handle deduplication logic
-    if (!this.handleDeduplication(LogLevelEnum.trace, message, metadata, restData)) {
+    if (!this.handleDeduplication(LogLevelEnum.trace, resolvedMessage, metadata, restData)) {
       return; // Message was batched
     }
 
     if (metadata) {
       const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.trace,
-        message,
+        resolvedMessage,
         this.name,
         metadata,
         this.context
@@ -276,7 +300,7 @@ export class LoggerService {
     } else {
       const formattedMessage = this.styleEngine.formatMessage(
         LogLevelEnum.trace,
-        message,
+        resolvedMessage,
         this.name,
         this.context
       );
@@ -290,13 +314,14 @@ export class LoggerService {
    * @param data Additional data to log
    * @param metadata Optional metadata for styling and icons
    */
-  debug(message: string, ...data: unknown[]): void;
-  debug(message: string, metadata: LogStyling, ...data: unknown[]): void;
+  debug(message: LogMessage, ...data: unknown[]): void;
+  debug(message: LogMessage, metadata: LogStyling, ...data: unknown[]): void;
   debug(
-    message: string,
+    message: LogMessage,
     metadataOrData?: LogStyling | unknown,
     ...data: unknown[]
   ): void {
+    // Early return before resolving message
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.debug) return;
 
     const { metadata, restData } = this.styleEngine.parseMetadataParameter(
@@ -304,15 +329,17 @@ export class LoggerService {
       data
     );
 
+    const resolvedMessage = this.resolveMessage(message);
+
     // Handle deduplication logic
-    if (!this.handleDeduplication(LogLevelEnum.debug, message, metadata, restData)) {
+    if (!this.handleDeduplication(LogLevelEnum.debug, resolvedMessage, metadata, restData)) {
       return; // Message was batched
     }
 
     if (metadata) {
       const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.debug,
-        message,
+        resolvedMessage,
         this.name,
         metadata,
         this.context
@@ -321,7 +348,7 @@ export class LoggerService {
     } else {
       const formattedMessage = this.styleEngine.formatMessage(
         LogLevelEnum.debug,
-        message,
+        resolvedMessage,
         this.name,
         this.context
       );
@@ -335,13 +362,14 @@ export class LoggerService {
    * @param data Additional data to log
    * @param metadata Optional metadata for styling and icons
    */
-  info(message: string, ...data: unknown[]): void;
-  info(message: string, metadata: LogStyling, ...data: unknown[]): void;
+  info(message: LogMessage, ...data: unknown[]): void;
+  info(message: LogMessage, metadata: LogStyling, ...data: unknown[]): void;
   info(
-    message: string,
+    message: LogMessage,
     metadataOrData?: LogStyling | unknown,
     ...data: unknown[]
   ): void {
+    // Early return before resolving message
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.info) return;
 
     const { metadata, restData } = this.styleEngine.parseMetadataParameter(
@@ -349,15 +377,17 @@ export class LoggerService {
       data
     );
 
+    const resolvedMessage = this.resolveMessage(message);
+
     // Handle deduplication logic
-    if (!this.handleDeduplication(LogLevelEnum.info, message, metadata, restData)) {
+    if (!this.handleDeduplication(LogLevelEnum.info, resolvedMessage, metadata, restData)) {
       return; // Message was batched
     }
 
     if (metadata) {
       const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.info,
-        message,
+        resolvedMessage,
         this.name,
         metadata,
         this.context
@@ -366,7 +396,7 @@ export class LoggerService {
     } else {
       const formattedMessage = this.styleEngine.formatMessage(
         LogLevelEnum.info,
-        message,
+        resolvedMessage,
         this.name,
         this.context
       );
@@ -380,13 +410,14 @@ export class LoggerService {
    * @param data Additional data to log
    * @param metadata Optional metadata for styling and icons
    */
-  warn(message: string, ...data: unknown[]): void;
-  warn(message: string, metadata: LogStyling, ...data: unknown[]): void;
+  warn(message: LogMessage, ...data: unknown[]): void;
+  warn(message: LogMessage, metadata: LogStyling, ...data: unknown[]): void;
   warn(
-    message: string,
+    message: LogMessage,
     metadataOrData?: LogStyling | unknown,
     ...data: unknown[]
   ): void {
+    // Early return before resolving message
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.warn) return;
 
     const { metadata, restData } = this.styleEngine.parseMetadataParameter(
@@ -394,15 +425,17 @@ export class LoggerService {
       data
     );
 
+    const resolvedMessage = this.resolveMessage(message);
+
     // Handle deduplication logic
-    if (!this.handleDeduplication(LogLevelEnum.warn, message, metadata, restData)) {
+    if (!this.handleDeduplication(LogLevelEnum.warn, resolvedMessage, metadata, restData)) {
       return; // Message was batched
     }
 
     if (metadata) {
       const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.warn,
-        message,
+        resolvedMessage,
         this.name,
         metadata,
         this.context
@@ -411,7 +444,7 @@ export class LoggerService {
     } else {
       const formattedMessage = this.styleEngine.formatMessage(
         LogLevelEnum.warn,
-        message,
+        resolvedMessage,
         this.name,
         this.context
       );
