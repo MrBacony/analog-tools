@@ -63,6 +63,7 @@ export default defineConfig(() => ({
         '@trpc/client',
         /^@angular\/.*/, 'rxjs/operators',
         '@analog-tools/session',
+        'path'
       ],
     },
   },
