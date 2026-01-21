@@ -21,6 +21,22 @@ export class OAuthAuthenticationService {
     );
     registerService(SessionService, config.sessionStorage);
     this.config = config;
+    this.initializeWhitelistExtensions();
+  }
+
+  /**
+   * Initialize and cache normalized whitelist extensions
+   * Normalizes extensions once during initialization for efficient lookups
+   */
+  private initializeWhitelistExtensions(): void {
+    const whitelistFileTypes = this.config.whitelistFileTypes;
+    if (Array.isArray(whitelistFileTypes) && whitelistFileTypes.length > 0) {
+      whitelistFileTypes.forEach(ext => {
+        // Normalize extension to always have a leading dot and lowercase
+        const normalizedExt = (ext.startsWith('.') ? ext : `.${ext}`).toLowerCase();
+        this.normalizedWhitelistExtensions.add(normalizedExt);
+      });
+    }
   }
 
   // Config object with default values
@@ -33,6 +49,9 @@ export class OAuthAuthenticationService {
 
   // Add these properties for token refresh configuration
   private TOKEN_REFRESH_SAFETY_MARGIN = 60 * 5; // 5 minutes in seconds
+
+  // Cached normalized whitelist extensions for efficient lookups
+  private normalizedWhitelistExtensions: Set<string> = new Set();
 
   /**
    * Validate that the service has been properly initialized
@@ -104,16 +123,11 @@ export class OAuthAuthenticationService {
    */
   isUnprotectedRoute(path: string): boolean {
 
-    const whitelistFileTypes = this.getConfigValue('whitelistFileTypes', []);
-    if (Array.isArray(whitelistFileTypes) && whitelistFileTypes.length > 0) {
+    // Check cached whitelist extensions for efficiency
+    if (this.normalizedWhitelistExtensions.size > 0) {
       // Use extname() to get the exact file extension (only the final extension)
       const fileExtension = extname(path).toLowerCase();
-      const hasWhitelistExtension = whitelistFileTypes.some(ext => {
-        // Normalize extension to always have a leading dot
-        const normalizedExt = ext.startsWith('.') ? ext : `.${ext}`;
-        return fileExtension === normalizedExt.toLowerCase();
-      });
-      if (hasWhitelistExtension) {
+      if (this.normalizedWhitelistExtensions.has(fileExtension)) {
         return true;
       }
     }
