@@ -20,10 +20,8 @@ import {
 import { LoggerStyleEngine } from './logger-style-engine';
 import { DEFAULT_ICON_SCHEME, DEFAULT_STYLE_SCHEME } from './logger.config';
 import { LoggerError } from './errors';
-import { 
-  LogDeduplicator, 
-  MessageFormatter 
-} from './deduplication/deduplicator';
+import { LogDeduplicator } from './deduplication/deduplicator';
+import { ILogFormatter, FormatterFactory, LogEntry } from './formatters';
 import { 
   DeduplicationConfig, 
   DEFAULT_DEDUPLICATION_CONFIG 
@@ -56,6 +54,10 @@ export class LoggerService {
   private styleEngine: LoggerStyleEngine;
   // Deduplicator for batching repeated messages
   private deduplicator?: LogDeduplicator;
+  // Formatter for output
+  private formatter: ILogFormatter;
+  // Correlation ID for tracking
+  private correlationId?: string;
 
   /**
    * Create a new LoggerService
@@ -78,6 +80,8 @@ export class LoggerService {
       // Inherit settings from parent
       this.logLevel = parent.getLogLevel();
       this.styleEngine = parent.styleEngine; // Share style engine with parent
+      this.formatter = parent.formatter;
+      this.correlationId = parent.correlationId;
     } else {
       // Root logger setup
       if (typeof config.level === 'string' && !Object.keys(LogLevelEnum).includes(config.level)) {
@@ -87,6 +91,7 @@ export class LoggerService {
         config.level || process.env['LOG_LEVEL'] || 'info'
       );
       this.name = config.name || 'analog-tools';
+      this.correlationId = config.correlationId;
       this.setDisabledContexts(
         config.disabledContexts ??
           process.env['LOG_DISABLED_CONTEXTS']?.split(',') ??
@@ -100,6 +105,11 @@ export class LoggerService {
         icons: { ...DEFAULT_ICON_SCHEME, ...config.icons },
       });
 
+      // Initialize formatter
+      this.formatter = config.formatter || FormatterFactory.createConsole({
+        useColors: this.styleEngine.getUseColors(),
+      });
+
       // Initialize deduplicator if enabled
       if (config.deduplication?.enabled) {
         const dedupeConfig: DeduplicationConfig = {
@@ -108,12 +118,7 @@ export class LoggerService {
           flushOnCritical: config.deduplication.flushOnCritical ?? DEFAULT_DEDUPLICATION_CONFIG.flushOnCritical,
         };
 
-        // Create formatter function for deduplicator
-        const formatter: MessageFormatter = (level, message, context) => {
-          return this.styleEngine.formatMessage(level, message, this.name, context);
-        };
-
-        this.deduplicator = new LogDeduplicator(dedupeConfig, formatter);
+        this.deduplicator = new LogDeduplicator(dedupeConfig, this.formatter, this.name);
       }
     }
   }
@@ -195,6 +200,28 @@ export class LoggerService {
   }
 
   /**
+   * Set correlation ID for this logger instance
+   * @param correlationId - Correlation ID for request tracking
+   */
+  setCorrelationId(correlationId: string): void {
+    this.correlationId = correlationId;
+  }
+
+  /**
+   * Get current correlation ID
+   */
+  getCorrelationId(): string | undefined {
+    return this.correlationId;
+  }
+
+  /**
+   * Clear correlation ID
+   */
+  clearCorrelationId(): void {
+    this.correlationId = undefined;
+  }
+
+  /**
    * Create a child logger with a specific context
    * @param context The context for the child logger
    * @returns A new logger instance with the given context
@@ -219,12 +246,14 @@ export class LoggerService {
     const groups = this.parentLogger?.activeGroups || this.activeGroups;
     groups.push(groupName);
 
-    const formattedMessage = this.styleEngine.formatMessage(
-      LogLevelEnum.info,
-      `Group: ${groupName}`,
-      this.name,
-      this.context
-    );
+    const formattedMessage = this.formatter.format({
+      level: LogLevelEnum.info,
+      message: `Group: ${groupName}`,
+      logger: this.name,
+      context: this.context,
+      timestamp: new Date(),
+      correlationId: this.getCorrelationId(),
+    });
     console.group(`${formattedMessage} ▼`);
   }
 
@@ -271,41 +300,7 @@ export class LoggerService {
     metadataOrData?: LogStyling | unknown,
     ...data: unknown[]
   ): void {
-    // Early return before resolving message
-    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.trace) return;
-
-    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
-      metadataOrData,
-      data
-    );
-
-    // If deduplication might run we need the resolved message to decide.
-    // Only resolve the message if we will actually proceed to logging/dedup.
-    const resolvedMessage = this.resolveMessage(message);
-
-    // Handle deduplication logic
-    if (!this.handleDeduplication(LogLevelEnum.trace, resolvedMessage, metadata, restData)) {
-      return; // Message was batched
-    }
-
-    if (metadata) {
-      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
-        LogLevelEnum.trace,
-        resolvedMessage,
-        this.name,
-        metadata,
-        this.context
-      );
-      console.trace(formattedMessage, ...(restData || []));
-    } else {
-      const formattedMessage = this.styleEngine.formatMessage(
-        LogLevelEnum.trace,
-        resolvedMessage,
-        this.name,
-        this.context
-      );
-      console.trace(formattedMessage, ...(restData || []));
-    }
+    this.doLog(LogLevelEnum.trace, message, metadataOrData, ...data);
   }
 
   /**
@@ -321,39 +316,7 @@ export class LoggerService {
     metadataOrData?: LogStyling | unknown,
     ...data: unknown[]
   ): void {
-    // Early return before resolving message
-    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.debug) return;
-
-    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
-      metadataOrData,
-      data
-    );
-
-    const resolvedMessage = this.resolveMessage(message);
-
-    // Handle deduplication logic
-    if (!this.handleDeduplication(LogLevelEnum.debug, resolvedMessage, metadata, restData)) {
-      return; // Message was batched
-    }
-
-    if (metadata) {
-      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
-        LogLevelEnum.debug,
-        resolvedMessage,
-        this.name,
-        metadata,
-        this.context
-      );
-      console.debug(formattedMessage, ...(restData || []));
-    } else {
-      const formattedMessage = this.styleEngine.formatMessage(
-        LogLevelEnum.debug,
-        resolvedMessage,
-        this.name,
-        this.context
-      );
-      console.debug(formattedMessage, ...(restData || []));
-    }
+    this.doLog(LogLevelEnum.debug, message, metadataOrData, ...data);
   }
 
   /**
@@ -369,39 +332,7 @@ export class LoggerService {
     metadataOrData?: LogStyling | unknown,
     ...data: unknown[]
   ): void {
-    // Early return before resolving message
-    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.info) return;
-
-    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
-      metadataOrData,
-      data
-    );
-
-    const resolvedMessage = this.resolveMessage(message);
-
-    // Handle deduplication logic
-    if (!this.handleDeduplication(LogLevelEnum.info, resolvedMessage, metadata, restData)) {
-      return; // Message was batched
-    }
-
-    if (metadata) {
-      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
-        LogLevelEnum.info,
-        resolvedMessage,
-        this.name,
-        metadata,
-        this.context
-      );
-      console.info(formattedMessage, ...(restData || []));
-    } else {
-      const formattedMessage = this.styleEngine.formatMessage(
-        LogLevelEnum.info,
-        resolvedMessage,
-        this.name,
-        this.context
-      );
-      console.info(formattedMessage, ...(restData || []));
-    }
+    this.doLog(LogLevelEnum.info, message, metadataOrData, ...data);
   }
 
   /**
@@ -417,39 +348,7 @@ export class LoggerService {
     metadataOrData?: LogStyling | unknown,
     ...data: unknown[]
   ): void {
-    // Early return before resolving message
-    if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.warn) return;
-
-    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
-      metadataOrData,
-      data
-    );
-
-    const resolvedMessage = this.resolveMessage(message);
-
-    // Handle deduplication logic
-    if (!this.handleDeduplication(LogLevelEnum.warn, resolvedMessage, metadata, restData)) {
-      return; // Message was batched
-    }
-
-    if (metadata) {
-      const formattedMessage = this.styleEngine.formatMessageWithMetadata(
-        LogLevelEnum.warn,
-        resolvedMessage,
-        this.name,
-        metadata,
-        this.context
-      );
-      console.warn(formattedMessage, ...(restData || []));
-    } else {
-      const formattedMessage = this.styleEngine.formatMessage(
-        LogLevelEnum.warn,
-        resolvedMessage,
-        this.name,
-        this.context
-      );
-      console.warn(formattedMessage, ...(restData || []));
-    }
+    this.doLog(LogLevelEnum.warn, message, metadataOrData, ...data);
   }
 
   /**
@@ -496,7 +395,7 @@ export class LoggerService {
   ): void {
     if (!this.isContextEnabled() || this.logLevel > LogLevelEnum.error) return;
 
-    const { message, serializedError, context, data } =
+    const { message, serializedError, rawError, context, data } =
       this.parseErrorParameters(
         messageOrError,
         errorOrContext,
@@ -522,25 +421,36 @@ export class LoggerService {
       }
     }
 
-    const formattedMessage = this.styleEngine.formatMessageWithMetadata(
-      LogLevelEnum.error,
+    const entry: LogEntry = {
+      level: LogLevelEnum.error,
       message,
-      this.name,
+      logger: this.name,
+      context: this.context,
+      timestamp: new Date(),
+      metadata: context as Record<string, unknown>,
+      error: rawError,
       styling,
-      this.context
-    );
+      correlationId: this.getCorrelationId(),
+    };
 
-    const errorParam: unknown[] = [formattedMessage];
+    const output = this.formatter.format(entry);
+    const isJson = output.trim().startsWith('{');
 
-    if (serializedError) {
-      errorParam.push(serializedError);
+    if (isJson) {
+      console.error(output);
+    } else {
+      const errorParam: unknown[] = [output];
+
+      if (serializedError) {
+        errorParam.push(serializedError);
+      }
+
+      if (context) {
+        errorParam.push(context);
+      }
+
+      console.error(...errorParam, ...actualData);
     }
-
-    if (context) {
-      errorParam.push(context);
-    }
-
-    console.error(...errorParam, ...actualData);
   }
 
   /**
@@ -608,7 +518,7 @@ export class LoggerService {
       return;
     }
 
-    const { message, serializedError, context, data } =
+    const { message, serializedError, rawError, context, data } =
       this.parseErrorParameters(
         messageOrError,
         errorOrContext,
@@ -634,25 +544,36 @@ export class LoggerService {
       }
     }
 
-    const formattedMessage = this.styleEngine.formatMessageWithMetadata(
-      LogLevelEnum.fatal,
-      `FATAL: ${message}`,
-      this.name,
+    const entry: LogEntry = {
+      level: LogLevelEnum.fatal,
+      message: `FATAL: ${message}`,
+      logger: this.name,
+      context: this.context,
+      timestamp: new Date(),
+      metadata: context as Record<string, unknown>,
+      error: rawError,
       styling,
-      this.context
-    );
+      correlationId: this.getCorrelationId(),
+    };
 
-    const errorParam: unknown[] = [formattedMessage];
+    const output = this.formatter.format(entry);
+    const isJson = output.trim().startsWith('{');
 
-    if (serializedError) {
-      errorParam.push(serializedError);
+    if (isJson) {
+      console.error(output);
+    } else {
+      const errorParam: unknown[] = [output];
+
+      if (serializedError) {
+        errorParam.push(serializedError);
+      }
+
+      if (context) {
+        errorParam.push(context);
+      }
+
+      console.error(...errorParam, ...actualData);
     }
-
-    if (context) {
-      errorParam.push(context);
-    }
-
-    console.error(...errorParam, ...actualData);
   }
 
   /**
@@ -681,6 +602,7 @@ export class LoggerService {
   ): {
     message: string;
     serializedError?: StructuredError | string;
+    rawError?: Error;
     context?: LogContext;
     data: unknown[];
   } {
@@ -689,6 +611,7 @@ export class LoggerService {
       return {
         message: messageOrError.message,
         serializedError: ErrorSerializer.serialize(messageOrError),
+        rawError: messageOrError,
         data: [],
       };
     }
@@ -710,6 +633,7 @@ export class LoggerService {
       return {
         message: messageOrError,
         serializedError: ErrorSerializer.serialize(errorOrContext),
+        rawError: errorOrContext,
         data: [],
       };
     }
@@ -736,6 +660,7 @@ export class LoggerService {
       return {
         message: messageOrError,
         serializedError: ErrorSerializer.serialize(errorOrContext),
+        rawError: errorOrContext,
         context: contextOrData,
         data: additionalData,
       };
@@ -744,6 +669,14 @@ export class LoggerService {
     // Backwards compatibility: error(message: string, error?: ErrorParam, ...data: unknown[])
     const message =
       typeof messageOrError === 'string' ? messageOrError : 'Unknown error';
+    
+    let rawError: Error | undefined;
+    if (errorOrContext instanceof Error) {
+      rawError = errorOrContext;
+    } else if (messageOrError instanceof Error) {
+      rawError = messageOrError;
+    }
+
     const serializedError = errorOrContext
       ? ErrorSerializer.serialize(errorOrContext)
       : undefined;
@@ -752,7 +685,7 @@ export class LoggerService {
         ? [contextOrData, ...additionalData]
         : additionalData;
 
-    return { message, serializedError, data };
+    return { message, serializedError, rawError, data };
   }
 
   /**
@@ -780,6 +713,105 @@ export class LoggerService {
       !(obj instanceof RegExp) &&
       typeof obj !== 'function'
     );
+  }
+
+  /**
+   * Internal logging implementation
+   * Handles metadata extraction, formatting and console output
+   * @private
+   */
+  private doLog(
+    level: LogLevelEnum,
+    message: LogMessage,
+    metadataOrData?: LogStyling | unknown,
+    ...data: unknown[]
+  ): void {
+    if (!this.isContextEnabled() || this.logLevel > level) return;
+
+    const { metadata, restData } = this.styleEngine.parseMetadataParameter(
+      metadataOrData,
+      data
+    );
+
+    const resolvedMessage = this.resolveMessage(message);
+
+    // Handle deduplication logic
+    if (!this.handleDeduplication(level, resolvedMessage, metadata, restData)) {
+      return; // Message was batched
+    }
+
+    // Extract error and additional metadata from restData
+    let error: Error | undefined;
+    const extraMetadata: Record<string, unknown> = {};
+
+    if (restData && restData.length > 0) {
+      restData.forEach((item, i) => {
+        if (item instanceof Error && !error) {
+          error = item;
+        } else if (typeof item === 'object' && item !== null) {
+          Object.assign(extraMetadata, item);
+        } else {
+          extraMetadata[`arg${i}`] = item;
+        }
+      });
+    }
+
+    const entry: LogEntry = {
+      level,
+      message: resolvedMessage,
+      logger: this.name,
+      context: this.context,
+      timestamp: new Date(),
+      metadata: Object.keys(extraMetadata).length > 0 ? extraMetadata : undefined,
+      error,
+      styling: metadata,
+      correlationId: this.getCorrelationId(),
+    };
+
+    const output = this.formatter.format(entry);
+
+    // Check if output is JSON to decide on console behavior
+    // If it's JSON, we typically don't want to append restData as it's already serialized
+    const isJson = output.trim().startsWith('{');
+
+    switch (level) {
+      case LogLevelEnum.trace:
+        if (isJson) {
+          console.trace(output);
+        } else {
+          console.trace(output, ...(restData || []));
+        }
+        break;
+      case LogLevelEnum.debug:
+        if (isJson) {
+          console.debug(output);
+        } else {
+          console.debug(output, ...(restData || []));
+        }
+        break;
+      case LogLevelEnum.info:
+        if (isJson) {
+          console.info(output);
+        } else {
+          console.info(output, ...(restData || []));
+        }
+        break;
+      case LogLevelEnum.warn:
+        if (isJson) {
+          console.warn(output);
+        } else {
+          console.warn(output, ...(restData || []));
+        }
+        break;
+      case LogLevelEnum.error:
+      case LogLevelEnum.fatal:
+        if (isJson) {
+          console.error(output);
+        } else {
+          console.error(output, ...(restData || []));
+        }
+        break;
+    }
   }
 
   /**
@@ -822,27 +854,6 @@ export class LoggerService {
     );
   }
 
-  /**
-   * Safely format a message using the style engine
-   * Catches and logs any errors from the style engine
-   * @param args Arguments for the style engine formatMessage method
-   * @returns The formatted message
-   * @private
-   */
-  private safeFormatMessage(
-    level: LogLevelEnum,
-    message: string,
-    name: string,
-    context = '',
-    extra = ''
-  ): string {
-    try {
-      return this.styleEngine.formatMessage(level, message, name, context, extra);
-    } catch (err) {
-      this.error('Style engine failure', err as Error);
-      throw new LoggerError('Style engine failure');
-    }
-  }
 
   /**
    * Handle deduplication for a log message
