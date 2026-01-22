@@ -25,6 +25,17 @@ export interface ILogFormatter {
    * @returns Formatted string ready for output
    */
   format(entry: LogEntry): string;
+
+  /**
+   * Check if this formatter's output is self-contained
+   * 
+   * Self-contained formatters (like JSON) serialize all data into the output string.
+   * Non-self-contained formatters (like Console) only format the message and require
+   * additional data (metadata, errors) to be passed as separate console arguments.
+   * 
+   * @returns True if output contains all data, false if additional console args are needed
+   */
+  isSelfContained(): boolean;
 }
 
 /**

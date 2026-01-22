@@ -45,6 +45,10 @@ export class JsonFormatter implements ILogFormatter {
     }
   }
 
+  isSelfContained(): boolean {
+    return true;
+  }
+
   private getLevelName(level: LogLevelEnum): string {
     switch (level) {
       case LogLevelEnum.trace: return 'trace';

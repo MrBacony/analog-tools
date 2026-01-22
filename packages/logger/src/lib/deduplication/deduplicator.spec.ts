@@ -19,6 +19,10 @@ class MockFormatter implements ILogFormatter {
     const prefix = entry.context ? `[test:${entry.context}]` : '[test]';
     return `${prefix} ${entry.message}`;
   }
+
+  isSelfContained(): boolean {
+    return true;
+  }
 }
 
 const mockFormatter = new MockFormatter();

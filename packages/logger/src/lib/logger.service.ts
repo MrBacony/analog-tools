@@ -434,9 +434,8 @@ export class LoggerService {
     };
 
     const output = this.formatter.format(entry);
-    const isJson = output.trim().startsWith('{');
 
-    if (isJson) {
+    if (this.formatter.isSelfContained()) {
       console.error(output);
     } else {
       const errorParam: unknown[] = [output];
@@ -557,9 +556,8 @@ export class LoggerService {
     };
 
     const output = this.formatter.format(entry);
-    const isJson = output.trim().startsWith('{');
 
-    if (isJson) {
+    if (this.formatter.isSelfContained()) {
       console.error(output);
     } else {
       const errorParam: unknown[] = [output];
@@ -670,12 +668,7 @@ export class LoggerService {
     const message =
       typeof messageOrError === 'string' ? messageOrError : 'Unknown error';
     
-    let rawError: Error | undefined;
-    if (errorOrContext instanceof Error) {
-      rawError = errorOrContext;
-    } else if (messageOrError instanceof Error) {
-      rawError = messageOrError;
-    }
+    const rawError = errorOrContext instanceof Error ? errorOrContext : undefined;
 
     const serializedError = errorOrContext
       ? ErrorSerializer.serialize(errorOrContext)
@@ -770,34 +763,34 @@ export class LoggerService {
 
     const output = this.formatter.format(entry);
 
-    // Check if output is JSON to decide on console behavior
-    // If it's JSON, we typically don't want to append restData as it's already serialized
-    const isJson = output.trim().startsWith('{');
+    // Self-contained formatters (e.g., JSON) include all data in the output string
+    // Non-self-contained formatters (e.g., Console) need additional data passed as console args
+    const isSelfContained = this.formatter.isSelfContained();
 
     switch (level) {
       case LogLevelEnum.trace:
-        if (isJson) {
+        if (isSelfContained) {
           console.trace(output);
         } else {
           console.trace(output, ...(restData || []));
         }
         break;
       case LogLevelEnum.debug:
-        if (isJson) {
+        if (isSelfContained) {
           console.debug(output);
         } else {
           console.debug(output, ...(restData || []));
         }
         break;
       case LogLevelEnum.info:
-        if (isJson) {
+        if (isSelfContained) {
           console.info(output);
         } else {
           console.info(output, ...(restData || []));
         }
         break;
       case LogLevelEnum.warn:
-        if (isJson) {
+        if (isSelfContained) {
           console.warn(output);
         } else {
           console.warn(output, ...(restData || []));
@@ -805,7 +798,7 @@ export class LoggerService {
         break;
       case LogLevelEnum.error:
       case LogLevelEnum.fatal:
-        if (isJson) {
+        if (isSelfContained) {
           console.error(output);
         } else {
           console.error(output, ...(restData || []));
