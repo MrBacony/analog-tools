@@ -667,7 +667,6 @@ export class LoggerService {
     // Backwards compatibility: error(message: string, error?: ErrorParam, ...data: unknown[])
     const message =
       typeof messageOrError === 'string' ? messageOrError : 'Unknown error';
-    
     const rawError = errorOrContext instanceof Error ? errorOrContext : undefined;
 
     const serializedError = errorOrContext
