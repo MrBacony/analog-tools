@@ -1,6 +1,6 @@
 ---
-mode: 'agent'
-tools: ['githubRepo', 'codebase', 'create_issue']
+agent: 'agent'
+tools: ['web/githubRepo', 'search/codebase']
 description: 'Generate a Bug Issue for the given codebase.'
 ---
 
