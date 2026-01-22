@@ -4,21 +4,13 @@
  */
 
 import { LogLevelEnum } from '../logger.types';
+import { ILogFormatter, LogEntry as FormatterLogEntry } from '../formatters/formatter.interface';
 import {
   DeduplicationConfig,
   LogEntry,
   CRITICAL_LEVELS,
   ILogDeduplicator,
 } from './deduplication.types';
-
-/**
- * Type for message formatter function
- */
-export type MessageFormatter = (
-  level: LogLevelEnum,
-  message: string,
-  context?: string
-) => string;
 
 /**
  * Simple log deduplicator that batches identical messages
@@ -29,7 +21,8 @@ export class LogDeduplicator implements ILogDeduplicator {
 
   constructor(
     private config: DeduplicationConfig,
-    private formatMessage: MessageFormatter
+    private formatter: ILogFormatter,
+    private loggerName: string
   ) {}
 
   /**
@@ -142,7 +135,13 @@ export class LogDeduplicator implements ILogDeduplicator {
     }
 
     // Format and output the message
-    const formattedMessage = this.formatMessage(entry.level, message, entry.context);
+    const formattedMessage = this.formatter.format({
+      level: entry.level,
+      message,
+      logger: this.loggerName,
+      timestamp: new Date(entry.firstSeen),
+      context: entry.context || undefined,
+    });
 
     // Use appropriate console method based on level
     switch (entry.level) {

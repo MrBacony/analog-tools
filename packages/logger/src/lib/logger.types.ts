@@ -1,3 +1,5 @@
+import { ILogFormatter } from './formatters/formatter.interface';
+
 /**
  * Enum for dreamy color names with ANSI codes for terminal
  * Each color has 3 shades and a background variant
@@ -213,4 +215,14 @@ export interface LoggerConfig {
     /** Whether to flush immediately on critical levels (default: true) */
     flushOnCritical?: boolean;
   };
+
+  /**
+   * The output formatter to use
+   */
+  formatter?: ILogFormatter;
+
+  /**
+   * The correlation ID for tracking requests
+   */
+  correlationId?: string;
 }
