@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LogDeduplicator } from './deduplicator';
 import { LogLevelEnum } from '../logger.types';
 import { DEFAULT_DEDUPLICATION_CONFIG } from './deduplication.types';
+import { ILogFormatter, LogEntry } from '../formatters/formatter.interface';
 
 // Mock console methods
 const mockConsole = {
@@ -12,11 +13,15 @@ const mockConsole = {
   trace: vi.fn(),
 };
 
-// Mock format function to simulate LoggerService formatting
-const mockFormatMessage = vi.fn((level: LogLevelEnum, message: string, context?: string) => {
-  const prefix = context ? `[test:${context}]` : '[test]';
-  return `${prefix} ${message}`;
-});
+// Mock formatter that implements ILogFormatter
+class MockFormatter implements ILogFormatter {
+  format(entry: LogEntry): string {
+    const prefix = entry.context ? `[test:${entry.context}]` : '[test]';
+    return `${prefix} ${entry.message}`;
+  }
+}
+
+const mockFormatter = new MockFormatter();
 
 describe('LogDeduplicator', () => {
   let deduplicator: LogDeduplicator;
@@ -35,7 +40,8 @@ describe('LogDeduplicator', () => {
     // Create deduplicator with test configuration
     deduplicator = new LogDeduplicator(
       DEFAULT_DEDUPLICATION_CONFIG,
-      mockFormatMessage
+      mockFormatter,
+      'test'
     );
   });
 
@@ -48,7 +54,7 @@ describe('LogDeduplicator', () => {
   describe('Disabled deduplication', () => {
     it('should return true for immediate logging when disabled', () => {
       const config = { ...DEFAULT_DEDUPLICATION_CONFIG, enabled: false };
-      const dedupe = new LogDeduplicator(config, mockFormatMessage);
+      const dedupe = new LogDeduplicator(config, mockFormatter, 'test');
       
       const result = dedupe.addMessage(LogLevelEnum.info, 'test message');
       
@@ -62,7 +68,7 @@ describe('LogDeduplicator', () => {
       // Enable deduplication for these tests
       const config = { ...DEFAULT_DEDUPLICATION_CONFIG, enabled: true };
       deduplicator.destroy();
-      deduplicator = new LogDeduplicator(config, mockFormatMessage);
+      deduplicator = new LogDeduplicator(config, mockFormatter, 'test');
     });
 
     it('should batch identical messages', () => {
@@ -99,7 +105,7 @@ describe('LogDeduplicator', () => {
     beforeEach(() => {
       const config = { ...DEFAULT_DEDUPLICATION_CONFIG, enabled: true };
       deduplicator.destroy();
-      deduplicator = new LogDeduplicator(config, mockFormatMessage);
+      deduplicator = new LogDeduplicator(config, mockFormatter, 'test');
     });
 
     it('should flush batched messages with count', () => {
@@ -133,7 +139,7 @@ describe('LogDeduplicator', () => {
       vi.useFakeTimers();
       const config = { ...DEFAULT_DEDUPLICATION_CONFIG, enabled: true, windowMs: 1000 };
       deduplicator.destroy();
-      deduplicator = new LogDeduplicator(config, mockFormatMessage);
+      deduplicator = new LogDeduplicator(config, mockFormatter, 'test');
     });
 
     afterEach(() => {
@@ -155,7 +161,7 @@ describe('LogDeduplicator', () => {
     beforeEach(() => {
       const config = { ...DEFAULT_DEDUPLICATION_CONFIG, enabled: true };
       deduplicator.destroy();
-      deduplicator = new LogDeduplicator(config, mockFormatMessage);
+      deduplicator = new LogDeduplicator(config, mockFormatter, 'test');
     });
 
     it('should clear entries after flush', () => {
@@ -175,7 +181,7 @@ describe('LogDeduplicator', () => {
     beforeEach(() => {
       const config = { ...DEFAULT_DEDUPLICATION_CONFIG, enabled: true };
       deduplicator.destroy();
-      deduplicator = new LogDeduplicator(config, mockFormatMessage);
+      deduplicator = new LogDeduplicator(config, mockFormatter, 'test');
     });
 
     it('should handle empty messages', () => {
