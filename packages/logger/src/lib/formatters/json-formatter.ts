@@ -39,8 +39,9 @@ export class JsonFormatter implements ILogFormatter {
       }
 
       return JSON.stringify(logObj, null, this.prettyPrint ? 2 : 0);
-    } catch {
+    } catch (error) {
       // Fallback for extreme cases where JSON.stringify fails (rare but possible with non-serializable content)
+      console.error('JsonFormatter: Failed to serialize log entry to JSON.', { error, entry });
       return `${entry.level} [${entry.logger}] ${entry.message} (formatting error)`;
     }
   }
