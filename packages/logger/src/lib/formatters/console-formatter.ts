@@ -25,4 +25,8 @@ export class ConsoleFormatter implements ILogFormatter {
       entry.context
     );
   }
+
+  isSelfContained(): boolean {
+    return false;
+  }
 }
