@@ -23,8 +23,7 @@ export function createServiceToken(name?: string): symbol {
  * Service token registry for mapping classes to symbols
  */
 class ServiceTokenRegistry {
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  private static tokens = new WeakMap<Function, symbol>();
+  private static tokens = new WeakMap<object, symbol>();
   
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static getToken<T>(serviceClass: new (...args: any[]) => T): symbol {
