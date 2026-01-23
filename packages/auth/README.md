@@ -1,56 +1,47 @@
 # @analog-tools/auth
 
-> **⚠️ IMPORTANT: Early Development Stage** ⚠️  
-> This project is in its early development stage. Breaking changes may happen frequently as the APIs evolve. Use with caution in production environments.
+> **Early Development Stage** - Breaking changes may happen frequently as APIs evolve. Pin to specific versions in production.
 
-A comprehensive authentication and authorization solution for AnalogJS applications, providing OAuth 2.0/OpenID Connect integration with session management.
+OAuth 2.0/OpenID Connect authentication for [AnalogJS](https://analogjs.org) applications using a Backend-for-Frontend (BFF) pattern. Tokens are stored server-side only and never exposed to the browser.
 
 [![npm version](https://img.shields.io/npm/v/@analog-tools/auth.svg)](https://www.npmjs.com/package/@analog-tools/auth)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ## Table of Contents
 
-- [Related Packages](#related-packages)
-- [Features](#features)
+- [How It Works](#how-it-works)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Breaking Changes](#breaking-changes)
-- [Configuration Options](#configuration-options)
-  - [Session Storage Options](#session-storage-options)
+- [Configuration](#configuration)
+  - [Session Storage](#session-storage)
+  - [Route Protection](#route-protection)
+  - [File Type Whitelist](#file-type-whitelist)
   - [User Data Handling](#user-data-handling)
-- [Advanced Usage](#advanced-usage)
-  - [Token Refresh Strategy](#token-refresh-strategy)
-  - [CSRF Protection](#csrf-protection)
-  - [Securing API Routes](#securing-api-routes)
-  - [Client-Side Authentication](#client-side-authentication)
-  - [TRPC Integration](#trpc-integration)
-- [Security Considerations](#security-considerations)
-  - [Authentication Best Practices](#authentication-best-practices)
-  - [Production Setup Checklist](#production-setup-checklist)
+- [Built-in Routes](#built-in-routes)
+- [Token Refresh](#token-refresh)
+- [Angular Client Integration](#angular-client-integration)
+  - [Setup](#setup)
+  - [AuthService API](#authservice-api)
+  - [Route Guards](#route-guards)
+  - [tRPC Integration](#trpc-integration)
+- [Security](#security)
 - [Vite Configuration](#vite-configuration)
 - [Troubleshooting](#troubleshooting)
-- [Environment Setup](#environment-setup)
-- [Examples](#examples)
-- [Package Architecture](#package-architecture)
-- [Contributing](#contributing)
+- [Breaking Changes](#breaking-changes)
+- [Related Packages](#related-packages)
 - [License](#license)
 
-## Related Packages
+## How It Works
 
-This package builds upon other `@analog-tools` packages:
+The package implements the BFF authentication pattern:
 
-- **[@analog-tools/session](https://github.com/MrBacony/analog-tools/tree/main/packages/session)**: For detailed session management and storage configuration options
-- **[@analog-tools/inject](https://github.com/MrBacony/analog-tools/tree/main/packages/inject)**: For dependency injection
-- **[@analog-tools/logger](https://github.com/MrBacony/analog-tools/tree/main/packages/logger)**: For structured logging
+1. The user clicks "Login" and the browser redirects to `/api/auth/login`
+2. The server generates a CSRF state token, stores it in the session, and redirects to the OAuth provider
+3. After successful login, the provider redirects back to `/api/auth/callback`
+4. The server verifies the state parameter, exchanges the authorization code for tokens, and stores everything in a server-side session
+5. The browser receives only an HMAC-SHA256 signed session cookie -- no tokens leave the server
 
-## Features
-
-- 🔐 **OAuth 2.0/OpenID Connect Support**: Seamless integration with OAuth providers (Auth0, Keycloak, etc.)
-- 🚪 **Route Protection**: Easily protect routes requiring authentication
-- 🔄 **Token Management**: Automatic token refresh and expiration handling
-- 🍪 **Session Management**: Secure session handling with customizable storage options (powered by `@analog-tools/session`)
-- 👤 **User Management**: Extensible user data handling and mapping
-- 🔒 **Security Best Practices**: CSRF protection, secure cookies, and proper token validation
+This keeps access tokens, refresh tokens, and ID tokens out of browser storage entirely.
 
 ## Installation
 
@@ -58,110 +49,21 @@ This package builds upon other `@analog-tools` packages:
 npm install @analog-tools/auth
 ```
 
-## Breaking Changes
+Peer dependencies:
 
-### Version 0.x.x (Current)
-
-> **Note**: As this package is in early development (pre-1.0.0), breaking changes may occur without major version bumps. We recommend:
-> - Pinning to specific versions in production
-> - Reviewing changelogs before updating
-> - Testing thoroughly after updates
-
-#### Known Breaking Changes
-
-**v0.0.12** - Session Storage Configuration Type Change
-
-The `SessionStorageConfig` type has been refactored to use a unified driver-based approach:
-
-**Before (v0.0.11)**:
-```typescript
-sessionStorage: {
-  type: 'redis' | 'memory' | 'cloudflare-kv',
-  config: RedisSessionConfig | MemorySessionConfig | CookieSessionConfig
-}
+```bash
+npm install h3 uncrypto
 ```
 
-**After (v0.0.12)**:
-```typescript
-sessionStorage: {
-  ttl?: number;
-  prefix?: string;
-  sessionSecret?: string;
-  driver: {
-    type: string; // 'redis', 'cloudflare-kv-binding', 'fs', etc.
-    options: Record<string, any>;
-  }
-}
+For the Angular client integration, you also need:
+
+```bash
+npm install @analogjs/router @angular/core @angular/common @angular/router rxjs
 ```
-
-**Migration Guide**:
-
-If you were using Redis storage:
-```typescript
-// Before
-sessionStorage: {
-  type: 'redis',
-  config: {
-    host: 'localhost',
-    port: 6379,
-    password: 'your-password',
-    db: 0,
-    sessionSecret: 'your-secret',
-    maxAge: 86400
-  }
-}
-
-// After
-sessionStorage: {
-  sessionSecret: 'your-secret',
-  ttl: 86400,
-  driver: {
-    type: 'redis',
-    options: {
-      host: 'localhost',
-      port: 6379,
-      password: 'your-password',
-      db: 0
-    }
-  }
-}
-```
-
-If you were using Cloudflare KV:
-```typescript
-// Before - Not supported
-
-// After
-sessionStorage: {
-  sessionSecret: 'your-secret',
-  ttl: 86400,
-  driver: {
-    type: 'cloudflare-kv-binding',
-    options: {
-      binding: 'MY_KV_NAMESPACE'
-    }
-  }
-}
-```
-
-For other supported drivers, see the [@analog-tools/session Storage Factory documentation](https://github.com/MrBacony/analog-tools/tree/main/packages/session#storage-factory).
-
-- **Memory Storage**: The memory storage option is currently non-functional and should not be used. Use Redis, Cloudflare KV, or other persistent storage backends instead.
-
-#### Upcoming Changes
-
-The following changes are planned for future releases:
-
-- User handler callback signatures may be enhanced
-- Additional authentication strategies may be added
-
-We will maintain this section with detailed migration guides as the package matures toward a stable 1.0.0 release.
 
 ## Quick Start
 
-Add OAuth authentication to your AnalogJS application in just a few steps:
-
-1. **Configure middleware in your app**:
+Create a middleware file that runs on every request:
 
 ```typescript
 // src/server/middleware/auth.ts
@@ -172,19 +74,23 @@ const authConfig: AnalogAuthConfig = {
   issuer: process.env['AUTH_ISSUER'] || '',
   clientId: process.env['AUTH_CLIENT_ID'] || '',
   clientSecret: process.env['AUTH_CLIENT_SECRET'] || '',
-  // Optional audience for providers like Auth0
-  audience: process.env['AUTH_AUDIENCE'] || '',
-  scope: process.env['AUTH_SCOPE'] || 'openid profile email',
+  scope: 'openid profile email',
   callbackUri: process.env['AUTH_CALLBACK_URL'] || 'http://localhost:3000/api/auth/callback',
-  // Routes that don't require authentication
-  // Supports both exact matching and wildcard patterns
   unprotectedRoutes: [
-    '/',                    // Root page (exact match)
-    '/imprint',             // Legal pages (exact match)
-    '/help',                // Help page (exact match)  
-    '/api/public/*',        // All public API endpoints
-    '/static/*',            // Static assets
+    '/',
+    '/api/public/*',
   ],
+  whitelistFileTypes: ['.css', '.js', '.png', '.svg', '.ico', '.woff2'],
+  sessionStorage: {
+    sessionSecret: process.env['SESSION_SECRET'] || 'change-me-in-production',
+    ttl: 86400,
+    driver: {
+      type: 'redis',
+      options: {
+        url: process.env['REDIS_URL'] || 'redis://localhost:6379',
+      },
+    },
+  },
 };
 
 export default defineEventHandler(async (event: H3Event) => {
@@ -192,430 +98,193 @@ export default defineEventHandler(async (event: H3Event) => {
 });
 ```
 
-## Configuration Options
+That single middleware registers all auth routes and protects everything not listed in `unprotectedRoutes`.
 
-The `useAnalogAuth` function accepts a configuration object with the following options:
+## Configuration
 
-| Option              | Type                 | Description                                                  | Required |
-| ------------------- | -------------------- | ------------------------------------------------------------ | -------- |
-| `issuer`            | string               | The OAuth issuer URL (your Identity Provider)                | Yes      |
-| `clientId`          | string               | Your OAuth client ID                                         | Yes      |
-| `clientSecret`      | string               | Your OAuth client secret                                     | Yes      |
-| `audience`          | string               | The API audience (needed for certain providers like Auth0)   | No       |
-| `scope`             | string               | OAuth scopes to request (defaults to 'openid profile email') | No       |
-| `callbackUri`       | string               | The callback URL registered with your OAuth provider         | Yes      |
-| `tokenRefreshApiKey`| string               | API key for securing token refresh endpoints                 | No       |
-| `unprotectedRoutes` | string[]             | Array of routes that don't require authentication (supports exact matching and wildcards) | No       |
-| `logoutUrl`         | string               | URL to redirect to after logout                              | No       |
-| `sessionStorage`    | SessionStorageConfig | Session storage configuration (see below)                    | No       |
-| `userHandler`       | UserHandler          | Callbacks for user data processing (see below)               | No       |
+The `AnalogAuthConfig` type accepts these options:
 
-### Route Protection Patterns
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `issuer` | `string` | Yes | OAuth/OIDC provider URL (e.g., `https://auth.example.com/realms/my-realm`) |
+| `clientId` | `string` | Yes | OAuth client ID |
+| `clientSecret` | `string` | Yes | OAuth client secret |
+| `callbackUri` | `string` | Yes | Callback URL registered with your provider |
+| `scope` | `string` | Yes | OAuth scopes (e.g., `"openid profile email"`) |
+| `sessionStorage` | `SessionStorageConfig` | Yes | Session storage configuration (see below) |
+| `audience` | `string` | No | API audience identifier (required by some providers like Auth0) |
+| `unprotectedRoutes` | `string[]` | No | Routes that bypass authentication |
+| `whitelistFileTypes` | `string[]` | No | File extensions that bypass authentication (e.g., `['.css', '.js']`) |
+| `tokenRefreshApiKey` | `string` | No | API key for the `/api/auth/refresh-tokens` endpoint |
+| `logoutUrl` | `string` | No | URL to redirect to after OAuth provider logout |
+| `userHandler` | `UserHandler` | No | Callbacks for user data processing |
 
-The `unprotectedRoutes` configuration supports both exact route matching and wildcard patterns:
+### Session Storage
 
-#### Exact Route Matching
-
-Routes specified without wildcards require exact matches. Both routes with and without trailing slashes are automatically matched:
-
-```typescript
-unprotectedRoutes: ['/api/public', '/help']
-
-// ✅ Unprotected routes:
-// '/api/public' matches both '/api/public' and '/api/public/'
-// '/help' matches both '/help' and '/help/'
-
-// ❌ Protected routes (require authentication):
-// '/api/public/images' - not an exact match
-// '/help/contact' - not an exact match
-```
-
-#### Wildcard Patterns
-
-Routes ending with `*` will unprotect all subpaths but require actual content after the base path:
+Session storage uses `@analog-tools/session` which wraps [unstorage](https://unstorage.unjs.io/drivers). You must provide a `driver` configuration:
 
 ```typescript
-unprotectedRoutes: ['/api/public/*', '/static/*']
-
-// ✅ Unprotected routes:
-// '/api/public/images' - has content after base path
-// '/api/public/css/style.css' - has content after base path
-// '/static/assets/logo.png' - has content after base path
-
-// ❌ Protected routes (require authentication):
-// '/api/public' - no wildcard content
-// '/api/public/' - only trailing slash, no actual content
-// '/static' - no wildcard content
-```
-
-#### Practical Examples
-
-```typescript
-const authConfig: AnalogAuthConfig = {
-  // ...other config
-  unprotectedRoutes: [
-    '/',                    // Only the root path
-    '/login',               // Login page (exact match)
-    '/api/health',          // Health check endpoint (exact match)
-    '/api/public/*',        // All public API routes with subpaths
-    '/static/*',            // All static assets with subpaths
-    '/docs/*',              // All documentation routes with subpaths
-  ]
-};
-```
-
-| Route Pattern | Request Path | Protected? | Reason |
-|---------------|-------------|------------|---------|
-| `'/'` | `/` | ❌ No | Exact match for root |
-| `'/'` | `/home` | ✅ Yes | Not an exact match |
-| `'/api/public'` | `/api/public` | ❌ No | Exact match |
-| `'/api/public'` | `/api/public/` | ❌ No | Trailing slash normalized |
-| `'/api/public/*'` | `/api/public` | ✅ Yes | No wildcard content |
-| `'/api/public/*'` | `/api/public/` | ✅ Yes | Only trailing slash |
-| `'/api/public/*'` | `/api/public/images` | ❌ No | Has actual subpath |
-
-### Session Storage Options
-
-By default, the auth package uses Redis for session storage. You can configure this with:
-
-```typescript
-useAnalogAuth(
-  {
-    // ...other options
-    sessionStorage: {
-      type: 'redis',
-      config: {
-        host: 'localhost',
-        port: 6379,
-        password: 'your-password',
-        db: 0,
-        tls: false,
-        keyPrefix: 'auth-session:',
-        maxAge: 86400, // 24 hours in seconds
-        sessionSecret: 'your-session-secret',
-      },
+sessionStorage: {
+  sessionSecret: 'your-secret-key',  // Used for HMAC-SHA256 cookie signing
+  ttl: 86400,                         // Session TTL in seconds (default: 24h)
+  prefix: 'auth-session',             // Optional key prefix in storage
+  driver: {
+    type: 'redis',
+    options: {
+      url: 'redis://localhost:6379',
     },
   },
-  event
-);
+}
 ```
 
-Alternative storage options:
-
-**Memory Storage**:
-
-> **⚠️ WARNING: NOT WORKING** - Memory storage is currently not functioning properly. Do not use this option. Use Redis, Cloudflare KV, or another storage backend instead.
+**Redis with host/port:**
 
 ```typescript
-// ❌ DO NOT USE - Currently not working
-useAnalogAuth(
-  {
-    // ...other options
-    sessionStorage: {
-      type: 'memory',
-      config: {
-        sessionSecret: 'your-session-secret',
-        maxAge: 86400  // 24 hours in seconds
-      }
-    }
-  }, 
-  event
-);
+driver: {
+  type: 'redis',
+  options: {
+    host: 'localhost',
+    port: 6379,
+    password: 'your-password',
+    db: 0,
+  },
+}
 ```
 
-**Other Storage Options:**
-
-The session management in this package is powered by `@analog-tools/session`, which supports all [Unstorage drivers](https://unstorage.unjs.io/drivers).
-
-For a complete list of available storage drivers and detailed configuration examples (including Cloudflare KV, File System, MongoDB, Vercel KV, and more), see the **[@analog-tools/session Storage Factory documentation](https://github.com/MrBacony/analog-tools/tree/main/packages/session#storage-factory)**.
-
-Quick example with Cloudflare KV:
+**Cloudflare KV:**
 
 ```typescript
-useAnalogAuth(
-  {
-    // ...other options
-    sessionStorage: {
-      sessionSecret: 'your-session-secret',
-      maxAge: 86400,
-      driver: {
-        type: 'cloudflare-kv-binding',
-        options: {
-          binding: 'MY_KV_NAMESPACE'
-        }
-      }
-    }
-  }, 
-  event
-);
+driver: {
+  type: 'cloudflare-kv-binding',
+  options: {
+    binding: 'MY_KV_NAMESPACE',
+  },
+}
 ```
+
+**File system (development only):**
+
+```typescript
+driver: {
+  type: 'fs',
+  options: {
+    base: './.sessions',
+  },
+}
+```
+
+Any [unstorage driver](https://unstorage.unjs.io/drivers) works here. See `@analog-tools/session` for the full list.
+
+> **Note:** Memory storage (`type: 'memory'`) is currently non-functional. Use Redis, Cloudflare KV, or file system instead.
+
+### Route Protection
+
+The `unprotectedRoutes` array supports exact matches and wildcard patterns:
+
+```typescript
+unprotectedRoutes: [
+  '/',              // Exact match (with or without trailing slash)
+  '/login',         // Exact match
+  '/api/public/*',  // Wildcard: matches /api/public/anything but NOT /api/public or /api/public/
+  '/docs/*',        // Wildcard: matches /docs/getting-started, /docs/api/auth, etc.
+]
+```
+
+**Matching rules:**
+
+| Pattern | Path | Matches? | Reason |
+|---------|------|----------|--------|
+| `'/'` | `/` | Yes | Exact match |
+| `'/'` | `/home` | No | Not exact |
+| `'/api/public'` | `/api/public` | Yes | Exact match |
+| `'/api/public'` | `/api/public/` | Yes | Trailing slash normalized |
+| `'/api/public'` | `/api/public/data` | No | Not exact |
+| `'/api/public/*'` | `/api/public` | No | Wildcard requires content after prefix |
+| `'/api/public/*'` | `/api/public/` | No | Only trailing slash, no content |
+| `'/api/public/*'` | `/api/public/data` | Yes | Has content after prefix |
+
+All routes not listed in `unprotectedRoutes` require a valid session. Unauthenticated browser requests get redirected to `/api/auth/login`. API requests (with `fetch: 'true'` header) receive a 401 response.
+
+### File Type Whitelist
+
+Static assets typically don't need authentication checks. Use `whitelistFileTypes` to skip auth for requests matching file extensions:
+
+```typescript
+whitelistFileTypes: ['.css', '.js', '.png', '.svg', '.ico', '.woff2', '.jpg']
+```
+
+Extensions are normalized (case-insensitive, leading dot optional). This check runs before route matching, so it's efficient for high-traffic static asset requests.
 
 ### User Data Handling
 
-You can customize how user data is stored and retrieved with the `userHandler` option:
+The optional `userHandler` lets you customize what gets stored in the session after authentication:
 
 ```typescript
-useAnalogAuth(
-  {
-    // ...other options
-    userHandler: {
-      // Called when a user authenticates - store user in your database
-      createOrUpdateUser: async (userInfo) => {
-        // Example: store or update user in your database
-        const user = await db.users.upsert({
-          where: { sub: userInfo.sub },
-          update: {
-            name: userInfo.name,
-            email: userInfo.email,
-            lastLogin: new Date(),
-          },
-          create: {
-            sub: userInfo.sub,
-            name: userInfo.name,
-            email: userInfo.email,
-          },
-        });
-
-        return user; // This becomes the user object in the session
-      },
-
-      // Map user data to what your application needs
-      mapUserToLocal: (userInfo) => {
-        // Return a simplified user object for your application
-        return {
-          id: userInfo.id,
-          name: userInfo.name,
-          email: userInfo.email,
-          roles: userInfo.roles || [],
-          isAdmin: userInfo.roles?.includes('admin') || false,
-        };
-      },
-    },
+userHandler: {
+  // Called after token exchange - persist user to your database
+  createOrUpdateUser: async (userInfo) => {
+    const user = await db.users.upsert({
+      where: { sub: userInfo.sub },
+      update: { lastLogin: new Date() },
+      create: { sub: userInfo.sub, name: userInfo.name, email: userInfo.email },
+    });
+    return user;  // This object is stored as session.user
   },
-  event
-);
-```
 
-## Advanced Usage
-
-### Token Refresh Strategy
-
-The package implements three token refresh strategies:
-
-1. **Lazy Refresh**: Tokens are refreshed only when needed
-2. **Proactive Refresh**: Tokens that are close to expiration are refreshed in the background
-3. **Scheduled Refresh**: A scheduled task can refresh tokens before they expire
-
-To implement scheduled refresh (recommended for production):
-
-```typescript
-// src/server/routes/api/cron/refresh-tokens.ts
-import { defineEventHandler } from 'h3';
-import { inject } from '@analog-tools/inject';
-import { OAuthAuthenticationService } from '@analog-tools/auth';
-
-export default defineEventHandler(async () => {
-  const authService = inject(OAuthAuthenticationService);
-  const result = await authService.refreshExpiringTokens();
-
-  return {
-    message: `Token refresh complete. Refreshed: ${result.refreshed}, Failed: ${result.failed}, Total sessions: ${result.total}`,
-  };
-});
-```
-
-Then configure a CRON job to call this endpoint regularly (every 5 minutes is recommended).
-
-### CSRF Protection
-
-The package includes CSRF protection by using the OAuth state parameter. Always verify this parameter in your callback handler as shown in the examples.
-
-### Securing API Routes
-
-The middleware automatically protects all routes except those specified in `unprotectedRoutes`. For manual authentication checks in your API routes:
-
-```typescript
-// src/server/routes/api/protected-data.ts
-import { defineEventHandler, createError } from 'h3';
-import { checkAuthentication } from '@analog-tools/auth';
-import { inject } from '@analog-tools/inject';
-
-export default defineEventHandler(async (event) => {
-  // Manually check if user is authenticated
-  if (!(await checkAuthentication(event))) {
-    throw createError({
-      statusCode: 401,
-      message: 'Authentication required',
-    });
-  }
-  
-  // Access session data from event context
-  const { session } = event.context;
-  
-  return {
-    message: 'Protected data',
-    user: session.user
-  };
-});
-```
-
-### Client-Side Authentication
-
-The package provides a complete Angular integration through the `@analog-tools/auth/angular` entry point. This integration includes:
-
-- An `AuthService` for managing authentication state
-- Route guards for protecting Angular routes
-- HTTP interceptors for handling 401 responses and authorization headers
-
-### TRPC Integration
-
-The `@analog-tools/auth/angular` package provides seamless integration with tRPC for Angular applications, handling authentication automatically.
-
-#### 1. TRPC Client Setup
-
-Use the `createTrpcClientWithAuth` function to wrap your TRPC client with authentication support:
-
-```typescript
-// src/trpc-client.ts
-import { AppRouter } from './server/trpc/routers';
-import { createTrpcClient } from '@analogjs/trpc';
-import { inject } from '@angular/core';
-import { SuperJSON } from 'superjson';
-import { createTrpcClientWithAuth } from '@analog-tools/auth-angular';
-import { injectRequest } from '@analogjs/router/tokens';
-
-// Create the TRPC client with AnalogJS
-export const { provideTrpcClient, TrpcClient, TrpcHeaders } =
-  createTrpcClient<AppRouter>({
-    url: '/api/trpc',
-    options: {
-      transformer: SuperJSON,
-    },
-  });
-
-// Create a function to inject the authenticated TRPC client
-export function injectTrpcClient() {
-  return createTrpcClientWithAuth(inject(TrpcClient), injectRequest(), TrpcHeaders);
+  // Called when reading user from session - transform for your app's needs
+  mapUserToLocal: (userInfo) => ({
+    id: userInfo.sub,
+    name: userInfo.name,
+    email: userInfo.email,
+    roles: userInfo.realm_access?.roles || [],
+  }),
 }
 ```
 
-#### 2. TRPC Context Configuration
+## Built-in Routes
 
-Set up your TRPC context to pass the H3 event:
+The middleware automatically registers these routes under `/api/auth/`:
 
-```typescript
-// src/server/trpc/context.ts
-import { inferAsyncReturnType } from '@trpc/server';
-import type { H3Event } from 'h3';
+| Route | Method | Auth Required | Description |
+|-------|--------|---------------|-------------|
+| `/api/auth/login` | GET | No | Redirects to OAuth provider. Accepts `?redirect_uri=` for post-login redirect. |
+| `/api/auth/callback` | GET | No | Handles OAuth provider callback, exchanges code for tokens. |
+| `/api/auth/logout` | GET | No | Revokes tokens, clears session, redirects to provider logout. |
+| `/api/auth/authenticated` | GET | No | Returns `{ authenticated: boolean }`. |
+| `/api/auth/user` | GET | Yes | Returns the authenticated user object. |
+| `/api/auth/refresh-tokens` | GET | No* | Bulk refresh of expiring tokens. Requires `Authorization: Bearer <tokenRefreshApiKey>` header. |
 
-export const createContext = (event: H3Event) => {
-  // Pass the H3 event to tRPC context so we can access session data
-  return { event };
-};
+*The refresh-tokens endpoint uses API key auth rather than session auth.
 
-export type Context = inferAsyncReturnType<typeof createContext>;
+## Token Refresh
+
+The package implements three refresh strategies:
+
+**1. Lazy refresh** -- When a request arrives with an expired token, the middleware attempts a refresh before returning 401.
+
+**2. Proactive refresh** -- If a token is within 5 minutes of expiry (`TOKEN_REFRESH_SAFETY_MARGIN = 300`), a background refresh fires without blocking the current request.
+
+**3. Scheduled refresh** -- For production, configure a CRON job to hit the bulk refresh endpoint:
+
+```bash
+# Every 4 minutes, refresh tokens expiring in the next 5 minutes
+curl -X GET https://your-app.com/api/auth/refresh-tokens \
+  -H "Authorization: Bearer YOUR_TOKEN_REFRESH_API_KEY"
 ```
 
-#### 3. Authentication Middleware
+The endpoint iterates all active sessions, refreshes tokens within the safety margin, and returns:
 
-Create an authentication middleware for protected routes:
-
-```typescript
-// src/server/trpc/trpc.ts
-import { initTRPC, TRPCError } from '@trpc/server';
-import { Context } from './context';
-import { SuperJSON } from 'superjson';
-import { checkAuthentication } from '@analog-tools/auth';
-
-const t = initTRPC.context<Context>().create({
-  transformer: SuperJSON,
-});
-
-// Middleware to check if user is authenticated
-const isAuthenticated = t.middleware(async ({ ctx, next }) => {
-  if (!(await checkAuthentication(ctx.event))) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'User is not authenticated',
-    });
-  }
-
-  return next({
-    ctx: {
-      ...ctx,
-      // You could add user info here if needed
-    },
-  });
-});
-
-// Unprotected procedure - can be accessed without authentication
-export const publicProcedure = t.procedure;
-
-// Protected procedure - requires authentication
-export const protectedProcedure = t.procedure.use(isAuthenticated);
-
-export const router = t.router;
-export const middleware = t.middleware;
+```json
+{ "success": true, "refreshed": 12, "failed": 0, "total": 45 }
 ```
 
-#### Using Protected TRPC Routes
+Set the `tokenRefreshApiKey` in your config to secure this endpoint.
 
-Define your TRPC router with protected routes:
+## Angular Client Integration
 
-```typescript
-// src/server/trpc/routers/my-router.ts
-import { protectedProcedure, publicProcedure, router } from '../trpc';
+The `@analog-tools/auth/angular` entry point provides Angular services for the client side of the BFF pattern. It communicates with the server-side auth routes to determine authentication state.
 
-export const myRouter = router({
-  // Public route - no authentication required
-  public: publicProcedure.query(() => {
-    return { message: 'This is public data' };
-  }),
-  
-  // Protected route - requires authentication
-  protected: protectedProcedure.query(() => {
-    return { message: 'This is protected data' };
-  }),
-});
-```
-
-#### Error Handling
-
-The auth-angular package automatically handles authentication errors from TRPC calls. The `wrapTrpcClientWithErrorHandling` function adds error handling for auth-related errors:
-
-```typescript
-// In your component
-import { Component } from '@angular/core';
-import { injectTrpcClient } from '../trpc-client';
-
-@Component({
-  selector: 'app-my-component',
-  template: `
-    <button (click)="fetchProtectedData()">Fetch Protected Data</button>
-    <div *ngIf="data">{{ data | json }}</div>
-  `,
-})
-export class MyComponent {
-  private trpc = injectTrpcClient();
-  data: any;
-
-  fetchProtectedData() {
-    // Will automatically handle auth errors
-    this.trpc.my.protected.query().subscribe({
-      next: (result) => {
-        this.data = result;
-      },
-      error: (err) => {
-        console.error('Error fetching data:', err);
-      },
-    });
-  }
-}
-```
-
-#### Setup Angular Integration
-
-First, add the auth providers to your `app.config.ts`:
+### Setup
 
 ```typescript
 // src/app/app.config.ts
@@ -626,172 +295,160 @@ import { provideAuthClient, authInterceptor } from '@analog-tools/auth/angular';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    // AnalogJS providers
     provideFileRouter(),
-    
-    // HTTP client with auth interceptor
-    provideHttpClient(
-      withInterceptors([authInterceptor])
-    ),
-    
-    // Auth client provider
+    provideHttpClient(withInterceptors([authInterceptor])),
     provideAuthClient(),
   ],
 };
 ```
 
-#### Using the Auth Service
+The `authInterceptor` does two things:
+- Adds a `fetch: 'true'` header to requests so the server returns 401 instead of redirecting
+- Catches 401 responses and redirects the browser to `/api/auth/login`
 
-Inject the provided `AuthService` in your components:
+### AuthService API
 
 ```typescript
-// src/app/pages/profile.page.ts
-import { Component, inject, effect } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, inject } from '@angular/core';
 import { AuthService } from '@analog-tools/auth/angular';
 
 @Component({
   standalone: true,
   template: `
-    @if (auth.isLoading()) {
-      <div>Loading...</div>
-    } @else if (auth.user(); as user) {
-      <div class="profile">
-        <h1>Welcome, {{ user.name }}</h1>
-        <p>Email: {{ user.email }}</p>
-        <button (click)="auth.logout()">Logout</button>
-      </div>
+    @if (auth.isAuthenticated()) {
+      <p>Hello, {{ auth.user()?.fullName }}</p>
+      <button (click)="auth.logout()">Logout</button>
     } @else {
-      <div>
-        <h1>Please log in</h1>
-        <button (click)="auth.login()">Login</button>
-      </div>
+      <button (click)="auth.login()">Login</button>
     }
   `,
 })
-export default class ProfilePage {
+export default class HomePage {
   auth = inject(AuthService);
 }
 ```
 
-#### Using Route Guards
+**Signals:**
 
-Protect your routes with the built-in auth guards:
+| Signal | Type | Description |
+|--------|------|-------------|
+| `isAuthenticated` | `Signal<boolean>` | `true` when the server confirms a valid session. Polls every 5 minutes. |
+| `user` | `Signal<AuthUser \| null>` | User profile fetched from `/api/auth/user` when authenticated. |
 
-```typescript
-// src/app/pages/admin.page.ts
-import { Component } from '@angular/core';
-import { authGuard, roleGuard } from '@analog-tools/auth/angular';
+**Methods:**
 
-export const routeMeta = {
-  title: 'Admin Page',
-  canActivate: [authGuard], // Requires authentication
-};
+| Method | Description |
+|--------|-------------|
+| `login(targetUrl?: string)` | Redirects browser to `/api/auth/login`. Pass a URL to return to after auth. |
+| `logout()` | Redirects browser to `/api/auth/logout`. |
+| `hasRoles(roles: string[])` | Returns `true` if the user has any of the specified roles. |
 
-@Component({
-  template: `<h1>Admin Page</h1>`,
-})
-export default class AdminPage {}
-```
-
-For role-based access control, use the `roleGuard` with route data:
+**`AuthUser` shape:**
 
 ```typescript
-// src/app/pages/super-admin.page.ts
-import { Component } from '@angular/core';
-import { roleGuard } from '@analog-tools/auth/angular';
-
-export const routeMeta = {
-  title: 'Super Admin Page',
-  canActivate: [roleGuard],
-  data: {
-    roles: ['admin', 'super-admin'], // Requires any of these roles
-  },
-};
-
-@Component({
-  template: `<h1>Super Admin Panel</h1>`,
-})
-export default class SuperAdminPage {}
-```
-
-#### User Authentication Management
-
-The package automatically handles user data transformation from various OAuth providers into a standardized format through the `AuthService`:
-
-```typescript
-// src/app/services/user.service.ts
-import { Injectable, inject } from '@angular/core';
-import { AuthService, AuthUser } from '@analog-tools/auth/angular';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class UserService {
-  private authService = inject(AuthService);
-  
-  // The AuthService automatically handles user data transformation
-  getCurrentUser(): AuthUser | null {
-    return this.authService.user();
-  }
-  
-  hasAdminAccess(): boolean {
-    return this.authService.hasRoles(['admin']);
-  }
+interface AuthUser {
+  username: string;
+  fullName: string;
+  givenName: string;
+  familyName: string;
+  picture?: string;
+  email?: string;
+  emailVerified?: boolean;
+  locale?: string;
+  roles?: string[];
 }
 ```
 
-##### Supported Identity Providers
+The `AuthService` automatically transforms provider-specific user data (Auth0, Keycloak, generic OIDC) into this normalized format.
 
-The package automatically handles user data from various OAuth providers:
-
-- **Auth0**: Properly handles Auth0 user profile data and roles
-- **Keycloak**: Correctly maps realm and client roles
-- **Generic OIDC**: Supports standard OpenID Connect claims
-
-The `AuthService` internally handles all the transformation logic, so you don't need to worry about the specifics of each provider.
-```
-
-#### Auth Service API
-
-The `AuthService` provides several key methods and properties:
+### Route Guards
 
 ```typescript
-// Core user state
-user: Signal<AuthUser | null>;       // User data
-isAuthenticated: Signal<boolean>;    // Is user authenticated
-isLoading: Signal<boolean>;          // Auth state loading indicator
+// Require authentication
+import { authGuard } from '@analog-tools/auth/angular';
 
-// Methods
-login(targetUrl?: string): void;     // Redirect to login, with optional return URL
-logout(): void;                      // Logout and redirect
-checkAuthentication(): Promise<boolean>; // Force auth status check
-hasRoles(roles: string[]): boolean;  // Check if user has specified roles
+export const routeMeta = {
+  canActivate: [authGuard],
+};
 ```
 
-## Security Considerations
+```typescript
+// Require specific roles
+import { roleGuard } from '@analog-tools/auth/angular';
 
-### Authentication Best Practices
+export const routeMeta = {
+  canActivate: [roleGuard],
+  data: {
+    roles: ['admin', 'editor'],  // User needs at least one of these
+  },
+};
+```
 
-1. **Environment Variables**: Store sensitive values like `clientSecret` in environment variables
-2. **HTTPS Required**: Always use HTTPS in production environments
-3. **Secure Cookies**: The package configures secure cookies in production automatically
-4. **Token Storage**: Tokens are only stored server-side, never exposed to the client
-5. **Token Validation**: All tokens are properly validated before use
-6. **CSRF Protection**: State parameter validation prevents cross-site request forgery
+The `authGuard` redirects to login if unauthenticated. The `roleGuard` redirects to `/access-denied` if the user lacks the required roles.
 
-### Production Setup Checklist
+### tRPC Integration
 
-1. Set `NODE_ENV=production` to enable secure defaults
-2. Configure a strong random `SESSION_SECRET` for cookie signing
-3. Use Redis or another persistent store for sessions (in-memory is not suitable for production)
-4. Set up token refresh mechanism (preferably scheduled refresh)
-5. Configure proper CORS settings if your API is on a different domain
-6. Implement rate limiting for auth endpoints to prevent brute force attacks
+The package provides `createTrpcClientWithAuth` to forward session cookies through tRPC calls:
+
+```typescript
+// src/trpc-client.ts
+import { createTrpcClient } from '@analogjs/trpc';
+import { inject } from '@angular/core';
+import { injectRequest } from '@analogjs/router/tokens';
+import { createTrpcClientWithAuth } from '@analog-tools/auth/angular';
+import { AppRouter } from './server/trpc/routers';
+
+export const { provideTrpcClient, TrpcClient, TrpcHeaders } =
+  createTrpcClient<AppRouter>({
+    url: '/api/trpc',
+  });
+
+export function injectTrpcClient() {
+  return createTrpcClientWithAuth(inject(TrpcClient), injectRequest(), TrpcHeaders);
+}
+```
+
+On the server side, use `checkAuthentication` in a tRPC middleware:
+
+```typescript
+// src/server/trpc/trpc.ts
+import { initTRPC, TRPCError } from '@trpc/server';
+import { checkAuthentication } from '@analog-tools/auth';
+
+const t = initTRPC.context<{ event: H3Event }>().create();
+
+const isAuthenticated = t.middleware(async ({ ctx, next }) => {
+  if (!(await checkAuthentication(ctx.event))) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' });
+  }
+  return next({ ctx });
+});
+
+export const publicProcedure = t.procedure;
+export const protectedProcedure = t.procedure.use(isAuthenticated);
+```
+
+## Security
+
+**What the package handles:**
+- Tokens stored server-side only (BFF pattern)
+- HMAC-SHA256 signed session cookies via `uncrypto`
+- CSRF protection via OAuth `state` parameter (UUID generated per login, validated on callback)
+- `httpOnly`, `secure`, `sameSite: 'lax'` cookies (secure flags enabled when `NODE_ENV=production`)
+- Token revocation on logout (both access and refresh tokens)
+- Retry logic with exponential backoff for provider communication failures
+
+**Production checklist:**
+- Set `NODE_ENV=production` for secure cookie defaults
+- Use a strong random `sessionSecret` (at least 32 characters)
+- Use persistent storage (Redis, Cloudflare KV) -- not memory or filesystem
+- Configure `tokenRefreshApiKey` and set up a CRON job for scheduled token refresh
+- Set up HTTPS (required for `secure` cookies)
+- Add rate limiting to auth endpoints in your infrastructure
 
 ## Vite Configuration
 
-When using `@analog-tools/auth` with AnalogJS, you need to configure Vite to properly handle the package during server-side rendering. Add the package to the `noExternal` array in your `vite.config.ts`:
+Add the package to `ssr.noExternal` so Vite bundles it for SSR:
 
 ```typescript
 // vite.config.ts
@@ -799,198 +456,80 @@ import analog from '@analogjs/platform';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // ...other config
   ssr: {
-    noExternal: ['@analogjs/trpc', '@trpc/server', '@analog-tools/auth'],
+    noExternal: ['@analog-tools/**'],
   },
-  // ...other config
 });
 ```
 
 ## Troubleshooting
 
-### Common Issues
+**"Failed to fetch OpenID configuration"**
+- Verify the `issuer` URL is correct and reachable from your server
+- The package fetches `{issuer}/.well-known/openid-configuration` and caches it for 1 hour
 
-**Error: Failed to fetch OpenID configuration**
+**"Failed to exchange authorization code"**
+- Check that `callbackUri` exactly matches what's registered with your OAuth provider (including protocol and port)
+- Verify `clientId` and `clientSecret` are correct
 
-- Check your internet connection
-- Verify the issuer URL is correct
-- Ensure the OAuth provider is online
+**"Invalid or missing state parameter"**
+- The session may have expired between the login redirect and the callback
+- Check that your session storage is working (Redis connection, KV binding, etc.)
 
-**Error: Failed to exchange authorization code**
+**401 on routes that should be unprotected**
+- Wildcard patterns (`/api/public/*`) require actual path content after the prefix
+- `/api/public/` alone does not match -- there must be something after the slash
 
-- Check that `clientId` and `clientSecret` are correct
-- Verify that `callbackUri` matches what's registered with your provider
+**Angular AuthService shows `isAuthenticated = false` after login**
+- Ensure `provideAuthClient()` is in your app config
+- Check that the `authInterceptor` is registered
+- Verify the server is responding to `/api/auth/authenticated` with `{ authenticated: true }`
 
-**Error: Failed to refresh token**
+## Breaking Changes
 
-- Token might be expired or revoked
-- Verify that the refresh token is valid
-- Check if your OAuth provider limits refresh token use
+### v0.0.12 - Session Storage Configuration
 
-### Debugging
+The `sessionStorage` config switched from a `type`/`config` pattern to a `driver`-based approach:
 
-Enable detailed logging by setting the environment variable:
-
-```
-DEBUG=analog-auth:*
-```
-
-## Environment Setup
-
-For local development, create a `.env` file with the following variables:
-
-```
-AUTH_ISSUER=https://your-issuer.com
-AUTH_CLIENT_ID=your-client-id
-AUTH_CLIENT_SECRET=your-client-secret
-AUTH_AUDIENCE=your-audience
-AUTH_SCOPE=openid profile email
-AUTH_CALLBACK_URL=http://localhost:3000/api/auth/callback
-SESSION_SECRET=your-session-secret
-REDIS_URL=redis://localhost:6379
-AUTH_LOGOUT_URL=http://localhost:3000
-```
-
-## Examples
-
-### Complete Integration Example
-
-This example shows how to set up a comprehensive authentication solution with the merged package:
-
-#### Server-side Setup
-
+**Before:**
 ```typescript
-// src/server/middleware/auth.ts
-import { defineEventHandler, H3Event } from 'h3';
-import { useAnalogAuth, AnalogAuthConfig } from '@analog-tools/auth';
+sessionStorage: {
+  type: 'redis',
+  config: {
+    host: 'localhost',
+    port: 6379,
+    password: 'your-password',
+    sessionSecret: 'your-secret',
+    maxAge: 86400,
+  },
+}
+```
 
-// Define auth configuration
-const authConfig: AnalogAuthConfig = {
-  issuer: 'https://keycloak.your-domain.com/realms/your-realm',
-  clientId: process.env['AUTH_CLIENT_ID'] || '',
-  clientSecret: process.env['AUTH_CLIENT_SECRET'] || '',
-  scope: 'openid profile email',
-  callbackUri: 'http://localhost:3000/api/auth/callback',
-  // Configure route protection with exact matching and wildcards
-  unprotectedRoutes: [
-    '/',                         // Root page (exact match)
-    '/api/public/*',             // All public API routes (wildcard)
-    '/api/auth/login',           // Login endpoint (exact match)
-    '/api/auth/callback',        // OAuth callback (exact match)
-    '/static/*',                 // Static assets (wildcard)
-    '/docs/*',                   // Documentation (wildcard)
-  ],
-  // Configure Redis session storage for production
-  sessionStorage: {
+**After:**
+```typescript
+sessionStorage: {
+  sessionSecret: 'your-secret',
+  ttl: 86400,
+  driver: {
     type: 'redis',
-    config: {
-      url: process.env['REDIS_URL'] || 'redis://localhost:6379',
-      ttl: 86400, // 24 hours
-      sessionSecret: process.env['SESSION_SECRET'] || 'your-session-secret',
+    options: {
+      host: 'localhost',
+      port: 6379,
+      password: 'your-password',
     },
   },
-  // Custom user data handling
-  userHandler: {
-    mapUserToLocal: (userInfo) => ({
-      id: userInfo.sub,
-      name: userInfo.name,
-      email: userInfo.email,
-      roles: userInfo.realm_access?.roles || [],
-    }),
-    createOrUpdateUser: async (user) => {
-      // Store or update user in your database
-      console.log('User authenticated:', user);
-      return user;
-    },
-  },
-};
-
-export default defineEventHandler(async (event: H3Event) => {
-  return useAnalogAuth(authConfig, event);
-});
+}
 ```
 
-#### Angular Client Setup
+See `@analog-tools/session` for all supported driver types.
 
-```typescript
-// src/app/app.config.ts
-import { ApplicationConfig } from '@angular/core';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { provideFileRouter, requestContextInterceptor } from '@analogjs/router';
-import { provideClientHydration } from '@angular/platform-browser';
-import { 
-  provideAuthClient, 
-  authInterceptor 
-} from '@analog-tools/auth/angular';
-import { provideTrpcClient } from '../trpc-client';
+## Related Packages
 
-export const appConfig: ApplicationConfig = {
-  providers: [
-    provideFileRouter(),
-    provideClientHydration(),
-    
-    // Auth configuration
-    provideAuthClient(),
-    
-    // HTTP configuration with auth interceptor
-    provideHttpClient(
-      withInterceptors([
-        requestContextInterceptor, 
-        authInterceptor
-      ])
-    ),
-    
-    // TRPC client with auth integration
-    provideTrpcClient(),
-  ],
-};
-```
-
-#### Protected Route Example
-
-```typescript
-// src/app/pages/protected.page.ts
-import { Component } from '@angular/core';
-import { authGuard } from '@analog-tools/auth/angular';
-
-export const routeMeta = {
-  title: 'Protected Page',
-  canActivate: [authGuard],
-};
-
-@Component({
-  template: `
-    <div class="p-4">
-      <h1 class="text-2xl font-bold mb-4">Protected Content</h1>
-      <p>This page is only visible to authenticated users.</p>
-    </div>
-  `,
-})
-export default class ProtectedPage {}
-```
-
-## Package Architecture
-
-The `@analog-tools/auth` package is structured as a multi-entry point package:
-
-- **Main Entry Point**: `@analog-tools/auth` 
-  - Server-side OAuth implementation with H3 middleware
-  - Session management integration (via `@analog-tools/session`)
-  - API route handlers
-
-- **Angular Entry Point**: `@analog-tools/auth/angular`
-  - Angular-specific authentication services
-  - Route guards and HTTP interceptors
-  - Reactive state management with Angular signals
-  - User transformation utilities for different providers (Auth0, Keycloak, etc.)
-  - tRPC middleware for protected procedures
-  - Authentication utilities for tRPC routes
-  - Error handling for authentication failures
-
-## Contributing
-
-Contributions are welcome! Please check out our [contribution guidelines](../CONTRIBUTING.md).
+| Package | Purpose |
+|---------|---------|
+| [`@analog-tools/session`](https://github.com/MrBacony/analog-tools/tree/main/packages/session) | Session storage with unstorage drivers |
+| [`@analog-tools/inject`](https://github.com/MrBacony/analog-tools/tree/main/packages/inject) | Service registry DI |
+| [`@analog-tools/logger`](https://github.com/MrBacony/analog-tools/tree/main/packages/logger) | Structured logging |
 
 ## License
 
