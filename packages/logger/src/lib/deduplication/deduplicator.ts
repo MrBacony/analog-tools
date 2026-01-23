@@ -4,10 +4,10 @@
  */
 
 import { LogLevelEnum } from '../logger.types';
-import { ILogFormatter, LogEntry as FormatterLogEntry } from '../formatters/formatter.interface';
+import { ILogFormatter } from '../formatters/formatter.interface';
 import {
   DeduplicationConfig,
-  LogEntry,
+  DeduplicatedLogEntry,
   CRITICAL_LEVELS,
   ILogDeduplicator,
 } from './deduplication.types';
@@ -16,7 +16,7 @@ import {
  * Simple log deduplicator that batches identical messages
  */
 export class LogDeduplicator implements ILogDeduplicator {
-  private entries = new Map<string, LogEntry>();
+  private entries = new Map<string, DeduplicatedLogEntry>();
   private flushTimer?: NodeJS.Timeout;
 
   constructor(
@@ -126,7 +126,7 @@ export class LogDeduplicator implements ILogDeduplicator {
   /**
    * Output a batched message with count if needed
    */
-  private outputMessage(entry: LogEntry): void {
+  private outputMessage(entry: DeduplicatedLogEntry): void {
     let message = entry.message;
     
     // Add count suffix if message occurred multiple times

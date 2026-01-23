@@ -29,7 +29,7 @@ export const DEFAULT_DEDUPLICATION_CONFIG: DeduplicationConfig = {
 /**
  * Tracked log entry for deduplication
  */
-export interface LogEntry {
+export interface DeduplicatedLogEntry {
   /** Original message */
   message: string;
   /** Log level */

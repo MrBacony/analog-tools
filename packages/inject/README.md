@@ -1,304 +1,274 @@
 # @analog-tools/inject
 
-> **⚠️ IMPORTANT: Early Development Stage** ⚠️  
-> This project is in its early development stage. Breaking changes may happen frequently as the APIs evolve. Use with caution in production environments.
+> **Early Development Stage** -- Breaking changes may happen frequently as APIs evolve.
 
-A lightweight yet powerful dependency injection system for H3-based server applications (Nitro, AnalogJS), providing a clean, type-safe approach to managing services and dependencies.
+A dependency injection system for AnalogJS and H3/Nitro server-side applications. Uses a global service registry with singleton semantics, class-based tokens, and lazy auto-registration.
 
 [![npm version](https://img.shields.io/npm/v/@analog-tools/inject.svg)](https://www.npmjs.com/package/@analog-tools/inject)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+## Table of Contents
 
-- 🧩 Simple, lightweight dependency injection system
-- 🔍 Full TypeScript support with type safety
-- 📦 Singleton pattern implementation for services
-- 🔄 Automatic lazy initialization of services
-- 🛠️ Support for service registration with constructor parameters
-- 🧪 Easy to test with custom service implementations and mocks
-- 🔁 Complete test lifecycle support with registry reset functions
+- [Installation](#installation)
+- [How It Works](#how-it-works)
+- [Usage](#usage)
+  - [Defining Injectable Services](#defining-injectable-services)
+  - [Registering Services with Constructor Arguments](#registering-services-with-constructor-arguments)
+  - [Injecting Dependencies Within Services](#injecting-dependencies-within-services)
+  - [Optional Injection](#optional-injection)
+  - [Custom Service Names](#custom-service-names)
+- [API Reference](#api-reference)
+- [Testing Utilities](#testing-utilities)
+- [Usage with AnalogJS](#usage-with-analogjs)
+- [Limitations](#limitations)
 
 ## Installation
 
 ```bash
-# Using npm
 npm install @analog-tools/inject
-
-# Using pnpm
-pnpm add @analog-tools/inject
-
-# Using yarn
-yarn add @analog-tools/inject
 ```
 
-## Quick Start
+## How It Works
 
-Here's a basic example of creating injectable services:
+The package maintains a global `ServiceRegistry` that stores singleton service instances keyed by class name. When you call `inject(MyService)`:
+
+1. The registry checks that `MyService` has a static `INJECTABLE` property set to `true` (or a string).
+2. If no instance exists yet, one is created using the class constructor (with no arguments by default).
+3. The same instance is returned on all subsequent `inject()` calls.
+
+If a service requires constructor arguments, you must call `registerService()` before the first `inject()` call to provide them.
+
+## Usage
+
+### Defining Injectable Services
+
+Mark a class as injectable by adding a static `INJECTABLE` property:
 
 ```typescript
-import { inject, registerService } from '@analog-tools/inject';
+import { inject } from '@analog-tools/inject';
 
-// Define a service class with the INJECTABLE static property
-class LoggerService {
-  static INJECTABLE = true;
+class DatabaseService {
+  static readonly INJECTABLE = true;
 
-  log(message: string): void {
-    console.log(`[Logger] ${message}`);
+  private pool: ConnectionPool;
+
+  constructor() {
+    this.pool = createPool({ /* ... */ });
+  }
+
+  async query(sql: string, params: unknown[] = []): Promise<unknown[]> {
+    return this.pool.execute(sql, params);
   }
 }
 
-// Define another service that depends on LoggerService
-class UserService {
-  static INJECTABLE = true;
+// First call creates the instance; subsequent calls return the same one
+const db = inject(DatabaseService);
+```
 
-  private logger = inject(LoggerService);
+### Registering Services with Constructor Arguments
 
-  getUserInfo(userId: string) {
-    this.logger.log(`Getting info for user: ${userId}`);
-    // Implementation...
-    return { id: userId, name: 'Example User' };
+When a service needs configuration at creation time, register it explicitly:
+
+```typescript
+import { registerService, inject } from '@analog-tools/inject';
+
+class CacheService {
+  static readonly INJECTABLE = true;
+
+  constructor(
+    private readonly ttlSeconds: number,
+    private readonly prefix: string
+  ) {}
+
+  getKey(key: string): string {
+    return `${this.prefix}:${key}`;
   }
 }
 
-// Usage in your application
-const userService = inject(UserService);
-const userInfo = userService.getUserInfo('user123');
+// Register with constructor args before first use
+registerService(CacheService, 300, 'app');
+
+// Now inject anywhere -- returns the instance created above
+const cache = inject(CacheService);
+cache.getKey('session'); // "app:session"
+```
+
+Registration is idempotent: calling `registerService()` again for an already-registered token is a no-op. The first registration wins.
+
+### Injecting Dependencies Within Services
+
+Services can inject other services as instance properties:
+
+```typescript
+class UserRepository {
+  static readonly INJECTABLE = true;
+
+  private db = inject(DatabaseService);
+
+  async findById(id: string) {
+    const rows = await this.db.query(
+      'SELECT * FROM users WHERE id = $1',
+      [id]
+    );
+    return rows[0];
+  }
+}
+```
+
+The dependency (`DatabaseService`) is resolved when `UserRepository` is first instantiated. If `DatabaseService` hasn't been registered yet, it will be auto-registered using its no-arg constructor.
+
+### Optional Injection
+
+For services that might not be available, pass `{ required: false }`:
+
+```typescript
+const analytics = inject(AnalyticsService, { required: false });
+if (analytics) {
+  analytics.track('page_view');
+}
+```
+
+When `required` is `false` and the service is not registered (or was registered as undefined), `inject()` returns `undefined` instead of throwing.
+
+### Custom Service Names
+
+The `INJECTABLE` property can be a string to provide a custom token name. This is useful when class names might be minified in production:
+
+```typescript
+class MyService {
+  static readonly INJECTABLE = 'MyService';
+  // ...
+}
+```
+
+When `INJECTABLE` is a string, that string is used as the registry key instead of the class's `.name` property.
+
+## API Reference
+
+### `inject<T>(token, options?): T`
+
+Retrieves a service instance from the registry. Auto-registers the service (with no constructor args) if not already present.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | `InjectionServiceClass<T>` | The service class to inject |
+| `options.required` | `boolean` (default: `true`) | Throw if service is not found |
+
+Throws if the class does not have `INJECTABLE` set to a truthy value, or if `required` is `true` and the service resolves to `undefined`.
+
+### `registerService<T>(token, ...args): void`
+
+Creates and registers a singleton instance of the service with the given constructor arguments.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | `InjectionServiceClass<T>` | The service class to register |
+| `...args` | `ConstructorParameters` | Arguments passed to the class constructor |
+
+No-op if the service is already registered with a defined value.
+
+### `registerServiceAsUndefined<T>(token): void`
+
+Registers a service as `undefined` in the registry. Primarily used in tests to verify behavior when a dependency is missing.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | `InjectionServiceClass<T>` | The service class to register as undefined |
+
+Throws if the class is not injectable.
+
+### `registerMockService<T>(token, partial): void`
+
+Registers a partial object as the service instance. Intended for tests where you only need to stub specific methods.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | `InjectionServiceClass<T>` | The service class to mock |
+| `partial` | `Partial<T>` | Object used as the service instance |
+
+### `resetAllInjections(): void`
+
+Clears all entries from the service registry. Call this in test teardown (`afterEach`) to isolate tests from each other.
+
+## Testing Utilities
+
+`registerMockService` and `resetAllInjections` are exported from the package for use in tests:
+
+```typescript
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { inject, registerMockService, resetAllInjections } from '@analog-tools/inject';
+
+class NotificationService {
+  static readonly INJECTABLE = true;
+
+  send(userId: string, message: string): void {
+    // production implementation
+  }
+}
+
+class OrderService {
+  static readonly INJECTABLE = true;
+
+  private notifications = inject(NotificationService);
+
+  placeOrder(userId: string, item: string): void {
+    // ... order logic ...
+    this.notifications.send(userId, `Order placed: ${item}`);
+  }
+}
+
+describe('OrderService', () => {
+  const mockNotifications = {
+    send: vi.fn(),
+  };
+
+  afterEach(() => {
+    resetAllInjections();
+    vi.clearAllMocks();
+  });
+
+  it('sends a notification when an order is placed', () => {
+    registerMockService(NotificationService, mockNotifications);
+
+    const orders = inject(OrderService);
+    orders.placeOrder('user-1', 'Widget');
+
+    expect(mockNotifications.send).toHaveBeenCalledWith(
+      'user-1',
+      'Order placed: Widget'
+    );
+  });
+});
 ```
 
 ## Usage with AnalogJS
 
-### In API Routes
+In AnalogJS API routes (H3 event handlers), inject services directly:
 
 ```typescript
 // src/server/routes/api/users/[id].ts
-import { defineEventHandler } from 'h3';
+import { defineEventHandler, getRouterParam } from 'h3';
 import { inject } from '@analog-tools/inject';
-import { UserService } from '../../../services/user.service';
+import { UserRepository } from '../../../services/user.repository';
 
 export default defineEventHandler(async (event) => {
-  const userService = inject(UserService);
-  const userId = event.context.params.id;
+  const userId = getRouterParam(event, 'id');
+  const users = inject(UserRepository);
 
-  const userData = await userService.getUserById(userId);
-
-  return userData;
+  return users.findById(userId!);
 });
 ```
 
-### Creating Services
+Since services are singletons, the same instance is shared across all requests within the same server process.
 
-```typescript
-// src/server/services/user.service.ts
-import { inject } from '@analog-tools/inject';
-import { DatabaseService } from './database.service';
+## Limitations
 
-export class UserService {
-  static INJECTABLE = true;
-
-  private db = inject(DatabaseService);
-
-  async getUserById(id: string) {
-    return this.db.query('SELECT * FROM users WHERE id = ?', [id]);
-  }
-
-  async createUser(userData: any) {
-    // Implementation...
-  }
-}
-
-// src/server/services/database.service.ts
-export class DatabaseService {
-  static INJECTABLE = true;
-
-  private connection: any;
-
-  constructor() {
-    // Initialize database connection
-    this.connection = {}; // Example placeholder
-  }
-
-  async query(sql: string, params: any[] = []) {
-    // Implementation...
-    return [];
-  }
-}
-```
-
-## Advanced Usage
-
-### Using Constructor Parameters
-
-You can pass constructor parameters when registering services:
-
-```typescript
-import { registerService } from '@analog-tools/inject';
-
-class ConfigService {
-  static INJECTABLE = true;
-
-  constructor(private readonly apiUrl: string) {}
-
-  getApiUrl() {
-    return this.apiUrl;
-  }
-}
-
-// Register with constructor parameters
-registerService(ConfigService, 'https://api.example.com');
-
-// Now use it anywhere
-const configService = inject(ConfigService);
-const apiUrl = configService.getApiUrl(); // Returns 'https://api.example.com'
-```
-
-### Optional Injection
-
-If you want to handle cases where a service might not be available:
-
-```typescript
-import { inject } from '@analog-tools/inject';
-
-const analytics = inject(AnalyticsService, { required: false });
-if (analytics) {
-  analytics.trackEvent('page_view');
-}
-```
-
-## API Reference
-
-### `inject<T>(token: InjectionServiceClass<T>, options?: InjectOptions): T`
-
-The primary method to retrieve a service instance:
-
-- `token`: The class/constructor function of the service to inject
-- `options`:
-  - `required` (default: `true`): Whether to throw an error if the service doesn't exist
-
-### `registerService<T>(token: InjectionServiceClass<T>, ...properties: any[]): void`
-
-Registers a service with optional constructor parameters:
-
-- `token`: The class/constructor function of the service to register
-- `properties`: Any typesafe constructor parameters the service requires
-
-### `registerServiceAsUndefined<T>(token: InjectionServiceClass<T>): void`
-
-Registers a service as undefined in the registry:
-
-- `token`: The class/constructor function of the service to register
-
-Useful for testing scenarios where you want to verify correct handling of missing services.
-
-### `registerMockService<T>(token: InjectionServiceClass<T>, customObject: Partial<T>): void`
-
-Registers a custom implementation of a service for testing:
-
-- `token`: The class/constructor function of the service to register
-- `customObject`: A custom object that will be used as the service instance
-
-### `resetAllInjections(): void`
-
-Clears all registered services from the registry. Useful for testing to ensure a clean state between tests.
-
-### Making a Class Injectable
-
-For a class to be injectable, it needs the `INJECTABLE` static property:
-
-```typescript
-class MyService {
-  static INJECTABLE = true;
-
-  // Service implementation...
-}
-```
-
-### TypeScript Type Safety
-
-The `registerCustomServiceInstance` function accepts `Partial<T>` objects, making it easy to create partial implementations with only the methods you need:
-
-```typescript
-interface Logger {
-  info(message: string): void;
-  error(message: string, error?: Error): void;
-  debug(message: string): void;
-}
-
-class LoggerService implements Logger {
-  static INJECTABLE = true;
-  info(message: string): void { /* ... */ }
-  error(message: string, error?: Error): void { /* ... */ }
-  debug(message: string): void { /* ... */ }
-}
-
-// Only need to implement the methods you use in your tests
-registerMockService(LoggerService, {
-  info: vi.fn(),
-  error: vi.fn()
-  // debug is optional since we're using Partial<T>
-});
-```
-
-## Testing with @analog-tools/inject
-
-The `@analog-tools/inject` package provides several utilities to make testing easier:
-
-### Mocking Services with Custom Implementations
-
-```typescript
-import { registerMockService, resetAllInjections } from '@analog-tools/inject';
-import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
-
-// Service we want to test
-class UserService {
-  static INJECTABLE = true;
-  private logger = inject(LoggerService);
-  
-  createUser(userData: any) {
-    this.logger.info(`Creating user: ${userData.name}`);
-    // Implementation...
-  }
-}
-
-// Test suite
-describe('UserService', () => {
-  // Mock logger for testing
-  const mockLogger = {
-    info: vi.fn(),
-    error: vi.fn()
-  };
-  
-  beforeEach(() => {
-    // Register mock implementation before each test
-    registerMockService(LoggerService, mockLogger);
-  });
-  
-  afterEach(() => {
-    // Clean up after each test
-    resetAllInjections();
-    vi.clearAllMocks();
-  });
-  
-  it('should log user creation', () => {
-    const userService = inject(UserService);
-    userService.createUser({ name: 'Test User' });
-    
-    expect(mockLogger.info).toHaveBeenCalledWith('Creating user: Test User');
-  });
-});
-```
-
-## Best Practices
-
-1. **Keep services focused**: Each service should have a single responsibility
-2. **Use dependency injection**: Instead of creating service instances directly
-3. **Add proper typing**: Leverage TypeScript's type system for better safety
-4. **Unit test services**: Use dependency injection to mock service dependencies
-5. **Clean test state**: Use `resetAllInjections()` in test teardown to ensure tests don't affect each other
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+- **Global singleton registry** -- all services live in a single process-wide map. There is no per-request or per-scope isolation in the public API.
+- **No circular dependency detection** in the current public API. If service A injects service B which injects service A, you will get a stack overflow.
+- **Constructor args are not type-checked end-to-end** -- the `registerService` generic does its best, but complex constructor signatures may require explicit type annotations.
+- **Class name collisions** -- two different classes with the same `.name` property will conflict in the registry. Use a string `INJECTABLE` token to disambiguate.
+- **No async initialization** -- constructors run synchronously. Services that need async setup should expose an `init()` method called separately.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT

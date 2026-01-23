@@ -7,3 +7,4 @@ export * from './lib/errors';
 export * from './lib/nitro';
 export * from './lib/deduplication/deduplication.types';
 export * from './lib/deduplication/deduplicator';
+export * from './lib/formatters/formatter-factory';
