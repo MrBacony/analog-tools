@@ -17,6 +17,10 @@ class CustomFormatterAdapter implements ILogFormatter {
   format(entry: LogEntry): string {
     return this.formatterFn(entry);
   }
+
+  isSelfContained(): boolean {
+    return true;
+  }
 }
 
 /**
