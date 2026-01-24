@@ -16,6 +16,8 @@ Structured logging for AnalogJS, Nitro, and H3-based server applications. Provid
 - [Formatters](#formatters)
 - [Error Handling](#error-handling)
 - [Log Deduplication](#log-deduplication)
+- [Log Sanitization](#log-sanitization)
+- [Log Sanitization](#log-sanitization)
 - [Nitro/H3 Integration](#nitroh3-integration)
 - [Usage with @analog-tools/inject](#usage-with-analog-toolsinject)
 - [Lazy Message Evaluation](#lazy-message-evaluation)
@@ -284,6 +286,109 @@ Behavior details:
 - Messages with metadata, styling, or extra data arguments are never batched.
 - Different contexts are tracked separately (a child logger's messages do not batch with the parent's).
 - Different log levels are tracked separately even for the same message text.
+
+## Log Sanitization
+
+The logger sanitizes sensitive data by default to prevent accidental exposure in logs. Sanitization is enabled out of the box with secure defaults.
+
+### Default Behavior
+
+Sensitive data patterns are automatically redacted:
+
+```typescript
+const logger = new LoggerService({ level: 'info' });
+
+logger.info('User login', {
+  password: 'mySecretPassword123',  // → [REDACTED]
+  token: 'abc123def456ghi789jkl',   // → [TOKEN] (base64-like)
+  email: 'user@example.com',        // → [EMAIL]
+  creditCard: '4532-1234-5678-9012', // → [CARD]
+  ip: '192.168.1.1',                // → [IP]
+});
+```
+
+### Sensitive Key Detection
+
+Object properties with sensitive names are fully redacted regardless of value:
+- `password`, `token`, `secret`, `apiKey`, `authorization`, `credential`, `private`
+
+### Log Injection Protection
+
+Control characters (newlines, tabs, etc.) are escaped to prevent log injection attacks:
+
+```typescript
+logger.info('Malicious\ninjection\tattempt');
+// Output: Malicious\ninjection\tattempt
+```
+
+### Configuration
+
+#### Opt-Out for Development
+
+```typescript
+const logger = new LoggerService({
+  level: 'debug',
+  sanitization: { enabled: false }, // Disable for local debugging
+});
+```
+
+#### Custom Rules (Append to Defaults)
+
+```typescript
+const logger = new LoggerService({
+  sanitization: {
+    customRules: [
+      { pattern: /userId:\s*\d+/gi, replacement: 'userId: [USER_ID]' },
+    ],
+  },
+});
+```
+
+#### Replace Default Rules
+
+```typescript
+const logger = new LoggerService({
+  sanitization: {
+    rules: [
+      { pattern: /secret/gi, replacement: '***' },
+    ],
+  },
+});
+```
+
+### Sanitization Strategies
+
+| Strategy | Description | Example |
+|----------|-------------|---------|
+| `mask` | Replace with string (default) | `secret` → `[REDACTED]` |
+| `remove` | Remove matched text | `my secret` → `my ` |
+| `hash` | Replace with truncated hash | `secret` → `[HASH:a3f2b1c8]` |
+| `custom` | Custom handler function | `1234-5678` → `****-5678` |
+
+```typescript
+const logger = new LoggerService({
+  sanitization: {
+    customRules: [
+      // Hash emails for correlation without exposing PII
+      { pattern: /\b[\w.]+@[\w.]+\.\w+\b/g, strategy: 'hash', hashLength: 8 },
+      
+      // Partial mask for credit cards
+      {
+        pattern: /\b(\d{4})-?\d{4}-?\d{4}-?(\d{4})\b/g,
+        strategy: 'custom',
+        customHandler: (match: string) => `****-****-****-${match.slice(-4)}`,
+      },
+    ],
+  },
+});
+```
+
+### Performance Notes
+
+- Rules are compiled once at logger construction
+- Sanitization skipped entirely when `enabled: false`
+- Object traversal respects `maxDepth` (default: 10) to prevent stack overflow
+- Circular references handled safely
 
 ## Nitro/H3 Integration
 
