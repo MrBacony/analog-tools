@@ -118,7 +118,7 @@ export function registerService<T, Args extends unknown[] = unknown[]>(
   ...properties: Args
 ): void {
   try {
-    getServiceRegistry().register(token as InjectionServiceClass<T>, ...properties);
+    getServiceRegistry().register(token, ...properties);
   } catch (error) {
     throw new InjectionError(
       `Failed to register service '${token.name}'`,
