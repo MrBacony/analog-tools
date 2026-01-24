@@ -5,6 +5,7 @@ import {
   registerServiceScoped,
   registerServiceAsUndefinedScoped,
 } from './injection-context';
+import { inject } from './inject.improved';
 
 class TestService {
   static readonly INJECTABLE = true;
@@ -20,6 +21,23 @@ class AnotherService {
 
 class NonInjectableService {
   // No INJECTABLE flag
+}
+
+class DatabaseService {
+  static readonly INJECTABLE = true;
+
+  constructor(public connectionString = 'default-connection') {}
+}
+
+class RepositoryWithGlobalInject {
+  static readonly INJECTABLE = true;
+
+  // NOTE: Uses global inject() - looks in DEFAULT scope, not TEST_SCOPE
+  constructor(private db = inject(DatabaseService)) {}
+
+  getDb() {
+    return this.db;
+  }
 }
 
 describe('InjectionContext', () => {
@@ -369,5 +387,56 @@ describe('backward compatibility with default scope', () => {
 
     expect(defaultService.value).toBe('default-value');
     expect(customService.name).toBe('custom-name');
+  });
+});
+
+describe('scope mismatch - inject() vs injectScoped()', () => {
+  const TEST_SCOPE = 'test-scope-isolation';
+
+  afterEach(() => {
+    InjectionContext.clearAll();
+  });
+
+  it('should demonstrate scope mismatch when service uses global inject()', () => {
+    // Register DatabaseService in TEST_SCOPE with a test connection string
+    registerServiceScoped(DatabaseService, TEST_SCOPE, 'test://connection');
+
+    // Get repository from TEST_SCOPE
+    const repo = injectScoped(RepositoryWithGlobalInject, TEST_SCOPE);
+
+    // ISSUE: repo.getDb() returns a DatabaseService from DEFAULT scope,
+    // not from TEST_SCOPE, because the constructor uses inject() which looks
+    // in the global default scope. Since DatabaseService isn't in default scope,
+    // it gets auto-registered with the no-arg constructor.
+    const db = repo.getDb();
+    expect(db.connectionString).toBe('default-connection');
+    // ^^^ This is NOT 'test://connection' because inject() looks in default scope
+  });
+
+  it('should allow services to work correctly when dependencies are in both scopes', () => {
+    // Register DatabaseService in BOTH scopes
+    registerServiceScoped(DatabaseService, TEST_SCOPE, 'test://connection');
+    registerServiceScoped(DatabaseService, 'default', 'test://connection');
+
+    const repo = injectScoped(RepositoryWithGlobalInject, TEST_SCOPE);
+    const db = repo.getDb();
+
+    // Now it works because the dependency is available in both scopes
+    expect(db.connectionString).toBe('test://connection');
+  });
+
+  it('should document: scoped injection is scope-only and does not inherit', () => {
+    // This test documents the design: each scope is independent
+    registerServiceScoped(DatabaseService, TEST_SCOPE, 'test://connection');
+    // DatabaseService NOT registered in default scope
+
+    const repo = injectScoped(RepositoryWithGlobalInject, TEST_SCOPE);
+    const db = repo.getDb();
+
+    // The repository's constructor runs inject(DatabaseService)
+    // which creates a new instance in the default scope, not reusing
+    // the one from TEST_SCOPE. Services do not inherit or fall back
+    // across scopes.
+    expect(db.connectionString).toBe('default-connection');
   });
 });
