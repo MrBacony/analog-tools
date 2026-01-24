@@ -38,7 +38,7 @@ describe('Performance Tests', () => {
 
     it('should handle circular references without performance degradation', () => {
       const obj: Record<string, unknown> = { name: 'test' };
-      obj.self = obj; // Create circular reference
+      obj['self'] = obj; // Create circular reference
       
       const startTime = performance.now();
       
