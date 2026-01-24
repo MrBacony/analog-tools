@@ -19,7 +19,9 @@ export const SENSITIVE_KEY_PATTERNS: RegExp[] = [
  */
 export const DEFAULT_VALUE_RULES: SanitizationRule[] = [
   // Base64-like tokens (20+ chars of base64 alphabet)
-  { pattern: /\b[A-Za-z0-9+/]{20,}={0,2}\b/g, replacement: '[TOKEN]' },
+  // Uses negative lookahead to exclude strings with more than 10 consecutive identical characters
+  // This prevents matching very long strings of the same character (e.g., 'AAAAAAA...')
+  { pattern: /\b(?!(.)\1{10})[A-Za-z0-9+/]{20,}={0,2}\b/g, replacement: '[TOKEN]' },
 
   // Credit card numbers (16 digits, with or without separators)
   { pattern: /\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b/g, replacement: '[CARD]' },
