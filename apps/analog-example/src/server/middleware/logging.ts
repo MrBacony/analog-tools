@@ -75,9 +75,14 @@ export default defineEventHandler(async (event: H3Event) => {
             requestMetadata.body = rawBody.toString();
           }
         } else if (contentType.includes('application/x-www-form-urlencoded')) {
-          requestMetadata.body = Object.fromEntries(
-            new URLSearchParams(rawBody.toString())
-          );
+          try {
+            requestMetadata.body = Object.fromEntries(
+              new URLSearchParams(rawBody.toString())
+            );
+          } catch {
+            // Fall back to raw body string if form parsing fails
+            requestMetadata.body = rawBody.toString();
+          }
         } else {
           requestMetadata.body = rawBody.toString();
         }
