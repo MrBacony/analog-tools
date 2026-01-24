@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { registerMockService, resetAllInjections } from './inject.testing-util';
 import * as serviceRegistryModule from './service-registry';
 import { ServiceRegistry } from './service-registry';
+import { InjectionContext } from './injection-context';
 
 describe('inject.testing-util', () => {
   let mockServiceRegistry: {
@@ -52,13 +53,15 @@ describe('inject.testing-util', () => {
   });
 
   describe('resetAllInjections', () => {
-    it('should call destroy on the service registry', () => {
+    it('should clear all scopes', () => {
+      // Arrange  
+      const clearAllSpy = vi.spyOn(InjectionContext, 'clearAll');
+      
       // Act
       resetAllInjections();
       
       // Assert
-      expect(serviceRegistryModule.getServiceRegistry).toHaveBeenCalled();
-      expect(mockServiceRegistry.destroy).toHaveBeenCalled();
+      expect(clearAllSpy).toHaveBeenCalled();
     });
   });
 });

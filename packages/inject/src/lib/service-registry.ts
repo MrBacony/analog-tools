@@ -1,16 +1,12 @@
 import { InjectionServiceClass } from './inject.types';
+import { InjectionContext } from './injection-context';
 
 /**
  * Service injection options
  */
 
-export let _serviceRegistry: ServiceRegistry | null = null;
-
 export function getServiceRegistry(): ServiceRegistry {
-  if (!_serviceRegistry) {
-    _serviceRegistry = new ServiceRegistry();
-  }
-  return _serviceRegistry;
+  return InjectionContext.getRegistry();
 }
 
 /**
