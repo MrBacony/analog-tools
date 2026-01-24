@@ -318,6 +318,7 @@ Control characters (newlines, tabs, etc.) are escaped to prevent log injection a
 ```typescript
 logger.info('Malicious\ninjection\tattempt');
 // Output: Malicious\ninjection\tattempt
+// (displayed with literal backslash-n and backslash-t, not actual newline/tab)
 ```
 
 ### Configuration
