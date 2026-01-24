@@ -1,4 +1,5 @@
 import { ILogFormatter } from './formatters/formatter.interface';
+import { SanitizationConfig } from './sanitization';
 
 /**
  * Enum for dreamy color names with ANSI codes for terminal
@@ -225,4 +226,10 @@ export interface LoggerConfig {
    * The correlation ID for tracking requests
    */
   correlationId?: string;
+
+  /**
+   * Log sanitization configuration
+   * Enabled by default with secure patterns for sensitive data
+   */
+  sanitization?: SanitizationConfig;
 }

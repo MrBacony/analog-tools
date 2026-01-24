@@ -26,6 +26,12 @@ import {
   DeduplicationConfig, 
   DEFAULT_DEDUPLICATION_CONFIG 
 } from './deduplication/deduplication.types';
+import {
+  CompiledSanitizer,
+  createSanitizer,
+  sanitizeMessage,
+  sanitizeValue,
+} from './sanitization';
 
 /**
  * Logger service implementation using standard console
@@ -58,6 +64,8 @@ export class LoggerService {
   private formatter: ILogFormatter;
   // Correlation ID for tracking
   private correlationId?: string;
+  // Sanitizer for redacting sensitive data
+  private sanitizer: CompiledSanitizer;
 
   /**
    * Create a new LoggerService
@@ -82,6 +90,7 @@ export class LoggerService {
       this.styleEngine = parent.styleEngine; // Share style engine with parent
       this.formatter = parent.formatter;
       this.correlationId = parent.correlationId;
+      this.sanitizer = parent.sanitizer; // Share sanitizer with parent
     } else {
       // Root logger setup
       if (typeof config.level === 'string' && !Object.keys(LogLevelEnum).includes(config.level)) {
@@ -120,6 +129,9 @@ export class LoggerService {
 
         this.deduplicator = new LogDeduplicator(dedupeConfig, this.formatter, this.name);
       }
+
+      // Initialize sanitizer
+      this.sanitizer = createSanitizer(config.sanitization);
     }
   }
 
@@ -403,6 +415,12 @@ export class LoggerService {
         additionalData
       );
 
+    // Sanitize message
+    const sanitizedMessage = sanitizeMessage(message, this.sanitizer);
+
+    // Sanitize context if present
+    const sanitizedContext = context ? (sanitizeValue(context, this.sanitizer) as Record<string, unknown>) : undefined;
+
     // Check if last parameter is LogStyling for styling
     const allData = data || [];
     let styling: LogStyling | undefined;
@@ -423,11 +441,11 @@ export class LoggerService {
 
     const entry: LogEntry = {
       level: LogLevelEnum.error,
-      message,
+      message: sanitizedMessage,
       logger: this.name,
       context: this.context,
       timestamp: new Date(),
-      metadata: context as Record<string, unknown>,
+      metadata: sanitizedContext,
       error: rawError,
       styling,
       correlationId: this.getCorrelationId(),
@@ -444,8 +462,8 @@ export class LoggerService {
         errorParam.push(serializedError);
       }
 
-      if (context) {
-        errorParam.push(context);
+      if (sanitizedContext) {
+        errorParam.push(sanitizedContext);
       }
 
       console.error(...errorParam, ...actualData);
@@ -506,9 +524,10 @@ export class LoggerService {
     ) {
       // This is the case: fatal(message, LogStyling)
       const styling = errorOrContext as LogStyling;
+      const sanitizedMsg = sanitizeMessage(`FATAL: ${messageOrError}`, this.sanitizer);
       const formattedMessage = this.styleEngine.formatMessageWithMetadata(
         LogLevelEnum.fatal,
-        `FATAL: ${messageOrError}`,
+        sanitizedMsg,
         this.name,
         styling,
         this.context
@@ -524,6 +543,12 @@ export class LoggerService {
         contextOrData,
         additionalData
       );
+
+    // Sanitize message
+    const sanitizedMessage = sanitizeMessage(message, this.sanitizer);
+
+    // Sanitize context if present
+    const sanitizedContext = context ? (sanitizeValue(context, this.sanitizer) as Record<string, unknown>) : undefined;
 
     // Check if last parameter is LogStyling for styling
     const allData = data || [];
@@ -545,11 +570,11 @@ export class LoggerService {
 
     const entry: LogEntry = {
       level: LogLevelEnum.fatal,
-      message: `FATAL: ${message}`,
+      message: `FATAL: ${sanitizedMessage}`,
       logger: this.name,
       context: this.context,
       timestamp: new Date(),
-      metadata: context as Record<string, unknown>,
+      metadata: sanitizedContext,
       error: rawError,
       styling,
       correlationId: this.getCorrelationId(),
@@ -566,8 +591,8 @@ export class LoggerService {
         errorParam.push(serializedError);
       }
 
-      if (context) {
-        errorParam.push(context);
+      if (sanitizedContext) {
+        errorParam.push(sanitizedContext);
       }
 
       console.error(...errorParam, ...actualData);
@@ -725,19 +750,25 @@ export class LoggerService {
       data
     );
 
-    const resolvedMessage = this.resolveMessage(message);
+    let resolvedMessage = this.resolveMessage(message);
+
+    // Apply sanitization to message
+    resolvedMessage = sanitizeMessage(resolvedMessage, this.sanitizer);
 
     // Handle deduplication logic
     if (!this.handleDeduplication(level, resolvedMessage, metadata, restData)) {
       return; // Message was batched
     }
 
-    // Extract error and additional metadata from restData
+    // Sanitize restData items
+    const sanitizedRestData = restData?.map((item) => sanitizeValue(item, this.sanitizer));
+
+    // Extract error and additional metadata from sanitizedRestData
     let error: Error | undefined;
     const extraMetadata: Record<string, unknown> = {};
 
-    if (restData && restData.length > 0) {
-      restData.forEach((item, i) => {
+    if (sanitizedRestData && sanitizedRestData.length > 0) {
+      sanitizedRestData.forEach((item, i) => {
         if (item instanceof Error && !error) {
           error = item;
         } else if (typeof item === 'object' && item !== null) {
@@ -771,28 +802,28 @@ export class LoggerService {
         if (isSelfContained) {
           console.trace(output);
         } else {
-          console.trace(output, ...(restData || []));
+          console.trace(output, ...(sanitizedRestData || []));
         }
         break;
       case LogLevelEnum.debug:
         if (isSelfContained) {
           console.debug(output);
         } else {
-          console.debug(output, ...(restData || []));
+          console.debug(output, ...(sanitizedRestData || []));
         }
         break;
       case LogLevelEnum.info:
         if (isSelfContained) {
           console.info(output);
         } else {
-          console.info(output, ...(restData || []));
+          console.info(output, ...(sanitizedRestData || []));
         }
         break;
       case LogLevelEnum.warn:
         if (isSelfContained) {
           console.warn(output);
         } else {
-          console.warn(output, ...(restData || []));
+          console.warn(output, ...(sanitizedRestData || []));
         }
         break;
       case LogLevelEnum.error:
@@ -800,7 +831,7 @@ export class LoggerService {
         if (isSelfContained) {
           console.error(output);
         } else {
-          console.error(output, ...(restData || []));
+          console.error(output, ...(sanitizedRestData || []));
         }
         break;
     }
