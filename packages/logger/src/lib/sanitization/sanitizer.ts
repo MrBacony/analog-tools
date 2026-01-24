@@ -56,11 +56,22 @@ export function sanitizeControlChars(input: string): string {
 }
 
 /**
- * Generate a truncated hash of the input
+ * Generate a truncated, deterministic hash of the input for log sanitization.
+ *
+ * Security notice:
+ * - This function is NOT cryptographically secure.
+ * - The same input will always produce the same hash output, which allows
+ *   correlation of values across log entries.
+ * - The output is predictable and can be brute-forced; it MUST NOT be used
+ *   for anonymization, pseudonymization, or protecting sensitive data in
+ *   security-sensitive contexts.
+ *
+ * It is intended only to obfuscate values in logs where correlation is
+ * acceptable and true anonymity is not required.
  */
 function hashValue(input: string, length: number): string {
   // Use a simple, deterministic string-based hash that works in all environments.
-  // This is not cryptographically secure but is sufficient for log sanitization.
+  // This is not cryptographically secure and is only suitable for basic log sanitization.
   let hash = 0;
   for (let i = 0; i < input.length; i++) {
     const char = input.charCodeAt(i);
