@@ -59,23 +59,15 @@ export function sanitizeControlChars(input: string): string {
  * Generate a truncated hash of the input
  */
 function hashValue(input: string, length: number): string {
-  // Use Node.js crypto module only when available (server-side)
-  try {
-    // eslint-disable-next-line global-require
-    const crypto = require('crypto');
-    const hash = crypto.createHash('sha256').update(input).digest('hex');
-    return hash.substring(0, length);
-  } catch {
-    // Fallback: use a simple string-based hash for browser environments
-    // This is not cryptographically secure but prevents build errors
-    let hash = 0;
-    for (let i = 0; i < input.length; i++) {
-      const char = input.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(16).substring(0, length);
+  // Use a simple, deterministic string-based hash that works in all environments.
+  // This is not cryptographically secure but is sufficient for log sanitization.
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    const char = input.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32-bit integer
   }
+  return Math.abs(hash).toString(16).substring(0, length);
 }
 
 /**
