@@ -5,6 +5,7 @@
 
 import { ServiceRegistry } from './service-registry';
 import { InjectionServiceClass, InjectOptions } from './inject.types';
+import { InjectionError } from './inject.util';
 
 export class InjectionContext {
   private static contexts = new Map<string, ServiceRegistry>();
@@ -73,7 +74,16 @@ export class InjectionContext {
 }
 
 /**
- * Scoped injection functions
+ * Inject a service from a specific scope
+ * @param token - The injection token for the service
+ * @param scope - The scope name (uses default if not provided)
+ * @param options - Injection options
+ * @returns The requested service instance
+ * @throws {InjectionError} When a required service is not found in the scope
+ * @example
+ * ```typescript
+ * const service = injectScoped(MyService, 'request-scope');
+ * ```
  */
 export function injectScoped<T>(
   token: InjectionServiceClass<T>,
@@ -82,34 +92,85 @@ export function injectScoped<T>(
 ): T {
   const registry = InjectionContext.getRegistry(scope);
   const { required = true } = options;
-  const service = registry.getService(token);
+  
+  try {
+    const service = registry.getService(token);
 
-  if (!service && required) {
-    throw new Error(
-      `Service with token ${token.name || 'unknown'} not found in registry`
+    if (service === undefined || service === null) {
+      if (required) {
+        throw new InjectionError(
+          `Service '${token.name}' not found in scope '${scope || 'default'}' and is required`,
+          token.name
+        );
+      }
+      return undefined as T;
+    }
+
+    return service;
+  } catch (error) {
+    if (error instanceof InjectionError) {
+      throw error;
+    }
+    throw new InjectionError(
+      `Failed to inject service '${token.name}' from scope '${scope || 'default'}'`,
+      token.name,
+      error as Error
     );
   }
-
-  return service as T;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function registerServiceScoped<T, Args extends any[]>(
+/**
+ * Register a service in a specific scope
+ * @param token - The injection token (service class)
+ * @param scope - The scope name (uses default if not provided)
+ * @param properties - The constructor parameters for the service class
+ * @throws {InjectionError} When service registration fails
+ * @example
+ * ```typescript
+ * registerServiceScoped(MyService, 'request-scope', configInstance);
+ * ```
+ */
+export function registerServiceScoped<T, Args extends unknown[] = unknown[]>(
   token: InjectionServiceClass<T, Args>,
   scope?: string,
   ...properties: Args
 ): void {
   const registry = InjectionContext.getRegistry(scope);
-  registry.register(token, ...properties);
+  
+  try {
+    registry.register(token as InjectionServiceClass<T>, ...properties);
+  } catch (error) {
+    throw new InjectionError(
+      `Failed to register service '${token.name}' in scope '${scope || 'default'}'`,
+      token.name,
+      error as Error
+    );
+  }
 }
 
 /**
- * Register a service as undefined in a specific scope
+ * Register a service as undefined in a specific scope (useful for testing)
+ * @param token - The injection token for the service
+ * @param scope - The scope name (uses default if not provided)
+ * @throws {InjectionError} When service registration fails
+ * @example
+ * ```typescript
+ * registerServiceAsUndefinedScoped(MyService, 'test-scope');
+ * ```
  */
 export function registerServiceAsUndefinedScoped<T>(
   token: InjectionServiceClass<T>,
   scope?: string
 ): void {
   const registry = InjectionContext.getRegistry(scope);
-  registry.registerAsUndefined(token);
+  
+  try {
+    registry.registerAsUndefined(token);
+  } catch (error) {
+    throw new InjectionError(
+      `Failed to register service '${token.name}' as undefined in scope '${scope || 'default'}'`,
+      token.name,
+      error as Error
+    );
+  }
 }

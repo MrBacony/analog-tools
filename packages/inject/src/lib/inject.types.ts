@@ -6,8 +6,18 @@ export interface InjectOptions {
   required?: boolean;
 }
 
-// Make InjectionServiceClass generic over constructor args
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface InjectionServiceClass<T, Args extends any[] = any[]> {
+/**
+ * Interface for injectable service classes
+ * Type parameter args allows strict typing of constructor parameters
+ * Supports classes with required, optional, and default parameters
+ * @example
+ * ```typescript
+ * class MyService implements InjectionServiceClass<MyService, [Config]> {
+ *   constructor(config: Config) {}
+ * }
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Default args type must accept any constructor signature.
+export interface InjectionServiceClass<T, Args extends unknown[] = any[]> {
   new (...args: Args): T;
 }
