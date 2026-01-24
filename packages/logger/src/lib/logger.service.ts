@@ -31,6 +31,7 @@ import {
   createSanitizer,
   sanitizeMessage,
   sanitizeValue,
+  hasCircularReference,
 } from './sanitization';
 
 /**
@@ -760,8 +761,10 @@ export class LoggerService {
       return; // Message was batched
     }
 
-    // Sanitize restData items
-    const sanitizedRestData = restData?.map((item) => sanitizeValue(item, this.sanitizer));
+    // Sanitize restData items, but skip sanitization if item has circular references
+    const sanitizedRestData = restData?.map((item) =>
+      hasCircularReference(item) ? item : sanitizeValue(item, this.sanitizer)
+    );
 
     // Extract error and additional metadata from sanitizedRestData
     let error: Error | undefined;
