@@ -138,7 +138,7 @@ export function registerServiceScoped<T, Args extends unknown[] = unknown[]>(
   const registry = InjectionContext.getRegistry(scope);
   
   try {
-    registry.register(token as InjectionServiceClass<T>, ...properties);
+    registry.register(token, ...properties);
   } catch (error) {
     throw new InjectionError(
       `Failed to register service '${token.name}' in scope '${scope || 'default'}'`,
