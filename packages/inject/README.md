@@ -296,7 +296,12 @@ class DatabaseService {
 class UserRepository {
   static readonly INJECTABLE = true;
 
-  constructor(private db = inject(DatabaseService)) {}
+  // Accept the scope as a parameter and use injectScoped for dependencies
+  constructor(private scope: string = 'default') {}
+
+  private get db() {
+    return injectScoped(DatabaseService, this.scope);
+  }
 
   async findById(id: string) {
     return this.db.query(`SELECT * FROM users WHERE id = '${id}'`);
@@ -311,27 +316,41 @@ describe('UserRepository with scope isolation', () => {
   });
 
   it('should query the database', () => {
-    // Each test gets its own scope with isolated services
+    // Create scope and register services within that scope
+    InjectionContext.createScope(TEST_SCOPE);
     registerServiceScoped(DatabaseService, TEST_SCOPE, 'postgres://test');
+    registerServiceScoped(UserRepository, TEST_SCOPE, TEST_SCOPE);
 
-    // Services in this scope are independent from other tests
+    // Inject from the test scope - both parent and dependencies resolve from same scope
     const repo = injectScoped(UserRepository, TEST_SCOPE);
-    // ...
+    // ...test assertions...
   });
 
   it('should handle missing users', () => {
+    InjectionContext.createScope(TEST_SCOPE);
+
     const mockDb = {
       query: async () => [],
     };
 
-    // Use mock service in isolated scope
+    // Register services in the test scope
     registerMockServiceScoped(DatabaseService, mockDb, TEST_SCOPE);
+    registerServiceScoped(UserRepository, TEST_SCOPE, TEST_SCOPE);
 
+    // Inject UserRepository from test scope - it finds mocked DatabaseService in same scope
     const repo = injectScoped(UserRepository, TEST_SCOPE);
-    // Unit test with mocked dependency
+    // ...test assertions...
   });
 });
 ```
+
+**Key Points for Scope Awareness:**
+- When using `injectScoped(UserRepository, TEST_SCOPE)`, the `UserRepository` instance is created from that scope.
+- If `UserRepository` uses `inject(DatabaseService)` in its constructor (default scope), it creates a **scope mismatch** — the dependency won't be found in the test scope.
+- **Solution:** Either:
+  1. Pass the scope to `UserRepository` so it can use `injectScoped(DatabaseService, scope)` for its own dependencies, OR
+  2. Register `DatabaseService` in **both** the test scope (for the test) and the default scope (for constructor injection at creation time), OR
+  3. Use lazy property injection (shown above with a private `get db()` accessor) that resolves dependencies on access
 
 ### Hierarchical Scopes (Multi-tenant Example)
 
