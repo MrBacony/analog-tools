@@ -310,7 +310,7 @@ describe('UserRepository with scope isolation', () => {
     resetScopedInjections(TEST_SCOPE);
   });
 
-  it('should query the database ', () => {
+  it('should query the database', () => {
     // Each test gets its own scope with isolated services
     registerServiceScoped(DatabaseService, TEST_SCOPE, 'postgres://test');
 
