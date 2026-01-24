@@ -9,42 +9,6 @@ import {
 import { DEFAULT_VALUE_RULES, SENSITIVE_KEY_PATTERNS } from './default-rules';
 
 /**
- * Check if a value has circular references
- */
-export function hasCircularReference(
-  value: unknown,
-  seen = new WeakSet<object>()
-): boolean {
-  if (value === null || value === undefined) {
-    return false;
-  }
-
-  if (typeof value !== 'object') {
-    return false;
-  }
-
-  if (seen.has(value as object)) {
-    return true;
-  }
-
-  seen.add(value as object);
-
-  if (Array.isArray(value)) {
-    return value.some((item) => hasCircularReference(item, seen));
-  }
-
-  if (typeof value === 'object') {
-    for (const val of Object.values(value)) {
-      if (hasCircularReference(val, seen)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-/**
  * Escape control characters to prevent log injection attacks
  */
 export function sanitizeControlChars(input: string): string {

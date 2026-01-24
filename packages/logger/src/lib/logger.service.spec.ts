@@ -820,7 +820,10 @@ describe('LoggerService', () => {
       expect(mockConsole.info.mock.calls[0][0]).toContain(
         'Circular reference test'
       );
-      expect(mockConsole.info.mock.calls[0][1]).toBe(circularObj);
+      // Circular references are replaced with a string during sanitization
+      const sanitizedArg = mockConsole.info.mock.calls[0][1] as Record<string, unknown>;
+      expect(sanitizedArg['prop']).toBe('value');
+      expect(sanitizedArg['self']).toBe('[Circular Reference]');
     });
 
     it('should handle deeply nested child logger contexts', () => {
