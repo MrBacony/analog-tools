@@ -3,6 +3,10 @@ import {
   inject,
   registerService,
   registerServiceAsUndefined,
+  InjectionError,
+  CircularDependencyError,
+  tryInject,
+  hasService,
 } from './inject.util';
 import { getServiceRegistry, ServiceRegistry } from './service-registry';
 import { resetAllInjections } from './inject.testing-util';
@@ -92,10 +96,6 @@ describe('inject utility', () => {
         static INJECTABLE = true;
         name = 'test';
       }
-
-      // Create mock service instance
-      const mockService = new TestService();
-
       const service = inject(TestService);
 
       // Verify the service was retrieved
@@ -109,13 +109,10 @@ describe('inject utility', () => {
       // Define a mock service
       class MissingService {}
 
-      // Setup mock to return undefined (service not found)
-
       // Attempt to inject the service should throw
+      expect(() => inject(MissingService)).toThrow(InjectionError);
       expect(() => inject(MissingService)).toThrowError(
-        `Service with token ${
-          MissingService || 'unknown'
-        } not found in registry`
+        `Service '${MissingService.name}' not found in registry and is required`
       );
     });
 
@@ -173,6 +170,120 @@ describe('inject utility', () => {
       const registry1 = getServiceRegistry();
       const registry2 = getServiceRegistry();
       expect(registry1).toBe(registry2);
+    });
+  });
+
+  describe('InjectionError', () => {
+    it('should create an InjectionError with message and token', () => {
+      class TestService {}
+      const error = new InjectionError('Test error', TestService.name);
+
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toBeInstanceOf(InjectionError);
+      expect(error.message).toBe('Test error');
+      expect(error.token).toBe(TestService.name);
+      expect(error.name).toBe('InjectionError');
+    });
+
+    it('should include cause in InjectionError', () => {
+      const cause = new Error('Root cause');
+      const error = new InjectionError('Wrapped error', 'TestService', cause);
+
+      expect(error.cause).toBe(cause);
+      expect(error.token).toBe('TestService');
+    });
+
+    it('should throw InjectionError with token context on invalid injection', () => {
+      class InvalidService {}
+
+      expect(() => inject(InvalidService)).toThrow(InjectionError);
+      
+      try {
+        inject(InvalidService);
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toBeInstanceOf(InjectionError);
+        expect((error as InjectionError).token).toBe(InvalidService.name);
+      }
+    });
+  });
+
+  describe('CircularDependencyError', () => {
+    it('should create a CircularDependencyError with dependency chain', () => {
+      const chain = ['ServiceA', 'ServiceB', 'ServiceC', 'ServiceA'];
+      const error = new CircularDependencyError(chain);
+
+      expect(error).toBeInstanceOf(InjectionError);
+      expect(error).toBeInstanceOf(CircularDependencyError);
+      expect(error.message).toBe('Circular dependency detected: ServiceA -> ServiceB -> ServiceC -> ServiceA');
+      expect(error.name).toBe('CircularDependencyError');
+    });
+  });
+
+  describe('tryInject', () => {
+    it('should return the service if available', () => {
+      class TestService {
+        static INJECTABLE = true;
+        value = 'test';
+      }
+
+      registerService(TestService);
+      const service = tryInject(TestService);
+
+      expect(service).toBeDefined();
+      expect(service?.value).toBe('test');
+    });
+
+    it('should return undefined if service is not available', () => {
+      class MissingService {}
+
+      const service = tryInject(MissingService);
+
+      expect(service).toBeUndefined();
+    });
+
+    it('should never throw an error', () => {
+      class UnavailableService {}
+
+      expect(() => tryInject(UnavailableService)).not.toThrow();
+      expect(tryInject(UnavailableService)).toBeUndefined();
+    });
+  });
+
+  describe('hasService', () => {
+    it('should return true if service is registered', () => {
+      class RegisteredService {
+        static INJECTABLE = true;
+      }
+
+      registerService(RegisteredService);
+      expect(hasService(RegisteredService)).toBe(true);
+    });
+
+    it('should return false if service is not registered', () => {
+      class UnregisteredService {}
+
+      expect(hasService(UnregisteredService)).toBe(false);
+    });
+
+    it('should never throw an error', () => {
+      class ServiceA {}
+      class ServiceB {}
+
+      expect(() => hasService(ServiceA)).not.toThrow();
+      expect(() => hasService(ServiceB)).not.toThrow();
+    });
+
+    it('should return true for undefined services (key exists in registry even though value is undefined)', () => {
+      class UndefinedService {
+        static INJECTABLE = true;
+      }
+
+      registerServiceAsUndefined(UndefinedService);
+      // Note: hasService returns true because the service key is registered in the map,
+      // even though the value is undefined. To check if a service is actually available,
+      // use inject() with required: false or tryInject()
+      expect(hasService(UndefinedService)).toBe(true);
     });
   });
 });

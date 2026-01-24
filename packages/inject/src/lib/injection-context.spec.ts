@@ -5,7 +5,7 @@ import {
   registerServiceScoped,
   registerServiceAsUndefinedScoped,
 } from './injection-context';
-import { inject } from './inject.improved';
+import { inject } from './inject.util';
 
 class TestService {
   static readonly INJECTABLE = true;
@@ -33,7 +33,7 @@ class RepositoryWithGlobalInject {
   static readonly INJECTABLE = true;
 
   // NOTE: Uses global inject() - looks in DEFAULT scope, not TEST_SCOPE
-  constructor(private db = inject(DatabaseService)) {}
+  constructor(private db: DatabaseService = inject(DatabaseService)) {}
 
   getDb() {
     return this.db;

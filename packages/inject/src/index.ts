@@ -11,3 +11,4 @@ export {
   registerServiceScoped,
   registerServiceAsUndefinedScoped,
 } from './lib/injection-context';
+export type { InjectionServiceClass, InjectOptions } from './lib/inject.types';
