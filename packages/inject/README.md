@@ -2,7 +2,7 @@
 
 > **Early Development Stage** -- Breaking changes may happen frequently as APIs evolve.
 
-A dependency injection system for AnalogJS and H3/Nitro server-side applications. Uses a global service registry with singleton semantics, class-based tokens, and lazy auto-registration.
+A dependency injection system for AnalogJS and H3/Nitro server-side applications. Provides both global singleton semantics and scoped registries for test isolation and multi-tenant scenarios. Uses class-based tokens and lazy auto-registration.
 
 [![npm version](https://img.shields.io/npm/v/@analog-tools/inject.svg)](https://www.npmjs.com/package/@analog-tools/inject)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -19,6 +19,7 @@ A dependency injection system for AnalogJS and H3/Nitro server-side applications
   - [Custom Service Names](#custom-service-names)
 - [API Reference](#api-reference)
 - [Testing Utilities](#testing-utilities)
+- [Scoped Injection](#scoped-injection)
 - [Usage with AnalogJS](#usage-with-analogjs)
 - [Limitations](#limitations)
 
@@ -30,13 +31,16 @@ npm install @analog-tools/inject
 
 ## How It Works
 
-The package maintains a global `ServiceRegistry` that stores singleton service instances keyed by class name. When you call `inject(MyService)`:
+The package manages service registries using a scoped architecture. By default, all services are registered in a `default` scope that behaves like a global singleton registry:
 
-1. The registry checks that `MyService` has a static `INJECTABLE` property set to `true` (or a string).
-2. If no instance exists yet, one is created using the class constructor (with no arguments by default).
-3. The same instance is returned on all subsequent `inject()` calls.
+1. When you call `inject(MyService)`, it looks up the service in the default scope.
+2. The registry checks that `MyService` has a static `INJECTABLE` property set to `true` (or a string).
+3. If no instance exists yet, one is created using the class constructor (with no arguments by default).
+4. The same instance is returned on all subsequent `inject()` calls within that scope.
 
-If a service requires constructor arguments, you must call `registerService()` before the first `inject()` call to provide them.
+For test isolation or multi-tenant scenarios, you can create separate scopes using `InjectionContext.createScope()`. Each scope has its own independent service registry with no sharing between scopes.
+
+If a service requires constructor arguments, you must call `registerService()` (for default scope) or `registerServiceScoped()` (for specific scope) before the first `inject()` call to provide them.
 
 ## Usage
 
@@ -241,6 +245,151 @@ describe('OrderService', () => {
 });
 ```
 
+## Scoped Injection
+
+For test isolation or multi-tenant scenarios, use scoped injection to create independent service registries:
+
+### Basic Scoped Usage
+
+```typescript
+import {
+  InjectionContext,
+  registerServiceScoped,
+  injectScoped,
+} from '@analog-tools/inject';
+
+// Create a named scope
+InjectionContext.createScope('my-scope');
+
+// Register and inject within scope
+registerServiceScoped(MyService, 'my-scope', 'config-value');
+const service = injectScoped(MyService, 'my-scope');
+
+// Cleanup when done
+InjectionContext.destroyScope('my-scope');
+```
+
+### Test Isolation Example
+
+Use scoped injection for complete test isolation without affecting other tests:
+
+```typescript
+import { describe, it, expect, afterEach } from 'vitest';
+import {
+  InjectionContext,
+  registerServiceScoped,
+  injectScoped,
+  registerMockServiceScoped,
+  resetScopedInjections,
+} from '@analog-tools/inject';
+
+class DatabaseService {
+  static readonly INJECTABLE = true;
+
+  constructor(private dbUrl: string) {}
+
+  async query(sql: string): Promise<unknown[]> {
+    // database implementation
+  }
+}
+
+class UserRepository {
+  static readonly INJECTABLE = true;
+
+  constructor(private db = inject(DatabaseService)) {}
+
+  async findById(id: string) {
+    return this.db.query(`SELECT * FROM users WHERE id = '${id}'`);
+  }
+}
+
+describe('UserRepository with scope isolation', () => {
+  const TEST_SCOPE = 'user-repo-test';
+
+  afterEach(() => {
+    resetScopedInjections(TEST_SCOPE);
+  });
+
+  it('should query the database ', () => {
+    // Each test gets its own scope with isolated services
+    registerServiceScoped(DatabaseService, TEST_SCOPE, 'postgres://test');
+
+    // Services in this scope are independent from other tests
+    const repo = injectScoped(UserRepository, TEST_SCOPE);
+    // ...
+  });
+
+  it('should handle missing users', () => {
+    const mockDb = {
+      query: async () => [],
+    };
+
+    // Use mock service in isolated scope
+    registerMockServiceScoped(DatabaseService, mockDb, TEST_SCOPE);
+
+    const repo = injectScoped(UserRepository, TEST_SCOPE);
+    // Unit test with mocked dependency
+  });
+});
+```
+
+### Hierarchical Scopes (Multi-tenant Example)
+
+Use scoped injection to support multiple tenants with isolated service instances:
+
+```typescript
+import {
+  InjectionContext,
+  registerServiceScoped,
+  injectScoped,
+} from '@analog-tools/inject';
+
+class TenantService {
+  static readonly INJECTABLE = true;
+
+  constructor(public tenantId: string) {}
+
+  async getConfig() {
+    // Fetch tenant-specific configuration
+  }
+}
+
+// Setup function for each tenant
+function setupTenant(tenantId: string) {
+  InjectionContext.createScope(`tenant-${tenantId}`);
+  registerServiceScoped(TenantService, `tenant-${tenantId}`, tenantId);
+}
+
+// API handler
+export async function getTenantData(tenantId: string) {
+  setupTenant(tenantId);
+
+  const tenant = injectScoped(TenantService, `tenant-${tenantId}`);
+  const config = await tenant.getConfig();
+
+  // Cleanup tenant scope when done
+  InjectionContext.destroyScope(`tenant-${tenantId}`);
+
+  return config;
+}
+```
+
+### API Reference: Scoped Functions
+
+| Function | Description |
+|----------|-------------|
+| `InjectionContext.createScope(name)` | Create a new named scope |
+| `InjectionContext.destroyScope(name)` | Destroy scope and cleanup all services |
+| `InjectionContext.clearAll()` | Clear all scopes (useful in global test teardown) |
+| `InjectionContext.getActiveScopes()` | Get list of all active scope names |
+| `registerServiceScoped(token, scope, ...args)` | Register service in specific scope |
+| `injectScoped(token, scope, options?)` | Inject service from specific scope |
+| `registerServiceAsUndefinedScoped(token, scope)` | Register service as undefined in scope |
+| `registerMockServiceScoped(token, partial, scope)` | Register mock service in scope |
+| `resetScopedInjections(scope)` | Clear all services in a scope |
+
+> **Note:** Scoped resolution is **scope-only** -- services do not inherit from parent or default scopes. Each scope has its own independent registry.
+
 ## Usage with AnalogJS
 
 In AnalogJS API routes (H3 event handlers), inject services directly:
@@ -259,15 +408,37 @@ export default defineEventHandler(async (event) => {
 });
 ```
 
-Since services are singletons, the same instance is shared across all requests within the same server process.
+Since services use the default scope, the same instance is shared across all requests within the same server process.
+
+For multi-tenant applications, use [scoped injection](#scoped-injection) to provide isolated service instances per tenant:
+
+```typescript
+import { defineEventHandler } from 'h3';
+import { InjectionContext, registerServiceScoped, injectScoped } from '@analog-tools/inject';
+import { TenantService } from '../../../services/tenant.service';
+
+export default defineEventHandler(async (event) => {
+  const tenantId = event.context.tenantId; // From auth middleware
+
+  // Setup tenant scope if needed
+  if (!InjectionContext.getActiveScopes().includes(`tenant-${tenantId}`)) {
+    InjectionContext.createScope(`tenant-${tenantId}`);
+    registerServiceScoped(TenantService, `tenant-${tenantId}`, tenantId);
+  }
+
+  // Use tenant-specific services
+  const tenant = injectScoped(TenantService, `tenant-${tenantId}`);
+  return tenant.getData();
+});
+```
 
 ## Limitations
 
-- **Global singleton registry** -- all services live in a single process-wide map. There is no per-request or per-scope isolation in the public API.
 - **No circular dependency detection** in the current public API. If service A injects service B which injects service A, you will get a stack overflow.
 - **Constructor args are not type-checked end-to-end** -- the `registerService` generic does its best, but complex constructor signatures may require explicit type annotations.
 - **Class name collisions** -- two different classes with the same `.name` property will conflict in the registry. Use a string `INJECTABLE` token to disambiguate.
 - **No async initialization** -- constructors run synchronously. Services that need async setup should expose an `init()` method called separately.
+- **Parallel test execution** -- scoped registries are stored in a static `Map`. If tests run in parallel (e.g., worker threads), use unique scope names per test file to avoid interference.
 
 ## License
 

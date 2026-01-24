@@ -5,6 +5,8 @@ import {
   registerServiceAsUndefined,
 } from './inject.util';
 import { getServiceRegistry, ServiceRegistry } from './service-registry';
+import { resetAllInjections } from './inject.testing-util';
+import { InjectionContext } from './injection-context';
 
 describe('inject utility', () => {
   // Reset modules before each test to ensure clean state
@@ -15,8 +17,7 @@ describe('inject utility', () => {
 
   afterEach(() => {
     // Clean up to ensure tests don't affect each other
-    const registry = new ServiceRegistry();
-    registry.destroy();
+    resetAllInjections();
   });
 
   describe('registerService', () => {
@@ -128,6 +129,50 @@ describe('inject utility', () => {
       // Inject with required: false should not throw
       expect(() => inject(OptionalService, { required: false })).not.toThrow();
       expect(inject(OptionalService, { required: false })).toBeUndefined();
+    });
+  });
+
+  describe('backward compatibility with scoped registry', () => {
+    it('should work with existing inject/registerService API', () => {
+      class BackwardCompatService {
+        static INJECTABLE = true;
+        value = 'works';
+      }
+
+      registerService(BackwardCompatService);
+      const service = inject(BackwardCompatService);
+
+      expect(service.value).toBe('works');
+    });
+
+    it('resetAllInjections should clear all scopes', () => {
+      class ResetTestService {
+        static INJECTABLE = true;
+      }
+
+      registerService(ResetTestService);
+      expect(
+        inject(ResetTestService, { required: false })
+      ).toBeDefined();
+
+      resetAllInjections();
+
+      // After reset, all scopes are cleared including default
+      // So getActiveScopes should be empty
+      expect(InjectionContext.getActiveScopes()).toHaveLength(0);
+    });
+
+    it('getServiceRegistry should return default scope registry', () => {
+      const registry = getServiceRegistry();
+      expect(registry).toBeDefined();
+      expect(registry.register).toBeDefined();
+      expect(registry.getService).toBeDefined();
+    });
+
+    it('multiple calls to getServiceRegistry return same instance', () => {
+      const registry1 = getServiceRegistry();
+      const registry2 = getServiceRegistry();
+      expect(registry1).toBe(registry2);
     });
   });
 });

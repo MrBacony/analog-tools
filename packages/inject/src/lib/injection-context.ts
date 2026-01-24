@@ -39,10 +39,10 @@ export class InjectionContext {
   /**
    * Destroy a scope and cleanup its services
    */
-  static async destroyScope(scope: string): Promise<void> {
+  static destroyScope(scope: string): void {
     const registry = this.contexts.get(scope);
     if (registry) {
-      await registry.destroy();
+      registry.destroy();
       this.contexts.delete(scope);
     }
   }
@@ -64,11 +64,10 @@ export class InjectionContext {
   /**
    * Clear all scopes (useful for testing)
    */
-  static async clearAll(): Promise<void> {
-    const destroyPromises = Array.from(this.contexts.values()).map(registry => 
-      registry.destroy()
-    );
-    await Promise.all(destroyPromises);
+  static clearAll(): void {
+    for (const registry of this.contexts.values()) {
+      registry.destroy();
+    }
     this.contexts.clear();
   }
 }
@@ -102,4 +101,15 @@ export function registerServiceScoped<T, Args extends any[]>(
 ): void {
   const registry = InjectionContext.getRegistry(scope);
   registry.register(token, ...properties);
+}
+
+/**
+ * Register a service as undefined in a specific scope
+ */
+export function registerServiceAsUndefinedScoped<T>(
+  token: InjectionServiceClass<T>,
+  scope?: string
+): void {
+  const registry = InjectionContext.getRegistry(scope);
+  registry.registerAsUndefined(token);
 }
