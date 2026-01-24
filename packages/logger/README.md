@@ -17,7 +17,6 @@ Structured logging for AnalogJS, Nitro, and H3-based server applications. Provid
 - [Error Handling](#error-handling)
 - [Log Deduplication](#log-deduplication)
 - [Log Sanitization](#log-sanitization)
-- [Log Sanitization](#log-sanitization)
 - [Nitro/H3 Integration](#nitroh3-integration)
 - [Usage with @analog-tools/inject](#usage-with-analog-toolsinject)
 - [Lazy Message Evaluation](#lazy-message-evaluation)
