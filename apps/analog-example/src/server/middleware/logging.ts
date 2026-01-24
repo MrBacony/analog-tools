@@ -141,7 +141,7 @@ export default defineEventHandler(async (event: H3Event) => {
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
     password: 'mySecurePassword123!',
     email: 'user@example.com',
-    creditCard: '0000-0000-0000-0000',
+    creditCard: '1234-5678-9012-3456',
     ipAddress: '192.168.1.100',
   };
 
