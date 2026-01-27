@@ -920,10 +920,3 @@ export class LoggerService {
     return true;
   }
 }
-
-// Type assertion helper for TypeScript - @Injectable() decorator adds SERVICE_TOKEN at runtime
-declare global {
-  interface LoggerServiceType extends LoggerService {
-    [Symbol.toStringTag]: 'LoggerService';
-  }
-}
