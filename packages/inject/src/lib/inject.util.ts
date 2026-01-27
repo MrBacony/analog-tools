@@ -19,7 +19,20 @@ import { getServiceRegistry } from './service-registry';
  * ```
  */
 export class InjectionError extends Error {
-  // Using declare to avoid redefining the Error.cause property while maintaining type info
+  /**
+   * Optional underlying error cause.
+   *
+   * NOTE:
+   * - Newer JavaScript runtimes and TypeScript lib definitions already define `Error["cause"]`.
+   * - We use `declare` here so we only contribute type information and do NOT redefine the
+   *   property at runtime. This keeps the class compatible with:
+   *   - environments / TS configs that do not yet include `Error.cause`, and
+   *   - environments where `Error.cause` is already part of the standard `Error` type.
+   *
+   * When targeting ES2022+ (or TS versions with native `Error.cause` support), this line
+   * simply augments the existing type. In older targets it provides a typed `cause` property
+   * without changing the runtime shape of `Error`.
+   */
   declare cause?: Error;
 
   constructor(
