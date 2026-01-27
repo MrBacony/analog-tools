@@ -3,16 +3,16 @@ import { createError, H3Event } from 'h3';
 import { SessionService } from './session.service';
 import { AuthSessionData } from '../types/auth-session.types';
 import { AnalogAuthConfig } from '../types/auth.types';
-import { inject, registerService } from '@analog-tools/inject';
+import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 import { getSession, updateSession } from '@analog-tools/session';
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
  */
-export class OAuthAuthenticationService {
-  static readonly INJECTABLE = true;
 
+@Injectable()
+export class OAuthAuthenticationService {
   private logger: LoggerService;
 
   constructor(config: AnalogAuthConfig) {

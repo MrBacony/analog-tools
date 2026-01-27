@@ -5,11 +5,13 @@ import {
   registerServiceAsUndefined,
   InjectionError,
   CircularDependencyError,
+  MissingServiceTokenError,
   tryInject,
   hasService,
 } from './inject.util';
 import { getServiceRegistry, ServiceRegistry } from './service-registry';
 import { resetAllInjections } from './inject.testing-util';
+import { Injectable } from './symbol-registry';
 import { InjectionContext } from './injection-context';
 
 describe('inject utility', () => {
@@ -30,8 +32,8 @@ describe('inject utility', () => {
       const serviceRegistryRegisterSpy = vi.spyOn(serviceRegistry, 'register');
 
       // Define a mock service
+      @Injectable()
       class TestService {
-        static INJECTABLE = true;
         constructor(public name = 'default') {}
       }
 
@@ -50,8 +52,8 @@ describe('inject utility', () => {
       const serviceRegistryRegisterSpy = vi.spyOn(serviceRegistry, 'register');
 
       // Define a mock service with constructor parameters
+      @Injectable()
       class TestServiceWithParams {
-        static INJECTABLE = true;
         constructor(public id: number, public name: string) {}
       }
 
@@ -81,7 +83,6 @@ describe('inject utility', () => {
       spyServiceRegistry = {
         getService: vi.spyOn(serviceRegistry, 'getService'),
         register: vi.spyOn(serviceRegistry, 'register'),
-        isServiceInjectable: vi.spyOn(serviceRegistry, 'isServiceInjectable'),
         registerCustomServiceInstance: vi.spyOn(
           serviceRegistry,
           'registerCustomServiceInstance'
@@ -92,8 +93,8 @@ describe('inject utility', () => {
 
     it('should return the service from the registry', () => {
       // Define a mock service
+      @Injectable()
       class TestService {
-        static INJECTABLE = true;
         name = 'test';
       }
       const service = inject(TestService);
@@ -105,22 +106,18 @@ describe('inject utility', () => {
       expect(service.name).toBe('test');
     });
 
-    it('should throw an error when required service is not found', () => {
-      // Define a mock service
+    it('should throw MissingServiceTokenError when service is not decorated', () => {
+      // Define a mock service without @Injectable()
       class MissingService {}
 
       // Attempt to inject the service should throw
-      expect(() => inject(MissingService)).toThrow(InjectionError);
-      expect(() => inject(MissingService)).toThrowError(
-        `Service '${MissingService.name}' not found in registry and is required`
-      );
+      expect(() => inject(MissingService)).toThrow(MissingServiceTokenError);
     });
 
     it('should not throw an error when service is not required', () => {
       // Define a mock service
-      class OptionalService {
-        static INJECTABLE = true;
-      }
+      @Injectable()
+      class OptionalService {}
       registerServiceAsUndefined(OptionalService);
 
       // Inject with required: false should not throw
@@ -131,8 +128,8 @@ describe('inject utility', () => {
 
   describe('backward compatibility with scoped registry', () => {
     it('should work with existing inject/registerService API', () => {
+      @Injectable()
       class BackwardCompatService {
-        static INJECTABLE = true;
         value = 'works';
       }
 
@@ -143,9 +140,8 @@ describe('inject utility', () => {
     });
 
     it('resetAllInjections should clear all scopes', () => {
-      class ResetTestService {
-        static INJECTABLE = true;
-      }
+      @Injectable()
+      class ResetTestService {}
 
       registerService(ResetTestService);
       expect(
@@ -196,13 +192,13 @@ describe('inject utility', () => {
     it('should throw InjectionError with token context on invalid injection', () => {
       class InvalidService {}
 
-      expect(() => inject(InvalidService)).toThrow(InjectionError);
+      expect(() => inject(InvalidService)).toThrow(MissingServiceTokenError);
       
       try {
         inject(InvalidService);
         expect.unreachable();
       } catch (error) {
-        expect(error).toBeInstanceOf(InjectionError);
+        expect(error).toBeInstanceOf(MissingServiceTokenError);
         expect((error as InjectionError).token).toBe(InvalidService.name);
       }
     });
@@ -222,8 +218,8 @@ describe('inject utility', () => {
 
   describe('tryInject', () => {
     it('should return the service if available', () => {
+      @Injectable()
       class TestService {
-        static INJECTABLE = true;
         value = 'test';
       }
 
@@ -234,27 +230,26 @@ describe('inject utility', () => {
       expect(service?.value).toBe('test');
     });
 
-    it('should return undefined if service is not available', () => {
+    it('should throw MissingServiceTokenError if service is not decorated', () => {
       class MissingService {}
 
-      const service = tryInject(MissingService);
-
-      expect(service).toBeUndefined();
+      // tryInject still requires SERVICE_TOKEN - can't inject non-decorated services
+      expect(() => tryInject(MissingService)).toThrow(MissingServiceTokenError);
     });
 
-    it('should never throw an error', () => {
-      class UnavailableService {}
+    it('should return undefined for registered services when using required: false', () => {
+      @Injectable()
+      class OptionalService {}
 
-      expect(() => tryInject(UnavailableService)).not.toThrow();
-      expect(tryInject(UnavailableService)).toBeUndefined();
+      registerServiceAsUndefined(OptionalService);
+      expect(tryInject(OptionalService)).toBeUndefined();
     });
   });
 
   describe('hasService', () => {
     it('should return true if service is registered', () => {
-      class RegisteredService {
-        static INJECTABLE = true;
-      }
+      @Injectable()
+      class RegisteredService {}
 
       registerService(RegisteredService);
       expect(hasService(RegisteredService)).toBe(true);
@@ -275,9 +270,8 @@ describe('inject utility', () => {
     });
 
     it('should return true for undefined services (key exists in registry even though value is undefined)', () => {
-      class UndefinedService {
-        static INJECTABLE = true;
-      }
+      @Injectable()
+      class UndefinedService {}
 
       registerServiceAsUndefined(UndefinedService);
       // Note: hasService returns true because the service key is registered in the map,

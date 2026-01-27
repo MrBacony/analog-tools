@@ -19,13 +19,19 @@ import { getServiceRegistry } from './service-registry';
  * ```
  */
 export class InjectionError extends Error {
+  // Using declare to avoid redefining the Error.cause property while maintaining type info
+  declare cause?: Error;
+
   constructor(
     message: string,
     public readonly token?: string,
-    public override readonly cause?: Error
+    cause?: Error
   ) {
     super(message);
     this.name = 'InjectionError';
+    if (cause) {
+      this.cause = cause;
+    }
   }
 }
 
@@ -46,6 +52,22 @@ export class CircularDependencyError extends InjectionError {
   constructor(dependencyChain: string[]) {
     super(`Circular dependency detected: ${dependencyChain.join(' -> ')}`);
     this.name = 'CircularDependencyError';
+  }
+}
+
+/**
+ * Error thrown when a class is missing the required SERVICE_TOKEN.
+ * This indicates the class was not decorated with @Injectable().
+ */
+export class MissingServiceTokenError extends InjectionError {
+  constructor(className: string) {
+    super(
+      `Service '${className}' is missing SERVICE_TOKEN. ` +
+        `Add @Injectable() decorator to the class. ` +
+        `See: packages/inject/docs/migrations/symbol-tokens.md`,
+      className
+    );
+    this.name = 'MissingServiceTokenError';
   }
 }
 

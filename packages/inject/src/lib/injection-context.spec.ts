@@ -6,32 +6,29 @@ import {
   registerServiceAsUndefinedScoped,
 } from './injection-context';
 import { inject } from './inject.util';
+import { Injectable } from './symbol-registry';
 
+@Injectable()
 class TestService {
-  static readonly INJECTABLE = true;
-
   constructor(public value = 'default') {}
 }
 
+@Injectable()
 class AnotherService {
-  static readonly INJECTABLE = true;
-
   constructor(public name = 'default') {}
 }
 
 class NonInjectableService {
-  // No INJECTABLE flag
+  // No @Injectable() decorator
 }
 
+@Injectable()
 class DatabaseService {
-  static readonly INJECTABLE = true;
-
   constructor(public connectionString = 'default-connection') {}
 }
 
+@Injectable()
 class RepositoryWithGlobalInject {
-  static readonly INJECTABLE = true;
-
   // NOTE: Uses global inject() - looks in DEFAULT scope, not TEST_SCOPE
   constructor(private db: DatabaseService = inject(DatabaseService)) {}
 

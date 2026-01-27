@@ -12,3 +12,6 @@ export {
   registerServiceAsUndefinedScoped,
 } from './lib/injection-context';
 export type { InjectionServiceClass, InjectOptions } from './lib/inject.types';
+
+// Symbol-based injection (new)
+export { SERVICE_TOKEN, Injectable, createServiceToken } from './lib/symbol-registry';
