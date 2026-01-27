@@ -10,7 +10,9 @@ import { InjectionServiceClass } from './inject.types';
 
 /**
  * Helper to cast an @Injectable() decorated class to InjectionServiceClass.
- * This is necessary because TypeScript doesn't know about runtime-added properties.
+ *
+ * Bridges the gap between TypeScript's compile-time types and the decorator's
+ * runtime behavior, keeping tests readable while maintaining type safety.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function asInjectable<T>(cls: new (...args: any[]) => T): InjectionServiceClass<T> {
@@ -19,6 +21,8 @@ function asInjectable<T>(cls: new (...args: any[]) => T): InjectionServiceClass<
 
 /**
  * Helper to get SERVICE_TOKEN from a decorated class.
+ *
+ * Accesses the runtime SERVICE_TOKEN symbol added by the @Injectable() decorator.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getToken(cls: new (...args: any[]) => unknown): symbol {
