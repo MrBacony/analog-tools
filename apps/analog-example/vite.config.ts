@@ -14,7 +14,14 @@ export default defineConfig(({ mode }) => {
     cacheDir: `../../node_modules/.vite`,
 
     ssr: {
-      noExternal: ['@analogjs/trpc', '@trpc/server', '@analog-tools/auth'],
+      noExternal: [
+        '@analogjs/trpc',
+        '@trpc/server',
+        '@analog-tools/auth',
+        '@analog-tools/inject',
+        '@analog-tools/logger',
+        '@analog-tools/session',
+      ],
     },
 
     build: {
