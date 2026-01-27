@@ -88,7 +88,7 @@ class DatabaseService {
 const db = inject(DatabaseService);
 ```
 
-> **Note:** TypeScript decorators require `"target": "ES2015"` or higher in `tsconfig.json`. No `emitDecoratorMetadata` or `reflect-metadata` required.
+> **Note:** TypeScript decorators require `"target": "ES2015"` or later in `tsconfig.json`. No `emitDecoratorMetadata` or `reflect-metadata` required.
 
 ### Registering Services with Constructor Arguments
 
