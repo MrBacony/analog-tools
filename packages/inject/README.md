@@ -1,8 +1,8 @@
 # @analog-tools/inject
 
-> **Early Development Stage** -- Breaking changes may happen frequently as APIs evolve.
+> **Production Ready** — Stable DI system for AnalogJS and H3/Nitro server-side applications.
 
-A dependency injection system for AnalogJS and H3/Nitro server-side applications. Provides both global singleton semantics and scoped registries for test isolation and multi-tenant scenarios. Uses class-based tokens and lazy auto-registration.
+A dependency injection system for AnalogJS and H3/Nitro server-side applications. Provides both global singleton semantics and scoped registries for test isolation and multi-tenant scenarios. Uses symbol-based tokens (via `@Injectable()` decorator) and lazy auto-registration.
 
 [![npm version](https://img.shields.io/npm/v/@analog-tools/inject.svg)](https://www.npmjs.com/package/@analog-tools/inject)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -10,17 +10,18 @@ A dependency injection system for AnalogJS and H3/Nitro server-side applications
 ## Table of Contents
 
 - [Installation](#installation)
+- [Quick Start](#quick-start)
 - [How It Works](#how-it-works)
 - [Usage](#usage)
   - [Defining Injectable Services](#defining-injectable-services)
   - [Registering Services with Constructor Arguments](#registering-services-with-constructor-arguments)
   - [Injecting Dependencies Within Services](#injecting-dependencies-within-services)
   - [Optional Injection](#optional-injection)
-  - [Custom Service Names](#custom-service-names)
 - [API Reference](#api-reference)
 - [Testing Utilities](#testing-utilities)
 - [Scoped Injection](#scoped-injection)
 - [Usage with AnalogJS](#usage-with-analogjs)
+- [Migration from v1](#migration-from-v1)
 - [Limitations](#limitations)
 
 ## Installation
@@ -29,31 +30,49 @@ A dependency injection system for AnalogJS and H3/Nitro server-side applications
 npm install @analog-tools/inject
 ```
 
+## Quick Start
+
+```typescript
+import { Injectable, inject, registerService } from '@analog-tools/inject';
+
+// 1. Mark class as injectable
+@Injectable()
+class DatabaseService {
+  query(sql: string) {
+    // ...
+  }
+}
+
+// 2. Register with constructor args (if any)
+registerService(DatabaseService);
+
+// 3. Inject anywhere
+const db = inject(DatabaseService);
+db.query('SELECT * FROM users');
+```
+
 ## How It Works
 
-The package manages service registries using a scoped architecture. By default, all services are registered in a `default` scope that behaves like a global singleton registry:
+The package manages service registries using a scoped architecture. By default, all services are registered in a `default` scope (global singleton):
 
-1. When you call `inject(MyService)`, it looks up the service in the default scope.
-2. The registry checks that `MyService` has a static `INJECTABLE` property set to `true` (or a string).
-3. If no instance exists yet, one is created using the class constructor (with no arguments by default).
+1. Mark a class with `@Injectable()` — this creates a unique symbol token for that class.
+2. When you call `inject(MyService)`, it looks up the service by its symbol token.
+3. If no instance exists yet, one is created using the class constructor.
 4. The same instance is returned on all subsequent `inject()` calls within that scope.
 
-For test isolation or multi-tenant scenarios, you can create separate scopes using `InjectionContext.createScope()`. Each scope has its own independent service registry with no sharing between scopes.
-
-If a service requires constructor arguments, you must call `registerService()` (for default scope) or `registerServiceScoped()` (for specific scope) before the first `inject()` call to provide them.
+Symbol-based tokens are **minification-safe** — class names in production builds won't affect service lookup.
 
 ## Usage
 
 ### Defining Injectable Services
 
-Mark a class as injectable by adding a static `INJECTABLE` property:
+Use the `@Injectable()` decorator to mark a class as injectable:
 
 ```typescript
-import { inject } from '@analog-tools/inject';
+import { Injectable, inject } from '@analog-tools/inject';
 
+@Injectable()
 class DatabaseService {
-  static readonly INJECTABLE = true;
-
   private pool: ConnectionPool;
 
   constructor() {
@@ -69,16 +88,17 @@ class DatabaseService {
 const db = inject(DatabaseService);
 ```
 
+> **Note:** TypeScript decorators require `"target": "ES2015"` or higher in `tsconfig.json`. No `emitDecoratorMetadata` or `reflect-metadata` required.
+
 ### Registering Services with Constructor Arguments
 
 When a service needs configuration at creation time, register it explicitly:
 
 ```typescript
-import { registerService, inject } from '@analog-tools/inject';
+import { Injectable, registerService, inject } from '@analog-tools/inject';
 
+@Injectable()
 class CacheService {
-  static readonly INJECTABLE = true;
-
   constructor(
     private readonly ttlSeconds: number,
     private readonly prefix: string
@@ -97,16 +117,17 @@ const cache = inject(CacheService);
 cache.getKey('session'); // "app:session"
 ```
 
-Registration is idempotent: calling `registerService()` again for an already-registered token is a no-op. The first registration wins.
+Registration is idempotent: calling `registerService()` again for an already-registered service is a no-op. The first registration wins.
 
 ### Injecting Dependencies Within Services
 
 Services can inject other services as instance properties:
 
 ```typescript
-class UserRepository {
-  static readonly INJECTABLE = true;
+import { Injectable, inject } from '@analog-tools/inject';
 
+@Injectable()
+class UserRepository {
   private db = inject(DatabaseService);
 
   async findById(id: string) {
@@ -115,6 +136,13 @@ class UserRepository {
       [id]
     );
     return rows[0];
+  }
+}
+
+@Injectable()
+class DatabaseService {
+  async query(sql: string, params: unknown[]): Promise<unknown[]> {
+    // implementation
   }
 }
 ```
@@ -134,19 +162,6 @@ if (analytics) {
 
 When `required` is `false` and the service is not registered (or was registered as undefined), `inject()` returns `undefined` instead of throwing.
 
-### Custom Service Names
-
-The `INJECTABLE` property can be a string to provide a custom token name. This is useful when class names might be minified in production:
-
-```typescript
-class MyService {
-  static readonly INJECTABLE = 'MyService';
-  // ...
-}
-```
-
-When `INJECTABLE` is a string, that string is used as the registry key instead of the class's `.name` property.
-
 ## API Reference
 
 ### `inject<T>(token, options?): T`
@@ -155,10 +170,10 @@ Retrieves a service instance from the registry. Auto-registers the service (with
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `token` | `InjectionServiceClass<T>` | The service class to inject |
+| `token` | `InjectionServiceClass<T>` | The service class to inject (must be decorated with `@Injectable()`) |
 | `options.required` | `boolean` (default: `true`) | Throw if service is not found |
 
-Throws if the class does not have `INJECTABLE` set to a truthy value, or if `required` is `true` and the service resolves to `undefined`.
+Throws `MissingServiceTokenError` if the class is not decorated with `@Injectable()`, or throws `InjectionError` if `required` is `true` and the service resolves to `undefined`.
 
 ### `registerService<T>(token, ...args): void`
 
@@ -166,7 +181,7 @@ Creates and registers a singleton instance of the service with the given constru
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `token` | `InjectionServiceClass<T>` | The service class to register |
+| `token` | `InjectionServiceClass<T>` | The service class to register (must be decorated with `@Injectable()`) |
 | `...args` | `ConstructorParameters` | Arguments passed to the class constructor |
 
 No-op if the service is already registered with a defined value.
@@ -179,7 +194,7 @@ Registers a service as `undefined` in the registry. Primarily used in tests to v
 |-----------|------|-------------|
 | `token` | `InjectionServiceClass<T>` | The service class to register as undefined |
 
-Throws if the class is not injectable.
+Throws `MissingServiceTokenError` if the class is not decorated with `@Injectable()`.
 
 ### `registerMockService<T>(token, partial): void`
 
@@ -194,25 +209,40 @@ Registers a partial object as the service instance. Intended for tests where you
 
 Clears all entries from the service registry. Call this in test teardown (`afterEach`) to isolate tests from each other.
 
+### Symbol-based Tokens
+
+To access or create custom service tokens:
+
+```typescript
+import { SERVICE_TOKEN, Injectable, createServiceToken } from '@analog-tools/inject';
+
+// SERVICE_TOKEN is the symbol used by @Injectable()
+const token: symbol = MyService[SERVICE_TOKEN];
+
+// Create custom tokens (advanced use cases)
+const MY_TOKEN = createServiceToken('MyService');
+
+@Injectable(MY_TOKEN)
+class MyService {}
+```
+
 ## Testing Utilities
 
 `registerMockService` and `resetAllInjections` are exported from the package for use in tests:
 
 ```typescript
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { inject, registerMockService, resetAllInjections } from '@analog-tools/inject';
+import { Injectable, inject, registerMockService, resetAllInjections } from '@analog-tools/inject';
 
+@Injectable()
 class NotificationService {
-  static readonly INJECTABLE = true;
-
   send(userId: string, message: string): void {
     // production implementation
   }
 }
 
+@Injectable()
 class OrderService {
-  static readonly INJECTABLE = true;
-
   private notifications = inject(NotificationService);
 
   placeOrder(userId: string, item: string): void {
@@ -416,8 +446,14 @@ In AnalogJS API routes (H3 event handlers), inject services directly:
 ```typescript
 // src/server/routes/api/users/[id].ts
 import { defineEventHandler, getRouterParam } from 'h3';
-import { inject } from '@analog-tools/inject';
-import { UserRepository } from '../../../services/user.repository';
+import { Injectable, inject } from '@analog-tools/inject';
+
+@Injectable()
+class UserRepository {
+  async findById(id: string) {
+    // implementation
+  }
+}
 
 export default defineEventHandler(async (event) => {
   const userId = getRouterParam(event, 'id');
@@ -433,8 +469,16 @@ For multi-tenant applications, use [scoped injection](#scoped-injection) to prov
 
 ```typescript
 import { defineEventHandler } from 'h3';
-import { InjectionContext, registerServiceScoped, injectScoped } from '@analog-tools/inject';
-import { TenantService } from '../../../services/tenant.service';
+import { InjectionContext, registerServiceScoped, injectScoped, Injectable } from '@analog-tools/inject';
+
+@Injectable()
+class TenantService {
+  constructor(private tenantId: string) {}
+
+  async getData() {
+    // tenant-specific logic
+  }
+}
 
 export default defineEventHandler(async (event) => {
   const tenantId = event.context.tenantId; // From auth middleware
@@ -450,6 +494,16 @@ export default defineEventHandler(async (event) => {
   return tenant.getData();
 });
 ```
+
+## Migration from v1
+
+If you're upgrading from v1.x, see [**Migration Guide: Symbol-based Service Tokens**](docs/migrations/symbol-tokens.md) for detailed upgrade instructions.
+
+**Quick summary:**
+- Replace `static INJECTABLE = true` with `@Injectable()` decorator
+- No changes to `inject()` or `registerService()` APIs
+- No `reflect-metadata` or `emitDecoratorMetadata` needed
+
 
 ## Limitations
 

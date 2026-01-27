@@ -1,16 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as ServiceModule from './service-registry';
 import { ServiceRegistry } from './service-registry';
-import type { InjectionServiceClass } from './inject.types';
+import { Injectable } from './symbol-registry';
+import { MissingServiceTokenError } from './inject.util';
 
 // Mock services for testing
+@Injectable()
 class MockService {
-  static INJECTABLE = true;
   public value = 'mock';
 }
 
+@Injectable()
 class MockServiceWithParams {
-  static INJECTABLE = true;
   public value: string;
 
   constructor(value: string) {
@@ -18,8 +19,8 @@ class MockServiceWithParams {
   }
 }
 
+// Service without @Injectable() decorator
 class NonInjectableService {
-  static INJECTABLE = false;
   public value = 'non-injectable';
 }
 
@@ -76,10 +77,10 @@ describe('ServiceRegistry', () => {
       expect(service).toBeUndefined();
     });
 
-    it('should throw an error for non-injectable services', () => {
+    it('should throw MissingServiceTokenError for non-decorated services', () => {
       expect(() => {
         registry.registerAsUndefined(NonInjectableService);
-      }).toThrow(/not injectable/);
+      }).toThrow(MissingServiceTokenError);
     });
   });
 
@@ -104,18 +105,19 @@ describe('ServiceRegistry', () => {
       expect(service?.value).toBe('partial implementation');
     });
 
-    it('should throw an error for non-injectable services', () => {
+    it('should throw MissingServiceTokenError for non-decorated services', () => {
       const mockInstance = { value: 'custom non-injectable' };
       expect(() => {
         registry.registerCustomServiceInstance(NonInjectableService, mockInstance);
-      }).toThrow(/not injectable/);
+      }).toThrow(MissingServiceTokenError);
     });
   });
 
   describe('getService', () => {
-    it('should return undefined for non-injectable services', () => {
-      const service = registry.getService(NonInjectableService);
-      expect(service).toBeUndefined();
+    it('should throw MissingServiceTokenError for non-decorated services', () => {
+      expect(() => {
+        registry.getService(NonInjectableService);
+      }).toThrow(MissingServiceTokenError);
     });
 
     it('should auto-register and return injectable services', () => {
@@ -149,24 +151,11 @@ describe('ServiceRegistry', () => {
       registry.register(MockService);
       expect(registry.hasService(MockService)).toBe(true);
     });
-  });
 
-  describe('isServiceInjectable', () => {
-    it('should return true for injectable services', () => {
-      expect(registry.isServiceInjectable(MockService)).toBe(true);
-    });
-
-    it('should return false for non-injectable services', () => {
-      expect(registry.isServiceInjectable(NonInjectableService)).toBe(false);
-    });
-
-    it('should return false for services without INJECTABLE property', () => {
-      class NoInjectablePropertyService {}
-      expect(
-        registry.isServiceInjectable(
-          NoInjectablePropertyService as InjectionServiceClass<unknown>
-        )
-      ).toBe(false);
+    it('should throw MissingServiceTokenError for non-decorated services', () => {
+      expect(() => {
+        registry.hasService(NonInjectableService);
+      }).toThrow(MissingServiceTokenError);
     });
   });
 

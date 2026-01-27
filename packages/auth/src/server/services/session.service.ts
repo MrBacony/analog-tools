@@ -9,11 +9,11 @@ import {
 import type { Storage } from 'unstorage';
 import { AuthSessionData, SessionWithSave, SessionWithHandler } from '../types/auth-session.types';
 import { LoggerService } from '@analog-tools/logger';
-import { inject } from '@analog-tools/inject';
+import { inject, Injectable } from '@analog-tools/inject';
 import { type SessionStorageConfig } from '../types/auth.types';
 
+@Injectable()
 export class SessionService {
-  static readonly INJECTABLE = true;
   private readonly storageConfig: SessionStorageConfig;
   private store!: Storage<AuthSessionData>;
   private logger: LoggerService;

@@ -32,6 +32,8 @@ import {
   sanitizeMessage,
   sanitizeValue,
 } from './sanitization';
+import { Injectable } from '@analog-tools/inject';
+
 
 /**
  * Logger service implementation using standard console
@@ -39,13 +41,9 @@ import {
  * Serves as both the main logger and child logger with context
  * Uses LoggerStyleEngine for all formatting and styling operations
  */
-export class LoggerService {
-  /**
-   * Mark this service as injectable
-   * This is required for the @analog-tools/inject package to recognize it
-   */
-  static INJECTABLE = true;
 
+@Injectable()
+export class LoggerService {
   private logLevel: LogLevelEnum;
   private name: string;
   private childLoggers: Record<string, LoggerService> = {};
@@ -920,5 +918,12 @@ export class LoggerService {
       return this.shouldLogImmediately(level, message);
     }
     return true;
+  }
+}
+
+// Type assertion helper for TypeScript - @Injectable() decorator adds SERVICE_TOKEN at runtime
+declare global {
+  interface LoggerServiceType extends LoggerService {
+    [Symbol.toStringTag]: 'LoggerService';
   }
 }

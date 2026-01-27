@@ -1,5 +1,7 @@
 import { InjectionServiceClass } from './inject.types';
 import { InjectionContext } from './injection-context';
+import { SERVICE_TOKEN } from './symbol-registry';
+import { CircularDependencyError, MissingServiceTokenError } from './inject.util';
 
 /**
  * Service injection options
@@ -14,7 +16,20 @@ export function getServiceRegistry(): ServiceRegistry {
  * Implements the singleton pattern for central service management.
  */
 export class ServiceRegistry {
-  private serviceMap: Map<string, unknown> = new Map();
+  private serviceMap: Map<symbol, unknown> = new Map();
+  private initializingServices = new Set<symbol>();
+  /**
+   * Resolve the symbol token for a service class.
+   * Throws MissingServiceTokenError if SERVICE_TOKEN is not present.
+   */
+  private getServiceKey<T>(token: InjectionServiceClass<T>): symbol {
+    const serviceToken = (token as unknown as Record<symbol, symbol>)[SERVICE_TOKEN];
+    if (!serviceToken) {
+      throw new MissingServiceTokenError(token.name);
+    }
+    return serviceToken;
+  }
+
   /**
    * Register a service with a token
    * @param token - The injection token for the service
@@ -24,45 +39,35 @@ export class ServiceRegistry {
     token: InjectionServiceClass<T>,
     ...properties: ConstructorParameters<InjectionServiceClass<T>>
   ): void {
-    if (this.isServiceInjectable(token)) {
-      if (!this.hasService(token) || this.getService(token) === undefined) {
-        if (properties === undefined || properties.length === 0) {
-          this.serviceMap.set(this.getInjcectableName(token), new token());
-          return;
-        }
-        this.serviceMap.set(
-          this.getInjcectableName(token),
-          new token(...properties)
-        );
+    const key = this.getServiceKey(token);
+
+    if (this.initializingServices.has(key)) {
+      throw new CircularDependencyError([token.name]);
+    }
+
+    if (!this.serviceMap.has(key) || this.serviceMap.get(key) === undefined) {
+      this.initializingServices.add(key);
+      try {
+        const instance =
+          properties.length === 0 ? new token() : new token(...properties);
+        this.serviceMap.set(key, instance);
+      } finally {
+        this.initializingServices.delete(key);
       }
     }
   }
 
   public registerAsUndefined<T>(token: InjectionServiceClass<T>): void {
-    if (this.isServiceInjectable(token)) {
-      this.serviceMap.set(this.getInjcectableName(token), undefined);
-    } else {
-      throw new Error(
-        `Service with token ${this.getInjcectableName(
-          token
-        )} is not injectable. Ensure it has the INJECTABLE static property set to true.`
-      );
-    }
+    const key = this.getServiceKey(token);
+    this.serviceMap.set(key, undefined);
   }
 
   public registerCustomServiceInstance<T>(
     token: InjectionServiceClass<T>,
     customObject: Partial<T>
   ): void {
-    if (this.isServiceInjectable(token)) {
-      this.serviceMap.set(this.getInjcectableName(token), customObject);
-    } else {
-      throw new Error(
-        `Service with token ${this.getInjcectableName(
-          token
-        )} is not injectable. Ensure it has the INJECTABLE static property set to true.`
-      );
-    }
+    const key = this.getServiceKey(token);
+    this.serviceMap.set(key, customObject);
   }
 
   /**
@@ -71,15 +76,11 @@ export class ServiceRegistry {
    * @returns The requested service or undefined if not found
    */
   public getService<T>(token: InjectionServiceClass<T>): T | undefined {
-    if (this.isServiceInjectable(token)) {
-      if (!this.hasService(token)) {
-        this.register(token);
-      }
-      return this.serviceMap.get(this.getInjcectableName(token)) as
-        | T
-        | undefined;
+    const key = this.getServiceKey(token);
+    if (!this.serviceMap.has(key)) {
+      this.register(token);
     }
-    return undefined;
+    return this.serviceMap.get(key) as T | undefined;
   }
 
   /**
@@ -88,32 +89,8 @@ export class ServiceRegistry {
    * @returns True if the service is registered
    */
   public hasService<T>(token: InjectionServiceClass<T>): boolean {
-    return this.serviceMap.has(this.getInjcectableName(token));
-  }
-
-  /**
-   * Check if a service class is injectable
-   * @param token - The injection token for the service
-   * @returns True if the service has the INJECTABLE static property set to true
-   */
-  public isServiceInjectable<T>(token: InjectionServiceClass<T>): boolean {
-    const injectable = (token as unknown as { INJECTABLE?: boolean | string })
-      .INJECTABLE;
-    return injectable !== undefined && injectable !== false;
-  }
-
-  public getInjcectableName<T>(token: InjectionServiceClass<T>): string {
-    if (this.isServiceInjectable(token)) {
-      const injectable = (token as unknown as { INJECTABLE?: string | boolean })
-        .INJECTABLE;
-      if (typeof injectable !== 'string') {
-        return token.name;
-      }
-      return injectable;
-    }
-    throw new Error(
-      `Service with token ${token.name} is not injectable. Ensure it has the INJECTABLE static property set to true.`
-    );
+    const key = this.getServiceKey(token);
+    return this.serviceMap.has(key);
   }
 
   /**

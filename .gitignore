@@ -51,7 +51,7 @@ vitest.config.*.timestamp*
 
 .github/*.md
 
-
+.claude
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 .github/prompts/*.md
