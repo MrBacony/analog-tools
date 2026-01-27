@@ -13,6 +13,7 @@ vi.mock('h3', () => ({
 // Mock the inject function from @analog-tools/inject
 vi.mock('@analog-tools/inject', () => ({
   inject: vi.fn(),
+  Injectable: () => (target: unknown) => target,
 }));
 
 describe('Nitro Integration', () => {
