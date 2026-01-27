@@ -17,6 +17,7 @@ A dependency injection system for AnalogJS and H3/Nitro server-side applications
   - [Registering Services with Constructor Arguments](#registering-services-with-constructor-arguments)
   - [Injecting Dependencies Within Services](#injecting-dependencies-within-services)
   - [Optional Injection](#optional-injection)
+  - [Async Initialization](#async-initialization)
 - [API Reference](#api-reference)
 - [Testing Utilities](#testing-utilities)
 - [Scoped Injection](#scoped-injection)
@@ -162,6 +163,62 @@ if (analytics) {
 
 When `required` is `false` and the service is not registered (or was registered as undefined), `inject()` returns `undefined` instead of throwing.
 
+### Async Initialization
+
+For services that need asynchronous setup (connecting to databases, loading configuration, etc.), implement the `AsyncInjectableService` interface with an `initializeAsync()` method:
+
+```typescript
+import { Injectable, injectAsync, registerAsync } from '@analog-tools/inject';
+import type { AsyncInjectableService } from '@analog-tools/inject';
+
+@Injectable()
+class DatabaseService implements AsyncInjectableService {
+  private connection: Connection | null = null;
+
+  async initializeAsync(): Promise<void> {
+    this.connection = await createConnection({
+      host: 'localhost',
+      port: 5432,
+      database: 'myapp',
+    });
+  }
+
+  query(sql: string): Promise<unknown[]> {
+    if (!this.connection) {
+      throw new Error('Database not initialized');
+    }
+    return this.connection.query(sql);
+  }
+}
+```
+
+**Registering and injecting async services:**
+
+Use `registerAsync()` during application startup to eagerly initialize services:
+
+```typescript
+// Application startup
+await registerAsync(DatabaseService);
+
+// Services are now initialized and ready to use
+const db = inject(DatabaseService);
+await db.query('SELECT 1');
+```
+
+Or use `injectAsync()` on-demand to ensure initialization before use:
+
+```typescript
+const db = await injectAsync(DatabaseService);
+await db.query('SELECT * FROM users');
+```
+
+**Key behaviors:**
+- Services **without** `initializeAsync()` work fine with `injectAsync()` (no-op initialization)
+- Initialization promises are **deduplicated** — concurrent calls to `injectAsync()` for the same service share a single initialization promise
+- Failed initialization attempts are **not cached** — subsequent calls will retry initialization
+- The sync `inject()` function does **not** await async initialization; use `injectAsync()` for async services
+- Scoped injection (`injectScoped()`) returns uninitialized instances; use `injectAsync()` on scoped services, or call `initializeAsync()` manually
+
 ## API Reference
 
 ### `inject<T>(token, options?): T`
@@ -196,6 +253,30 @@ Registers a service as `undefined` in the registry. Primarily used in tests to v
 
 Throws `MissingServiceTokenError` if the class is not decorated with `@Injectable()`.
 
+### `injectAsync<T>(token, options?): Promise<T>`
+
+Retrieves and initializes an async service instance. Ensures `initializeAsync()` is called and completes before returning.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | `InjectionServiceClass<T>` | The service class to inject (must have `@Injectable()`) |
+| `options.required` | `boolean` (default: `true`) | Throw if service is not found or initialization fails |
+
+Returns a promise that resolves to the initialized service instance. If the service does not implement `initializeAsync()`, it still works — initialization is a no-op.
+
+Concurrent calls return the same initialization promise, preventing duplicate initialization work.
+
+### `registerAsync<T>(token, ...args): Promise<void>`
+
+Registers and eagerly initializes a service during application startup. Use this in your app's bootstrap to ensure services are ready before handling requests.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | `InjectionServiceClass<T>` | The service class to register (must have `@Injectable()`) |
+| `...args` | `ConstructorParameters` | Arguments passed to the class constructor |
+
+After this resolves, the service is fully initialized and can be injected via `inject()` or `injectAsync()`.
+
 ### `registerMockService<T>(token, partial): void`
 
 Registers a partial object as the service instance. Intended for tests where you only need to stub specific methods.
@@ -214,7 +295,7 @@ Clears all entries from the service registry. Call this in test teardown (`after
 To access or create custom service tokens:
 
 ```typescript
-import { SERVICE_TOKEN, Injectable, createServiceToken } from '@analog-tools/inject';
+import { SERVICE_TOKEN, Injectable, createServiceToken, AsyncInjectableService } from '@analog-tools/inject';
 
 // SERVICE_TOKEN is the symbol used by @Injectable()
 const token: symbol = MyService[SERVICE_TOKEN];
@@ -224,6 +305,13 @@ const MY_TOKEN = createServiceToken('MyService');
 
 @Injectable(MY_TOKEN)
 class MyService {}
+
+// Interface for async services
+const asyncService: AsyncInjectableService = {
+  initializeAsync: async () => {
+    // async setup
+  }
+};
 ```
 
 ## Testing Utilities
@@ -510,7 +598,7 @@ If you're upgrading from v1.x, see [**Migration Guide: Symbol-based Service Toke
 - **No circular dependency detection** in the current public API. If service A injects service B which injects service A, you will get a stack overflow.
 - **Constructor args are not type-checked end-to-end** -- the `registerService` generic does its best, but complex constructor signatures may require explicit type annotations.
 - **Class name collisions** -- two different classes with the same `.name` property will conflict in the registry. Use a string `INJECTABLE` token to disambiguate.
-- **No async initialization** -- constructors run synchronously. Services that need async setup should expose an `init()` method called separately.
+- **Scoped async initialization** -- `injectScoped()` does not await `initializeAsync()`. For async services in scoped contexts, call `injectAsync()` or manually call `initializeAsync()` after `injectScoped()`.
 - **Parallel test execution** -- scoped registries are stored in a static `Map`. If tests run in parallel (e.g., worker threads), use unique scope names per test file to avoid interference.
 
 ## License

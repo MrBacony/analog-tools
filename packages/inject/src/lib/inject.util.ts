@@ -224,3 +224,83 @@ export function tryInject<T>(
 ): T | undefined {
   return inject(token, { required: false });
 }
+
+/**
+ * Inject a service asynchronously, ensuring async initialization is complete.
+ * @param token - The injection token for the service
+ * @param options - Injection options
+ * @returns Promise resolving to the initialized service instance
+ * @throws {InjectionError} When a required service is not found or initialization fails
+ * @example
+ * ```typescript
+ * try {
+ *   const service = await injectAsync(MyService);
+ * } catch (error) {
+ *   if (error instanceof InjectionError) {
+ *     console.error(`Service injection failed: ${error.message}`);
+ *   }
+ * }
+ * ```
+ */
+export async function injectAsync<T>(
+  token: InjectionServiceClass<T>,
+  options: InjectOptions = {}
+): Promise<T> {
+  const { required = true } = options;
+
+  try {
+    const service = await getServiceRegistry().getServiceAsync(token);
+
+    if (service === undefined || service === null) {
+      if (required) {
+        throw new InjectionError(
+          `Service '${token.name}' not found in registry and is required`,
+          token.name
+        );
+      }
+      return undefined as T;
+    }
+
+    return service;
+  } catch (error) {
+    if (error instanceof InjectionError) {
+      throw error;
+    }
+    throw new InjectionError(
+      `Failed to inject async service '${token.name}'`,
+      token.name,
+      error as Error
+    );
+  }
+}
+
+/**
+ * Register and eagerly initialize an async service.
+ * Use during application startup to ensure services are ready.
+ * @param token - The injection token (service class)
+ * @param properties - The constructor parameters for the service class
+ * @throws {InjectionError} When registration or initialization fails
+ * @example
+ * ```typescript
+ * await registerAsync(DatabaseService);
+ * // Service is now initialized and ready to use
+ * const db = inject(DatabaseService);
+ * ```
+ */
+export async function registerAsync<T, Args extends unknown[] = unknown[]>(
+  token: InjectionServiceClass<T, Args>,
+  ...properties: Args
+): Promise<void> {
+  try {
+    await getServiceRegistry().registerAsync(token, ...properties);
+  } catch (error) {
+    if (error instanceof InjectionError) {
+      throw error;
+    }
+    throw new InjectionError(
+      `Failed to register async service '${token.name}'`,
+      token.name,
+      error as Error
+    );
+  }
+}
