@@ -7,6 +7,17 @@ export interface InjectOptions {
 }
 
 /**
+ * Interface for services with async initialization lifecycle
+ */
+export interface AsyncInjectableService {
+  /**
+   * Called after construction to perform async initialization.
+   * Service is not considered ready until this resolves.
+   */
+  initializeAsync?(): Promise<void>;
+}
+
+/**
  * Interface for injectable service classes
  * Type parameter args allows strict typing of constructor parameters
  * Supports classes with required, optional, and default parameters
