@@ -305,7 +305,7 @@ class FileService implements AsyncInjectableService {
     if (!this.fileHandle) {
       throw new Error('FileService not initialized');
     }
-    await this.fileHandle.writeFile(message + '\n');
+    await this.fileHandle.write(message + '\n');
   }
 }
 ```

@@ -109,8 +109,8 @@ export class InjectionContext {
    */
   static clearAll(): void {
     const registries = Array.from(this.contexts.values());
-    for (let i = 0; i < registries.length; i++) {
-      registries[i].destroy();
+    for (const registry of registries) {
+      registry.destroy();
     }
     this.contexts.clear();
   }
