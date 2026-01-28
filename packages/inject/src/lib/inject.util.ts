@@ -137,10 +137,10 @@ export function inject<T>(
   options: InjectOptions = {}
 ): T {
   const { required = true } = options;
-  
+
   try {
     const service = getServiceRegistry().getService(token);
-    
+
     if (service === undefined || service === null) {
       if (required) {
         throw new InjectionError(
@@ -150,7 +150,7 @@ export function inject<T>(
       }
       return undefined as T; // This is only valid when required = false
     }
-    
+
     return service;
   } catch (error) {
     if (error instanceof InjectionError) {

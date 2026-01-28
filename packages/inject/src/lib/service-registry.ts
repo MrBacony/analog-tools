@@ -16,10 +16,6 @@ export function getServiceRegistry(): ServiceRegistry {
  * Service registry that provides access to all service singletons.
  * Implements the singleton pattern for central service management.
  */
-/**
- * Service registry that provides access to all service singletons.
- * Implements the singleton pattern for central service management.
- */
 export class ServiceRegistry {
   private serviceMap: Map<symbol, unknown> = new Map();
   private initializingServices = new Set<symbol>();
@@ -115,7 +111,7 @@ export class ServiceRegistry {
   /**
    * Ensure a service is async-initialized.
    * Returns existing promise if initialization is in progress.
-   * 
+   *
    * Note on retry behavior: If initialization fails, the promise is removed from
    * the cache to allow retry on subsequent calls. All concurrent callers awaiting
    * the same failed promise will receive the rejection. A subsequent call to
@@ -124,7 +120,7 @@ export class ServiceRegistry {
   /**
    * Ensure a service is async-initialized.
    * Returns existing promise if initialization is in progress.
-   * 
+   *
    * Note on retry behavior: If initialization fails, the promise is removed from
    * the cache to allow retry on subsequent calls. All concurrent callers awaiting
    * the same failed promise will receive the rejection. A subsequent call to

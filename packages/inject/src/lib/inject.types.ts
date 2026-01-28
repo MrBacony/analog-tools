@@ -15,7 +15,7 @@ export interface AsyncInjectableService {
    * Service is not considered ready until this resolves.
    */
   initializeAsync?(): Promise<void>;
-  
+
   /**
    * Called when the service is being destroyed.
    * Use this to clean up resources like connections, file handles, timers, etc.
@@ -27,7 +27,7 @@ export interface AsyncInjectableService {
  * Interface for injectable service classes
  * Type parameter args allows strict typing of constructor parameters
  * Supports classes with required, optional, and default parameters
- * 
+ *
  * Note: SERVICE_TOKEN is added at runtime by @Injectable() decorator.
  * The type allows any class constructor; token presence is checked at runtime.
  * @example
