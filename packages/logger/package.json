@@ -9,6 +9,7 @@
     "type": "git",
     "url": "https://github.com/MrBacony/analog-tools.git"
   },
+  "homepage": "https://github.com/MrBacony/analog-tools/tree/main/packages/logger#readme",
   "keywords": [
     "analogjs",
     "logger",

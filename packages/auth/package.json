@@ -14,6 +14,7 @@
     "type": "git",
     "url": "https://github.com/MrBacony/analog-tools.git"
   },
+  "homepage": "https://github.com/MrBacony/analog-tools/tree/main/packages/auth#readme",
   "license": "MIT",
   "publishConfig": {
     "access": "public"

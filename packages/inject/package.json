@@ -9,6 +9,7 @@
     "type": "git",
     "url": "https://github.com/MrBacony/analog-tools.git"
   },
+  "homepage": "https://github.com/MrBacony/analog-tools/tree/main/packages/inject#readme",
   "keywords": [
     "analogjs",
     "di",
