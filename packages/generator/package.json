@@ -8,6 +8,7 @@
     "type": "git",
     "url": "https://github.com/MrBacony/analog-tools.git"
   },
+  "homepage": "https://github.com/MrBacony/analog-tools/tree/main/packages/generator#readme",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "license": "MIT",
