@@ -18,6 +18,7 @@ A dependency injection system for AnalogJS and H3/Nitro server-side applications
   - [Injecting Dependencies Within Services](#injecting-dependencies-within-services)
   - [Optional Injection](#optional-injection)
   - [Async Initialization](#async-initialization)
+- [Lifecycle Management](#lifecycle-management)
 - [API Reference](#api-reference)
 - [Testing Utilities](#testing-utilities)
 - [Scoped Injection](#scoped-injection)
@@ -219,6 +220,210 @@ await db.query('SELECT * FROM users');
 - The sync `inject()` function does **not** await async initialization; use `injectAsync()` for async services
 - Scoped injection (`injectScoped()`) returns uninitialized instances; use `injectAsync()` on scoped services, or call `initializeAsync()` manually
 
+## Lifecycle Management
+
+For services managing external resources (database connections, file handles, timers, etc.), implement the `onDestroy()` lifecycle hook to ensure proper cleanup:
+
+```typescript
+import { Injectable } from '@analog-tools/inject';
+import type { AsyncInjectableService } from '@analog-tools/inject';
+
+@Injectable()
+class DatabaseService implements AsyncInjectableService {
+  private connection: Connection | null = null;
+
+  async initializeAsync(): Promise<void> {
+    this.connection = await createConnection({
+      host: 'localhost',
+      database: 'myapp',
+    });
+  }
+
+  async onDestroy(): Promise<void> {
+    if (this.connection) {
+      await this.connection.close();
+      this.connection = null;
+    }
+  }
+
+  async query(sql: string): Promise<unknown[]> {
+    if (!this.connection) {
+      throw new Error('Database not initialized');
+    }
+    return this.connection.query(sql);
+  }
+}
+```
+
+### Destroying Services
+
+Use `destroyAllServicesAsync()` during application shutdown to invoke `onDestroy()` hooks and clean up resources:
+
+```typescript
+import { destroyAllServicesAsync } from '@analog-tools/inject';
+
+// Application shutdown handler
+process.on('SIGTERM', async () => {
+  console.log('Shutting down gracefully...');
+  try {
+    await destroyAllServicesAsync();
+    console.log('All services cleaned up');
+    process.exit(0);
+  } catch (error) {
+    console.error('Cleanup failed:', error);
+    process.exit(1);
+  }
+});
+```
+
+### Real-World Examples
+
+**File Handling Service:**
+
+```typescript
+@Injectable()
+class FileService implements AsyncInjectableService {
+  private fileHandle: FileHandle | null = null;
+
+  async initializeAsync(): Promise<void> {
+    const tempDir = path.join(os.tmpdir(), 'myapp');
+    await fs.mkdir(tempDir, { recursive: true });
+    this.fileHandle = await fs.open(
+      path.join(tempDir, 'app.log'),
+      'a'
+    );
+  }
+
+  async onDestroy(): Promise<void> {
+    if (this.fileHandle) {
+      await this.fileHandle.close();
+      this.fileHandle = null;
+    }
+  }
+
+  async write(message: string): Promise<void> {
+    if (!this.fileHandle) {
+      throw new Error('FileService not initialized');
+    }
+    await this.fileHandle.write(message + '\n');
+  }
+}
+```
+
+**Timer/Scheduler Service:**
+
+```typescript
+@Injectable()
+class SchedulerService implements AsyncInjectableService {
+  private intervals: NodeJS.Timeout[] = [];
+
+  async initializeAsync(): Promise<void> {
+    // Setup any background tasks
+  }
+
+  async onDestroy(): Promise<void> {
+    // Clear all intervals
+    this.intervals.forEach((interval) => clearInterval(interval));
+    this.intervals = [];
+  }
+
+  schedule(callback: () => void, ms: number): void {
+    const interval = setInterval(callback, ms);
+    this.intervals.push(interval);
+  }
+}
+```
+
+**Cache Service with Expiration:**
+
+```typescript
+@Injectable()
+class CacheService implements AsyncInjectableService {
+  private cache = new Map<string, { value: unknown; expiresAt: number }>();
+  private cleanupTimer: NodeJS.Timeout | null = null;
+
+  async initializeAsync(): Promise<void> {
+    // Run cleanup every 60 seconds
+    this.cleanupTimer = setInterval(() => {
+      const now = Date.now();
+      for (const [key, entry] of this.cache.entries()) {
+        if (entry.expiresAt < now) {
+          this.cache.delete(key);
+        }
+      }
+    }, 60000);
+  }
+
+  async onDestroy(): Promise<void> {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    this.cache.clear();
+  }
+
+  set(key: string, value: unknown, ttlSeconds: number): void {
+    this.cache.set(key, {
+      value,
+      expiresAt: Date.now() + ttlSeconds * 1000,
+    });
+  }
+
+  get(key: string): unknown {
+    const entry = this.cache.get(key);
+    if (entry && entry.expiresAt > Date.now()) {
+      return entry.value;
+    }
+    this.cache.delete(key);
+    return undefined;
+  }
+}
+```
+
+### Error Handling
+
+If an `onDestroy()` hook fails, cleanup continues for other services and errors are aggregated:
+
+```typescript
+import { AggregateDestructionError, destroyAllServicesAsync } from '@analog-tools/inject';
+
+try {
+  await destroyAllServicesAsync();
+} catch (error) {
+  if (error instanceof AggregateDestructionError) {
+    console.error(`Cleanup failed for ${error.failures.length} service(s):`);
+    error.failures.forEach((failure) => {
+      console.error(
+        `  ${failure.serviceName}: ${failure.error.message}`
+      );
+    });
+
+    // Check if a specific service failed
+    if (error.hasFailure('DatabaseService')) {
+      console.error('Database cleanup failed - may have connection leaks');
+    }
+  } else {
+    throw error;
+  }
+}
+```
+
+### Scoped Cleanup
+
+For scoped services, use the async scoped destruction APIs:
+
+```typescript
+import { InjectionContext } from '@analog-tools/inject';
+
+// Cleanup a specific scope
+await InjectionContext.destroyScopeAsync('tenant-123');
+
+// Cleanup all scopes (useful in test teardown)
+afterEach(async () => {
+  await InjectionContext.clearAllAsync();
+});
+```
+
 ## API Reference
 
 ### `inject<T>(token, options?): T`
@@ -277,6 +482,59 @@ Registers and eagerly initializes a service during application startup. Use this
 
 After this resolves, the service is fully initialized and can be injected via `inject()` or `injectAsync()`.
 
+### `destroyAllServicesAsync(): Promise<void>`
+
+Destroys all services in the global registry, invoking `onDestroy()` lifecycle hooks for proper resource cleanup. Aggregates errors from multiple failed cleanups.
+
+Use this during application shutdown to ensure all resources are properly released.
+
+```typescript
+process.on('SIGTERM', async () => {
+  await destroyAllServicesAsync();
+  process.exit(0);
+});
+```
+
+Throws `AggregateDestructionError` if one or more services fail during destruction. Use the `failures` property to inspect individual errors.
+
+### `AggregateDestructionError`
+
+Error thrown when one or more services fail during destruction. Contains all individual errors for debugging.
+
+**Properties:**
+- `failures: Array<{ serviceName: string; error: Error }>` — List of services that failed with their errors
+- `getErrors(): Error[]` — Get all underlying errors as an array
+- `hasFailure(serviceName: string): boolean` — Check if a specific service failed
+
+**Example:**
+
+```typescript
+try {
+  await destroyAllServicesAsync();
+} catch (error) {
+  if (error instanceof AggregateDestructionError) {
+    error.failures.forEach((failure) => {
+      console.error(`${failure.serviceName}: ${failure.error.message}`);
+    });
+  }
+}
+```
+
+### Scoped Async Cleanup
+
+For scoped destruction with lifecycle hook support:
+
+| Function | Description |
+|----------|-------------|
+| `InjectionContext.destroyScopeAsync(scope)` | Destroy scope and invoke `onDestroy()` hooks for async services |
+| `InjectionContext.clearAllAsync()` | Destroy all scopes asynchronously, aggregating errors across all scopes |
+
+**Example:**
+
+```typescript
+await InjectionContext.destroyScopeAsync('my-scope');
+```
+
 ### `registerMockService<T>(token, partial): void`
 
 Registers a partial object as the service instance. Intended for tests where you only need to stub specific methods.
@@ -289,6 +547,83 @@ Registers a partial object as the service instance. Intended for tests where you
 ### `resetAllInjections(): void`
 
 Clears all entries from the service registry. Call this in test teardown (`afterEach`) to isolate tests from each other.
+
+### `hasService<T>(token): boolean`
+
+Checks if a service is registered in the global registry without attempting to create it.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | `InjectionServiceClass<T>` | The service class to check (must be decorated with `@Injectable()`) |
+
+Returns `true` if the service is registered with a defined value, `false` otherwise. Never throws an error.
+
+**Example:**
+
+```typescript
+if (hasService(DatabaseService)) {
+  const db = inject(DatabaseService);
+}
+```
+
+### `tryInject<T>(token): T | undefined`
+
+Attempts to inject a service, returning `undefined` if not available. A safer alternative to `inject(token, { required: false })`.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | `InjectionServiceClass<T>` | The service class to inject (must be decorated with `@Injectable()`) |
+
+Never throws an error. Returns `undefined` if the service is not registered or resolves to `undefined`.
+
+**Example:**
+
+```typescript
+const analytics = tryInject(AnalyticsService);
+if (analytics) {
+  analytics.track('event');
+}
+```
+
+### Error Types
+
+#### `InjectionError`
+
+Base error class thrown by injection functions when injection fails.
+
+**Properties:**
+- `token: InjectionServiceClass<unknown>` — The service class that failed to inject
+- `cause?: Error` — Underlying error that caused the injection failure
+
+**Example:**
+
+```typescript
+try {
+  const service = inject(MyService);
+} catch (error) {
+  if (error instanceof InjectionError) {
+    console.error(`Failed to inject ${error.token.name}: ${error.message}`);
+  }
+}
+```
+
+#### `MissingServiceTokenError`
+
+Thrown when attempting to inject a class that is not decorated with `@Injectable()`.
+
+**Example:**
+
+```typescript
+class NotDecorated {}
+
+try {
+  inject(NotDecorated);  // Throws MissingServiceTokenError
+} catch (error) {
+  if (error instanceof MissingServiceTokenError) {
+    console.error(`${error.message} — add @Injectable() decorator`);
+  }
+}
+```
 
 ### Symbol-based Tokens
 
@@ -395,15 +730,15 @@ Use scoped injection for complete test isolation without affecting other tests:
 import { describe, it, expect, afterEach } from 'vitest';
 import {
   InjectionContext,
+  Injectable,
   registerServiceScoped,
   injectScoped,
   registerMockServiceScoped,
   resetScopedInjections,
 } from '@analog-tools/inject';
 
+@Injectable()
 class DatabaseService {
-  static readonly INJECTABLE = true;
-
   constructor(private dbUrl: string) {}
 
   async query(sql: string): Promise<unknown[]> {
@@ -411,8 +746,8 @@ class DatabaseService {
   }
 }
 
+@Injectable()
 class UserRepository {
-  static readonly INJECTABLE = true;
 
   // Accept the scope as a parameter and use injectScoped for dependencies
   constructor(private scope: string = 'default') {}
@@ -477,13 +812,13 @@ Use scoped injection to support multiple tenants with isolated service instances
 ```typescript
 import {
   InjectionContext,
+  Injectable,
   registerServiceScoped,
   injectScoped,
 } from '@analog-tools/inject';
 
+@Injectable()
 class TenantService {
-  static readonly INJECTABLE = true;
-
   constructor(public tenantId: string) {}
 
   async getConfig() {
@@ -597,7 +932,7 @@ If you're upgrading from v1.x, see [**Migration Guide: Symbol-based Service Toke
 
 - **No circular dependency detection** in the current public API. If service A injects service B which injects service A, you will get a stack overflow.
 - **Constructor args are not type-checked end-to-end** -- the `registerService` generic does its best, but complex constructor signatures may require explicit type annotations.
-- **Class name collisions** -- two different classes with the same `.name` property will conflict in the registry. Use a string `INJECTABLE` token to disambiguate.
+- **Class name collisions** -- Two injectable classes with the same name will have distinct symbol tokens, so collisions are prevented. However, if you deliberately create custom tokens with `createServiceToken()`, ensure token names are unique across your application.
 - **Scoped async initialization** -- `injectScoped()` does not await `initializeAsync()`. For async services in scoped contexts, call `injectAsync()` or manually call `initializeAsync()` after `injectScoped()`.
 - **Parallel test execution** -- scoped registries are stored in a static `Map`. If tests run in parallel (e.g., worker threads), use unique scope names per test file to avoid interference.
 

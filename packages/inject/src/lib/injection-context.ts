@@ -49,6 +49,48 @@ export class InjectionContext {
   }
 
   /**
+   * Destroy a scope and cleanup its services asynchronously
+   */
+  static async destroyScopeAsync(scope: string): Promise<void> {
+    const registry = this.contexts.get(scope);
+    if (registry) {
+      await registry.destroyAsync();
+      this.contexts.delete(scope);
+    }
+  }
+
+  /**
+   * Clear all scopes asynchronously with proper resource cleanup
+   */
+  static async clearAllAsync(): Promise<void> {
+    const { AggregateDestructionError } = await import('./inject.util');
+    const errors: Array<{ serviceName: string; error: Error }> = [];
+
+    const entries = Array.from(this.contexts.entries());
+    for (const [scope, registry] of entries) {
+      try {
+        await registry.destroyAsync();
+      } catch (error) {
+        if (error instanceof AggregateDestructionError) {
+          // Collect failures from each scope
+          errors.push(...error.failures);
+        } else if (error instanceof Error) {
+          errors.push({
+            serviceName: `scope:${scope}`,
+            error,
+          });
+        }
+      }
+    }
+
+    this.contexts.clear();
+
+    if (errors.length > 0) {
+      throw new AggregateDestructionError(errors);
+    }
+  }
+
+  /**
    * Set the default scope for injection operations
    */
   static setDefaultScope(scope: string): void {
@@ -66,7 +108,8 @@ export class InjectionContext {
    * Clear all scopes (useful for testing)
    */
   static clearAll(): void {
-    for (const registry of this.contexts.values()) {
+    const registries = Array.from(this.contexts.values());
+    for (const registry of registries) {
       registry.destroy();
     }
     this.contexts.clear();
