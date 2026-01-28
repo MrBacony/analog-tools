@@ -6,17 +6,14 @@ import type { H3Event } from 'h3';
 import { LoggerService } from '@analog-tools/logger';
 
 describe('checkAuthentication', () => {
-  let mockAuthService: {
-    initSession: ReturnType<typeof vi.fn>;
-    isAuthenticated: ReturnType<typeof vi.fn>;
-  };
+  let mockAuthService: OAuthAuthenticationService;;
   let mockEvent: H3Event;
 
   beforeEach(() => {
     mockAuthService = {
       initSession: vi.fn().mockResolvedValue(undefined),
       isAuthenticated: vi.fn().mockResolvedValue(true),
-    };
+    } as unknown as OAuthAuthenticationService;
     registerMockService(OAuthAuthenticationService, mockAuthService);
     registerMockService(LoggerService, { forContext: vi.fn() });
     mockEvent = {} as H3Event;
