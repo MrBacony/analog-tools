@@ -1,6 +1,6 @@
 {
   "name": "@analog-tools/generator",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "Code generation tools for AnalogJS applications",
   "type": "commonjs",
   "author": "Gregor Speck <gregor.speck@gmail.com>",
