@@ -108,8 +108,8 @@ export class ServiceRegistry {
     // Check if already initialized or in progress
     if (this.initializationPromises.has(key)) {
       const initPromise = this.initializationPromises.get(key);
-      if(initPromise) {
-      return initPromise;
+      if (initPromise) {
+        return initPromise;
       }
     }
 
