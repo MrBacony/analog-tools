@@ -62,9 +62,6 @@ export class InjectionContext {
   /**
    * Clear all scopes asynchronously with proper resource cleanup
    */
-  /**
-   * Clear all scopes asynchronously with proper resource cleanup
-   */
   static async clearAllAsync(): Promise<void> {
     const { AggregateDestructionError } = await import('./inject.util');
     const errors: Array<{ serviceName: string; error: Error }> = [];
@@ -108,9 +105,6 @@ export class InjectionContext {
     return Array.from(this.contexts.keys());
   }
 
-  /**
-   * Clear all scopes (useful for testing)
-   */
   /**
    * Clear all scopes (useful for testing)
    */

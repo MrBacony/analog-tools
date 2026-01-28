@@ -553,7 +553,7 @@ Clears all entries from the service registry. Call this in test teardown (`after
 Checks if a service is registered in the global registry without attempting to create it.
 
 | Parameter | Type | Description |
-|-----------|------|-------------||
+|-----------|------|-------------|
 | `token` | `InjectionServiceClass<T>` | The service class to check (must be decorated with `@Injectable()`) |
 
 Returns `true` if the service is registered with a defined value, `false` otherwise. Never throws an error.
@@ -571,7 +571,7 @@ if (hasService(DatabaseService)) {
 Attempts to inject a service, returning `undefined` if not available. A safer alternative to `inject(token, { required: false })`.
 
 | Parameter | Type | Description |
-|-----------|------|-------------||
+|-----------|------|-------------|
 | `token` | `InjectionServiceClass<T>` | The service class to inject (must be decorated with `@Injectable()`) |
 
 Never throws an error. Returns `undefined` if the service is not registered or resolves to `undefined`.

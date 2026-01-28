@@ -117,15 +117,6 @@ export class ServiceRegistry {
    * the same failed promise will receive the rejection. A subsequent call to
    * ensureAsyncInitialized() will attempt initialization again.
    */
-  /**
-   * Ensure a service is async-initialized.
-   * Returns existing promise if initialization is in progress.
-   *
-   * Note on retry behavior: If initialization fails, the promise is removed from
-   * the cache to allow retry on subsequent calls. All concurrent callers awaiting
-   * the same failed promise will receive the rejection. A subsequent call to
-   * ensureAsyncInitialized() will attempt initialization again.
-   */
   private async ensureAsyncInitialized<T>(service: T, key: symbol): Promise<void> {
     // Check if already initialized
     if (this.initializedServices.has(key)) {
@@ -255,10 +246,6 @@ export class ServiceRegistry {
     }
   }
 
-  /**
-   * Synchronously clear registry state.
-   * Does NOT invoke onDestroy() hooks - use destroyAsync() for proper cleanup.
-   */
   /**
    * Synchronously clear registry state.
    * Does NOT invoke onDestroy() hooks - use destroyAsync() for proper cleanup.
