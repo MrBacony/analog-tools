@@ -102,9 +102,9 @@ export class ServiceRegistry {
    * Note on retry behavior: If initialization fails, the promise is removed from
    * the cache to allow retry on subsequent calls. All concurrent callers awaiting
    * the same failed promise will receive the rejection. A subsequent call to
-   * ensureInitialized() will attempt initialization again.
+   * ensureAsyncInitialized() will attempt initialization again.
    */
-  private async ensureInitialized<T>(service: T, key: symbol): Promise<void> {
+  private async ensureAsyncInitialized<T>(service: T, key: symbol): Promise<void> {
     // Check if already initialized or in progress
     if (this.initializationPromises.has(key)) {
       return this.initializationPromises.get(key)!;
@@ -142,7 +142,7 @@ export class ServiceRegistry {
 
     const service = this.serviceMap.get(key) as T | undefined;
     if (service !== undefined) {
-      await this.ensureInitialized(service, key);
+      await this.ensureAsyncInitialized(service, key);
     }
     return service;
   }
@@ -161,7 +161,7 @@ export class ServiceRegistry {
     }
 
     const service = this.serviceMap.get(key) as T;
-    await this.ensureInitialized(service, key);
+    await this.ensureAsyncInitialized(service, key);
   }
 
   /**
