@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ServiceRegistry, getServiceRegistry } from './service-registry';
-import { Injectable } from './symbol-registry';
-import { injectScoped } from './injection-context';
+import { ServiceRegistry, getServiceRegistry } from '../service-registry';
+import { Injectable } from '../symbol-registry';
+import { injectScoped } from '../injection-context';
 import {
   InjectionError,
   MissingServiceTokenError,
@@ -10,8 +10,8 @@ import {
   registerAsync,
   registerService,
   registerServiceAsUndefined,
-} from './inject.util';
-import type { AsyncInjectableService } from './inject.types';
+} from '../inject.util';
+import type { AsyncInjectableService } from '../inject.types';
 
 // Mock services for testing
 @Injectable()
