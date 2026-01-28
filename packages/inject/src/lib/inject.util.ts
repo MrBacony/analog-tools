@@ -85,6 +85,36 @@ export class MissingServiceTokenError extends InjectionError {
 }
 
 /**
+ * Error thrown when one or more services fail during destruction.
+ * Contains all individual errors for debugging.
+ */
+export class AggregateDestructionError extends InjectionError {
+  constructor(
+    public readonly failures: Array<{ serviceName: string; error: Error }>
+  ) {
+    const summary = failures
+      .map((f) => `${f.serviceName}: ${f.error.message}`)
+      .join('; ');
+    super(`Failed to destroy ${failures.length} service(s): ${summary}`);
+    this.name = 'AggregateDestructionError';
+  }
+
+  /**
+   * Get all underlying errors
+   */
+  getErrors(): Error[] {
+    return this.failures.map((f) => f.error);
+  }
+
+  /**
+   * Check if a specific service failed
+   */
+  hasFailure(serviceName: string): boolean {
+    return this.failures.some((f) => f.serviceName === serviceName);
+  }
+}
+
+/**
  * Inject a service from the ServiceRegistry
  * @param token - The injection token for the service
  * @param options - Injection options
@@ -303,4 +333,20 @@ export async function registerAsync<T, Args extends unknown[] = unknown[]>(
       error as Error
     );
   }
+}
+
+/**
+ * Destroy all services in the global registry asynchronously.
+ * Invokes onDestroy() lifecycle hooks for proper resource cleanup.
+ * @throws {AggregateDestructionError} When one or more services fail to destroy
+ * @example
+ * ```typescript
+ * process.on('SIGTERM', async () => {
+ *   await destroyAllServicesAsync();
+ *   process.exit(0);
+ * });
+ * ```
+ */
+export async function destroyAllServicesAsync(): Promise<void> {
+  return getServiceRegistry().destroyAsync();
 }

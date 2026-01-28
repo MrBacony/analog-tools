@@ -15,6 +15,12 @@ export interface AsyncInjectableService {
    * Service is not considered ready until this resolves.
    */
   initializeAsync?(): Promise<void>;
+  
+  /**
+   * Called when the service is being destroyed.
+   * Use this to clean up resources like connections, file handles, timers, etc.
+   */
+  onDestroy?(): Promise<void>;
 }
 
 /**

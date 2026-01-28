@@ -16,10 +16,18 @@ export function getServiceRegistry(): ServiceRegistry {
  * Service registry that provides access to all service singletons.
  * Implements the singleton pattern for central service management.
  */
+/**
+ * Service registry that provides access to all service singletons.
+ * Implements the singleton pattern for central service management.
+ */
 export class ServiceRegistry {
   private serviceMap: Map<symbol, unknown> = new Map();
   private initializingServices = new Set<symbol>();
   private initializationPromises = new Map<symbol, Promise<void>>();
+  private serviceNames = new Map<symbol, string>();
+  private initializedServices = new Set<symbol>();
+  private destroyed = false;
+
   /**
    * Resolve the symbol token for a service class.
    * Throws MissingServiceTokenError if SERVICE_TOKEN is not present.
@@ -29,7 +37,16 @@ export class ServiceRegistry {
     if (!serviceToken) {
       throw new MissingServiceTokenError(token.name);
     }
+    // Track service names for error reporting
+    this.serviceNames.set(serviceToken, token.name);
     return serviceToken;
+  }
+
+  /**
+   * Get service name from symbol key for error reporting
+   */
+  private getServiceName(key: symbol): string {
+    return this.serviceNames.get(key) ?? 'Unknown';
   }
 
   /**
@@ -104,33 +121,55 @@ export class ServiceRegistry {
    * the same failed promise will receive the rejection. A subsequent call to
    * ensureAsyncInitialized() will attempt initialization again.
    */
+  /**
+   * Ensure a service is async-initialized.
+   * Returns existing promise if initialization is in progress.
+   * 
+   * Note on retry behavior: If initialization fails, the promise is removed from
+   * the cache to allow retry on subsequent calls. All concurrent callers awaiting
+   * the same failed promise will receive the rejection. A subsequent call to
+   * ensureAsyncInitialized() will attempt initialization again.
+   */
   private async ensureAsyncInitialized<T>(service: T, key: symbol): Promise<void> {
-    // Check if already initialized or in progress
+    // Check if already initialized
+    if (this.initializedServices.has(key)) {
+      return;
+    }
+
+    // Check if initialization is in progress
     if (this.initializationPromises.has(key)) {
       const initPromise = this.initializationPromises.get(key);
       if (initPromise) {
-        return initPromise;
+        await initPromise;
+        return;
       }
     }
 
     // Check if service has async initialization
     const asyncService = service as AsyncInjectableService;
     if (typeof asyncService.initializeAsync !== 'function') {
-      // No async init needed, cache empty resolved promise
+      // No async init needed
+      this.initializedServices.add(key);
       const resolved = Promise.resolve();
       this.initializationPromises.set(key, resolved);
       return resolved;
     }
 
     // Create and cache initialization promise
-    const initPromise = asyncService.initializeAsync().catch((error) => {
-      // Remove failed promise to allow retry
-      this.initializationPromises.delete(key);
-      throw error;
-    });
+    const initPromise = asyncService
+      .initializeAsync()
+      .then(() => {
+        // Mark as initialized after successful completion
+        this.initializedServices.add(key);
+      })
+      .catch((error) => {
+        // Remove failed promise to allow retry
+        this.initializationPromises.delete(key);
+        throw error;
+      });
 
     this.initializationPromises.set(key, initPromise);
-    return initPromise;
+    await initPromise;
   }
 
   /**
@@ -168,11 +207,71 @@ export class ServiceRegistry {
   }
 
   /**
-   * Clean up all services when the game is being destroyed
+   * Destroy all services asynchronously, invoking onDestroy() lifecycle hooks.
+   * Aggregates errors from multiple failed cleanups.
+   * @throws {AggregateDestructionError} When one or more services fail to destroy
+   */
+  public async destroyAsync(): Promise<void> {
+    if (this.destroyed) return; // Idempotent
+    this.destroyed = true;
+
+    // Wait for pending initializations to complete
+    const pendingInits = Array.from(this.initializationPromises.values());
+    if (pendingInits.length > 0) {
+      await Promise.allSettled(pendingInits);
+    }
+
+    const errors: Array<{ serviceName: string; error: Error }> = [];
+
+    // Destroy in natural iteration order
+    const entries = Array.from(this.serviceMap.entries());
+
+    for (const [key, service] of entries) {
+      // Skip uninitialized or undefined services
+      if (!this.initializedServices.has(key)) continue;
+      if (service === undefined) continue;
+
+      const asyncService = service as AsyncInjectableService;
+      if (typeof asyncService.onDestroy === 'function') {
+        try {
+          await asyncService.onDestroy();
+        } catch (error) {
+          errors.push({
+            serviceName: this.getServiceName(key),
+            error: error as Error,
+          });
+          // Continue destroying other services
+        }
+      }
+    }
+
+    // Clear all state
+    this.serviceMap.clear();
+    this.initializingServices.clear();
+    this.initializationPromises.clear();
+    this.initializedServices.clear();
+    this.serviceNames.clear();
+
+    // Throw aggregate error if any destructions failed
+    if (errors.length > 0) {
+      const { AggregateDestructionError } = await import('./inject.util');
+      throw new AggregateDestructionError(errors);
+    }
+  }
+
+  /**
+   * Synchronously clear registry state.
+   * Does NOT invoke onDestroy() hooks - use destroyAsync() for proper cleanup.
+   */
+  /**
+   * Synchronously clear registry state.
+   * Does NOT invoke onDestroy() hooks - use destroyAsync() for proper cleanup.
    */
   public destroy(): void {
     this.serviceMap.clear();
     this.initializingServices.clear();
     this.initializationPromises.clear();
+    this.initializedServices.clear();
+    this.serviceNames.clear();
   }
 }

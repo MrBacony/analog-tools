@@ -15,3 +15,6 @@ export type { InjectionServiceClass, InjectOptions, AsyncInjectableService } fro
 
 // Symbol-based injection (new)
 export { SERVICE_TOKEN, Injectable, createServiceToken } from './lib/symbol-registry';
+
+// Async lifecycle management
+export { destroyAllServicesAsync, AggregateDestructionError } from './lib/inject.util';
