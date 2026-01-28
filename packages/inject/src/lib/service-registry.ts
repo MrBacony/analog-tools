@@ -107,7 +107,10 @@ export class ServiceRegistry {
   private async ensureAsyncInitialized<T>(service: T, key: symbol): Promise<void> {
     // Check if already initialized or in progress
     if (this.initializationPromises.has(key)) {
-      return this.initializationPromises.get(key)!;
+      const initPromise = this.initializationPromises.get(key);
+      if(initPromise) {
+      return initPromise;
+      }
     }
 
     // Check if service has async initialization
