@@ -454,11 +454,15 @@ describe('Async Injection Support', () => {
       expect(() => registerService(ServiceA)).not.toThrow();
     });
 
-    it('scoped injection returns uninitialized service (limitation)', () => {
+    it('scoped injection returns uninitialized service (limitation)', async () => {
       // This test documents the limitation: injectScoped does not await async initialization
       registerService(AsyncService);
       const service = injectScoped(AsyncService);
       expect(service.initialized).toBe(false); // Not initialized
+      
+      // Workaround: manually call initializeAsync() after scoped injection
+      await service.initializeAsync();
+      expect(service.initialized).toBe(true); // Now initialized
     });
   });
 });
