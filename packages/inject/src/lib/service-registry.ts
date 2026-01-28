@@ -2,7 +2,7 @@ import { InjectionServiceClass } from './inject.types';
 import { InjectionContext } from './injection-context';
 import { SERVICE_TOKEN } from './symbol-registry';
 import { AsyncInjectableService } from './inject.types';
-import { CircularDependencyError, MissingServiceTokenError } from './inject.util';
+import { AggregateDestructionError, CircularDependencyError, MissingServiceTokenError } from './inject.util';
 
 /**
  * Service injection options
@@ -82,6 +82,8 @@ export class ServiceRegistry {
     customObject: Partial<T>
   ): void {
     const key = this.getServiceKey(token);
+    // Track service names for error reporting
+    this.serviceNames.set(key, token.name);
     this.serviceMap.set(key, customObject);
   }
 
@@ -241,7 +243,6 @@ export class ServiceRegistry {
 
     // Throw aggregate error if any destructions failed
     if (errors.length > 0) {
-      const { AggregateDestructionError } = await import('./inject.util');
       throw new AggregateDestructionError(errors);
     }
   }

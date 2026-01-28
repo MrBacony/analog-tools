@@ -67,8 +67,7 @@ export class InjectionContext {
     const errors: Array<{ serviceName: string; error: Error }> = [];
 
     const entries = Array.from(this.contexts.entries());
-    for (let i = 0; i < entries.length; i++) {
-      const [scope, registry] = entries[i];
+    for (const [scope, registry] of entries) {
       try {
         await registry.destroyAsync();
       } catch (error) {
