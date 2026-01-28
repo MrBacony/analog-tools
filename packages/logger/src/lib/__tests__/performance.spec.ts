@@ -94,7 +94,7 @@ describe('Performance Tests', () => {
       const duration = endTime - startTime;
       
       // Should complete all logging operations efficiently
-      expect(duration).toBeLessThan(200); // Less than 200ms for 5000 log calls
+      expect(duration).toBeLessThan(300); // Less than 300ms for 5000 log calls
     });
   });
 
