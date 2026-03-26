@@ -3,11 +3,15 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "packages/generator/src",
   "projectType": "library",
-  "tags": ["publishable"],
+  "tags": [
+    "publishable"
+  ],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
-      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
+      "outputs": [
+        "{workspaceRoot}/node_modules/{projectRoot}"
+      ],
       "options": {
         "outputPath": "{workspaceRoot}/node_modules/@analog-tools/generator/",
         "main": "packages/generator/src/index.ts",
@@ -42,12 +46,14 @@
     },
     "test": {
       "executor": "@nx/vitest:test",
-      "outputs": ["{options.reportsDirectory}"],
+      "outputs": [
+        "{options.reportsDirectory}"
+      ],
       "options": {
-        "reportsDirectory": "../../coverage/packages/generator"
+        "reportsDirectory": "{projectRoot}/../../coverage/packages/generator"
       }
     },
-     "pack": {
+    "pack": {
       "executor": "nx:run-commands",
       "options": {
         "commands": [
