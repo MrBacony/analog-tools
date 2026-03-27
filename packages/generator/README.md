@@ -195,7 +195,7 @@ npx nx generate @analog-tools/generator:api-route --project=analog-example --rou
 **Output location:**
 
 - Applications: `<project-root>/src/server/routes/api/<route>.ts`
-- Libraries: `<project-root>/src/api/routes/api/<route>.ts`
+- Libraries: `<project-root>/src/backend/api/routes/api/<route>.ts`
 
 When `--method` is specified, the filename includes the method suffix (e.g., `users.post.ts`).
 
