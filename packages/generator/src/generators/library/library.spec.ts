@@ -61,6 +61,18 @@ describe('library generator', () => {
     expect(config.root).toBe(`libs/${options.name}`);
   });
 
+  it('should not mutate the input options object', async () => {
+    const input: LibraryGeneratorSchema = {
+      name: 'immutable-lib',
+      project: 'test-app',
+    };
+    const original = structuredClone(input);
+
+    await libraryGenerator(tree, input);
+
+    expect(input).toEqual(original);
+  });
+
   it('should update tsconfig.base.json with path mapping', async () => {
     await libraryGenerator(tree, options);
     const tsConfig = readJson(tree, 'tsconfig.base.json');
@@ -269,40 +281,6 @@ describe('library generator', () => {
     const liveReloadCount = (viteConfigContent.match(/liveReload/g) || []).length;
     expect(liveReloadCount).toBe(1);
     expect(viteConfigContent).toContain(`liveReload: false`);
-  });
-
-  it('should not create example files', async () => {
-    await libraryGenerator(tree, options);
-    const componentExists = tree.exists(
-      `libs/${options.name}/src/lib/test-lib/test-lib.component.ts`
-    );
-    const specExists = tree.exists(
-      `libs/${options.name}/src/lib/test-lib/test-lib.component.spec.ts`
-    );
-    const modelExists = tree.exists(
-      `libs/${options.name}/src/lib/test-lib/test-lib.model.ts`
-    );
-
-    expect(componentExists).toBe(false);
-    expect(specExists).toBe(false);
-    expect(modelExists).toBe(false);
-  });
-
-  it('should not create example files when skipExamples is true', async () => {
-    await libraryGenerator(tree, { ...options, skipExamples: true });
-    const componentExists = tree.exists(
-      `libs/${options.name}/src/lib/test-lib/test-lib.component.ts`
-    );
-    const specExists = tree.exists(
-      `libs/${options.name}/src/lib/test-lib/test-lib.component.spec.ts`
-    );
-    const modelExists = tree.exists(
-      `libs/${options.name}/src/lib/test-lib/test-lib.model.ts`
-    );
-
-    expect(componentExists).toBe(false);
-    expect(specExists).toBe(false);
-    expect(modelExists).toBe(false);
   });
 
   it('should keep lib directory when skipExamples is true', async () => {

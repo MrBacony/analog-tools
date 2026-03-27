@@ -16,12 +16,24 @@ export async function libraryGenerator(
   tree: Tree,
   options: LibraryGeneratorSchema
 ) {
-  const projectRoot = `libs/${options.name}`;
+  const normalizedOptions: LibraryGeneratorSchema = {
+    ...options,
+    trpc: options.trpc === true,
+    api: options.api === true,
+    skipExamples: options.skipExamples === true,
+    pages: options.pages === true,
+    contentRoutes: options.contentRoutes === true,
+    componentPrefix: options.componentPrefix || 'lib',
+    patchTailwind: options.patchTailwind !== false,
+  };
+
+  const projectRoot = `libs/${normalizedOptions.name}`;
   const libSourceRoot = `${projectRoot}/src`;
-  const moduleBaseName = options.name.split('/').pop() || options.name;
+  const moduleBaseName =
+    normalizedOptions.name.split('/').pop() || normalizedOptions.name;
   const moduleNames = names(moduleBaseName);
 
-  addProjectConfiguration(tree, options.name, {
+  addProjectConfiguration(tree, normalizedOptions.name, {
     root: projectRoot,
     projectType: 'library',
     sourceRoot: libSourceRoot,
@@ -30,7 +42,7 @@ export async function libraryGenerator(
         executor: '@nx/vite:test',
         outputs: ['{options.reportsDirectory}'],
         options: {
-          reportsDirectory: `../../coverage/libs/${options.name}`,
+          reportsDirectory: `../../coverage/libs/${normalizedOptions.name}`,
         },
       },
       lint: {
@@ -39,17 +51,8 @@ export async function libraryGenerator(
     },
   });
 
-  // Normalize options to explicit booleans
-  options.trpc = options.trpc === true;
-  options.api = options.api === true;
-  options.skipExamples = options.skipExamples === true;
-  options.pages = options.pages === true;
-  options.contentRoutes = options.contentRoutes === true;
-  options.componentPrefix = options.componentPrefix || 'lib';
-  options.patchTailwind = options.patchTailwind !== false; // Default to true
-
   const templateOptions = {
-    ...options,
+    ...normalizedOptions,
     ...moduleNames,
     tmpl: '',
   };
@@ -74,18 +77,18 @@ export async function libraryGenerator(
   const libPath = path.join(projectRoot, 'src/lib');
   tree.write(path.join(libPath, 'components/.gitkeep'), '');
   // Only add .gitkeep for pages folder if pages are not generated
-  if (!options.pages) {
+  if (!normalizedOptions.pages) {
     tree.write(path.join(libPath, 'pages/.gitkeep'), '');
   }
   tree.write(path.join(libPath, 'services/.gitkeep'), '');
   
   // Create models folder in src/ (only .gitkeep if no schema will be generated)
-  if (!(options.api && !options.skipExamples)) {
+  if (!(normalizedOptions.api && !normalizedOptions.skipExamples)) {
     tree.write(path.join(projectRoot, 'src/models/.gitkeep'), '');
   }
 
   // Conditionally generate pages
-  if (options.pages) {
+  if (normalizedOptions.pages) {
     generateFiles(
       tree,
       path.join(__dirname, 'files', 'pages'),
@@ -95,7 +98,7 @@ export async function libraryGenerator(
   }
 
   // Conditionally generate content
-  if (options.contentRoutes) {
+  if (normalizedOptions.contentRoutes) {
     generateFiles(
       tree,
       path.join(__dirname, 'files', 'content'),
@@ -105,7 +108,7 @@ export async function libraryGenerator(
   }
 
   // Conditionally generate backend (api OR trpc)
-  if (options.api || options.trpc) {
+  if (normalizedOptions.api || normalizedOptions.trpc) {
     generateFiles(
       tree,
       path.join(__dirname, 'files', 'backend'),
@@ -115,7 +118,7 @@ export async function libraryGenerator(
   }
 
   // Conditionally generate API example route (only when api is enabled and skipExamples is false)
-  if (options.api && !options.skipExamples) {
+  if (normalizedOptions.api && !normalizedOptions.skipExamples) {
     generateFiles(
       tree,
       path.join(__dirname, 'files', 'api-example'),
@@ -125,7 +128,7 @@ export async function libraryGenerator(
   }
 
   // Conditionally generate tRPC infrastructure
-  if (options.trpc) {
+  if (normalizedOptions.trpc) {
     generateFiles(
       tree,
       path.join(__dirname, 'files', 'trpc-infrastructure'),
@@ -135,7 +138,7 @@ export async function libraryGenerator(
   }
 
   // Conditionally generate tRPC routes handler
-  if (options.trpc) {
+  if (normalizedOptions.trpc) {
     generateFiles(
       tree,
       path.join(__dirname, 'files', 'trpc-routes'),
@@ -145,18 +148,9 @@ export async function libraryGenerator(
   }
 
   // Handle skipExamples by removing example files and adding .gitkeep
-  if (options.skipExamples) {
-    // Remove lib examples
-    const libExamples = [
-      `${libSourceRoot}/lib/${moduleNames.fileName}/${moduleNames.fileName}.component.ts`,
-      `${libSourceRoot}/lib/${moduleNames.fileName}/${moduleNames.fileName}.component.spec.ts`,
-      `${libSourceRoot}/lib/${moduleNames.fileName}/${moduleNames.fileName}.model.ts`,
-    ];
-    libExamples.forEach(file => tree.exists(file) && tree.delete(file));
-    tree.write(`${libSourceRoot}/lib/${moduleNames.fileName}/.gitkeep`, '');
-
+  if (normalizedOptions.skipExamples) {
     // Remove pages examples if pages were generated
-    if (options.pages) {
+    if (normalizedOptions.pages) {
       const pagesExamples = [
         `${libSourceRoot}/pages/${moduleNames.fileName}/${moduleNames.fileName}.page.ts`,
         `${libSourceRoot}/pages/${moduleNames.fileName}/(${moduleNames.fileName}).page.ts`,
@@ -166,19 +160,19 @@ export async function libraryGenerator(
     }
 
     // Remove content examples if content was generated
-    if (options.contentRoutes) {
+    if (normalizedOptions.contentRoutes) {
       const contentExample = `${libSourceRoot}/content/${moduleNames.fileName}/example-post.md`;
       tree.exists(contentExample) && tree.delete(contentExample);
       tree.write(`${libSourceRoot}/content/${moduleNames.fileName}/.gitkeep`, '');
     }
 
     // Add .gitkeep for API directory if api was generated (example was not generated due to skipExamples)
-    if (options.api) {
+    if (normalizedOptions.api) {
       tree.write(`${libSourceRoot}/backend/api/routes/api/${moduleNames.fileName}/.gitkeep`, '');
     }
   }
 
-  const viteConfigPath = findViteConfigPath(tree, options.project);
+  const viteConfigPath = findViteConfigPath(tree, normalizedOptions.project);
   if (viteConfigPath) {
     logger.info(`Updating ${viteConfigPath}...`);
     const viteConfigContent = tree.read(viteConfigPath)?.toString('utf-8');
@@ -188,9 +182,10 @@ export async function libraryGenerator(
         libSourceRoot,
         {
           // Add pages only if explicitly enabled
-          addPages: options.pages === true,
+          addPages: normalizedOptions.pages === true,
           // Add API if either api or trpc is enabled
-          addApi: options.api === true || options.trpc === true,
+          addApi:
+            normalizedOptions.api === true || normalizedOptions.trpc === true,
         }
       );
       tree.write(viteConfigPath, updatedViteConfig);
@@ -199,15 +194,15 @@ export async function libraryGenerator(
     }
   } else {
     logger.warn(
-      `Could not find vite.config.* for project '${options.project}'. Please update it manually.`
+      `Could not find vite.config.* for project '${normalizedOptions.project}'. Please update it manually.`
     );
   }
 
-  updateTsConfigBase(tree, options, libSourceRoot);
+  updateTsConfigBase(tree, normalizedOptions, libSourceRoot);
 
   // Patch Tailwind CSS import if enabled
-  if (options.patchTailwind) {
-    patchTailwindImport(tree, options.project);
+  if (normalizedOptions.patchTailwind) {
+    patchTailwindImport(tree, normalizedOptions.project);
   }
 
   await formatFiles(tree);

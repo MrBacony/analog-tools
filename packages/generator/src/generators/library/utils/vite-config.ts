@@ -137,6 +137,15 @@ export function updateViteConfig(
   const apiDir = path.join(libSrcRoot, 'backend', 'api').replace(/\\/g, '/');
   const apiDirFormatted = `'/${apiDir}'`;
 
+  const arrayContainsPath = (dirs: string, candidate: string): boolean => {
+    const normalizedDirs = dirs
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    return normalizedDirs.includes(candidate);
+  };
+
   // Find the analog() call and its content
   const analogCallRegex = /analog\s*\(/;
   const analogMatch = analogCallRegex.exec(updatedContent);
@@ -234,6 +243,10 @@ export function updateViteConfig(
       newAnalogContent = analogContent.replace(
         /additionalPagesDirs:\s*\[([^\]]*)\]/,
         (match, dirs) => {
+          if (arrayContainsPath(dirs, pagesDirFormatted)) {
+            return match;
+          }
+
           const existingDirs = dirs.trim().length > 0 ? dirs.trim() + ', ' : '';
           return `additionalPagesDirs: [${existingDirs}${pagesDirFormatted}]`;
         }
@@ -255,6 +268,10 @@ export function updateViteConfig(
       newAnalogContent = newAnalogContent.replace(
         /additionalAPIDirs:\s*\[([^\]]*)\]/,
         (match, dirs) => {
+          if (arrayContainsPath(dirs, apiDirFormatted)) {
+            return match;
+          }
+
           const existingDirs = dirs.trim().length > 0 ? dirs.trim() + ', ' : '';
           return `additionalAPIDirs: [${existingDirs}${apiDirFormatted}]`;
         }
