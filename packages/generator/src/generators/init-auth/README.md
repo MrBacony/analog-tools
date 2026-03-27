@@ -73,6 +73,8 @@ After running the generator, you'll need to:
    SESSION_SECRET=your-secure-random-secret
    ```
 
+   `SESSION_SECRET` is required. The generated `auth.config.ts` throws during startup if it is missing.
+
 4. **Install Redis** (if not already installed):
    ```bash
    # macOS

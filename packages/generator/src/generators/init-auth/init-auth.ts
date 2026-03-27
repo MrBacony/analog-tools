@@ -10,6 +10,126 @@ import {
 import { InitAuthGeneratorSchema } from './schema';
 import * as path from 'path';
 
+function ensureNamedImport(
+  content: string,
+  moduleSpecifier: string,
+  importName: string
+): string {
+  const importRegex = new RegExp(
+    `import\\s*\\{([^}]*)\\}\\s*from\\s*['\"]${moduleSpecifier.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      '\\$&'
+    )}['\"];?`
+  );
+
+  const match = content.match(importRegex);
+  if (!match) {
+    return content;
+  }
+
+  const existingImports = match[1]
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (existingImports.includes(importName)) {
+    return content;
+  }
+
+  const updatedImports = [...existingImports, importName].join(', ');
+  return content.replace(importRegex, `import { ${updatedImports} } from '${moduleSpecifier}';`);
+}
+
+function findFunctionCallBounds(
+  content: string,
+  functionName: string
+): { argsStart: number; argsEnd: number } | null {
+  const callRegex = new RegExp(`${functionName}\\s*\\(`);
+  const match = callRegex.exec(content);
+
+  if (!match) {
+    return null;
+  }
+
+  const argsStart = match.index + match[0].length;
+  let depth = 1;
+  let inString = false;
+  let stringChar = '';
+
+  for (let index = argsStart; index < content.length; index++) {
+    const char = content[index];
+    const prevChar = index > 0 ? content[index - 1] : '';
+
+    if ((char === '"' || char === '\'' || char === '`') && prevChar !== '\\') {
+      if (!inString) {
+        inString = true;
+        stringChar = char;
+      } else if (char === stringChar) {
+        inString = false;
+        stringChar = '';
+      }
+    }
+
+    if (!inString) {
+      if (char === '(') {
+        depth++;
+      } else if (char === ')') {
+        depth--;
+      }
+    }
+
+    if (depth === 0) {
+      return {
+        argsStart,
+        argsEnd: index,
+      };
+    }
+  }
+
+  return null;
+}
+
+export function ensureAuthInterceptorFeature(content: string): string {
+  const provideHttpClientBounds = findFunctionCallBounds(content, 'provideHttpClient');
+  if (!provideHttpClientBounds) {
+    logger.warn('provideHttpClient() not found in app.config.ts. Skipping interceptor update.');
+    return content;
+  }
+
+  const { argsStart, argsEnd } = provideHttpClientBounds;
+  const args = content.slice(argsStart, argsEnd);
+
+  let updatedArgs = args;
+
+  const withInterceptorsMatch = args.match(/withInterceptors\(\[([\s\S]*?)\]\)/);
+  if (withInterceptorsMatch) {
+    const interceptors = withInterceptorsMatch[1];
+
+    if (!interceptors.includes('authInterceptor')) {
+      const trimmedInterceptors = interceptors.trim();
+      const updatedInterceptors = trimmedInterceptors
+        ? `${trimmedInterceptors}, authInterceptor`
+        : 'authInterceptor';
+
+      updatedArgs = args.replace(
+        /withInterceptors\(\[([\s\S]*?)\]\)/,
+        `withInterceptors([${updatedInterceptors}])`
+      );
+    }
+  } else {
+    const trimmedArgs = args.trim();
+    updatedArgs = trimmedArgs
+      ? `${trimmedArgs}, withInterceptors([authInterceptor])`
+      : 'withInterceptors([authInterceptor])';
+  }
+
+  if (updatedArgs === args) {
+    return content;
+  }
+
+  return `${content.slice(0, argsStart)}${updatedArgs}${content.slice(argsEnd)}`;
+}
+
 /**
  * Gets the version of the generator package to use for installing dependencies
  */
@@ -125,6 +245,12 @@ function updateAppConfig(tree: Tree, appConfigPath: string): void {
     content = content.slice(0, insertPosition) + authImport + content.slice(insertPosition);
   }
 
+  content = ensureNamedImport(
+    content,
+    '@angular/common/http',
+    'withInterceptors'
+  );
+
   // Add provideAuthClient() to providers
   const providersMatch = content.match(/providers:\s*\[([\s\S]*?)\]/);
   if (providersMatch) {
@@ -150,48 +276,7 @@ function updateAppConfig(tree: Tree, appConfigPath: string): void {
       }
     }
 
-    // Add authInterceptor to withInterceptors
-    const interceptorsMatch = content.match(/withInterceptors\(\[([^\]]*)\]\)/);
-    if (interceptorsMatch) {
-      const interceptorsContent = interceptorsMatch[1];
-      if (!interceptorsContent.includes('authInterceptor')) {
-        const updatedInterceptors = interceptorsContent.trim()
-          ? `${interceptorsContent.trim()}, authInterceptor`
-          : 'authInterceptor';
-        content = content.replace(
-          /withInterceptors\(\[([^\]]*)\]\)/,
-          `withInterceptors([${updatedInterceptors}])`
-        );
-      }
-    } else {
-      // If withInterceptors doesn't exist, we need to add it
-      const httpClientMatch = content.match(/provideHttpClient\(([\s\S]*?)\)/);
-      if (httpClientMatch) {
-        const httpClientContent = httpClientMatch[1];
-        if (httpClientContent.includes('withFetch()')) {
-          content = content.replace(
-            /provideHttpClient\(([\s\S]*?)\)/,
-            `provideHttpClient(\n      withFetch(),\n      withInterceptors([authInterceptor])\n    )`
-          );
-          // Add withInterceptors import if not present
-          if (!content.includes('withInterceptors')) {
-            content = content.replace(
-              /from\s+['"]@angular\/common\/http['"]/,
-              `from '@angular/common/http'`
-            );
-            content = content.replace(
-              /import\s+{([^}]+)}\s+from\s+['"]@angular\/common\/http['"]/,
-              (match, imports) => {
-                if (!imports.includes('withInterceptors')) {
-                  return match.replace('}', ', withInterceptors}');
-                }
-                return match;
-              }
-            );
-          }
-        }
-      }
-    }
+    content = ensureAuthInterceptorFeature(content);
   }
 
   tree.write(appConfigPath, content);
@@ -296,6 +381,14 @@ export async function initAuthGenerator(
   // Step 1: Create auth.config.ts in src/
   const authConfigContent = `import { AnalogAuthConfig } from '@analog-tools/auth';
 
+const sessionSecret = process.env['SESSION_SECRET'];
+
+if (!sessionSecret) {
+  throw new Error(
+    'SESSION_SECRET environment variable is required for Analog auth session storage.'
+  );
+}
+
 export const authConfig: AnalogAuthConfig = {
   issuer: process.env['AUTH_ISSUER'] || '',
   clientId: process.env['AUTH_CLIENT_ID'] || '',
@@ -309,7 +402,7 @@ export const authConfig: AnalogAuthConfig = {
     type: 'redis',
     config: {
       url: process.env['REDIS_URL'] || 'redis://localhost:6379',
-      sessionSecret: process.env['SESSION_SECRET'] || 'default-dev-secret',
+      sessionSecret,
       ttl: 86400, // 24 hours
     },
   },
