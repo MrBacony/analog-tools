@@ -49,6 +49,9 @@ export default defineConfig({
     const content = tree.read('apps/test-app/src/auth.config.ts', 'utf-8');
     expect(content).toContain('AnalogAuthConfig');
     expect(content).toContain('authConfig');
+    expect(content).toContain("const sessionSecret = process.env['SESSION_SECRET'];");
+    expect(content).toContain('throw new Error');
+    expect(content).not.toContain('default-dev-secret');
   });
 
   it('should create auth middleware', async () => {
@@ -67,6 +70,76 @@ export default defineConfig({
     expect(content).toContain('@analog-tools/auth/angular');
     expect(content).toContain('provideAuthClient');
     expect(content).toContain('authInterceptor');
+    expect(content).toContain('withInterceptors');
+    expect(content).toMatch(/import\s*\{[^}]*withInterceptors[^}]*\}\s*from\s*'@angular\/common\/http'/);
+
+  });
+
+  it('should update provideHttpClient when nested calls contain strings with closing parentheses', async () => {
+    tree.write('apps/test-app/src/app/app.config.ts', `
+import { ApplicationConfig } from '@angular/core';
+import { provideHttpClient, withFetch, withXsrfConfiguration } from '@angular/common/http';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideHttpClient(
+      withFetch(),
+      withXsrfConfiguration({ headerName: 'X-AUTH)HEADER' })
+    ),
+  ],
+};
+    `.trim());
+
+    await initAuthGenerator(tree, options);
+
+    const content = tree.read('apps/test-app/src/app/app.config.ts', 'utf-8');
+    expect(content).toContain("withXsrfConfiguration({ headerName: 'X-AUTH)HEADER' })");
+    expect(content).toContain('withInterceptors([authInterceptor])');
+  });
+
+  it('should update provideHttpClient when nested calls contain template literals with parentheses', async () => {
+    tree.write(
+      'apps/test-app/src/app/app.config.ts',
+      [
+        "import { ApplicationConfig } from '@angular/core';",
+        "import { provideHttpClient, withFetch, withXsrfConfiguration } from '@angular/common/http';",
+        '',
+        "const suffix = 'AUTH';",
+        '',
+        'export const appConfig: ApplicationConfig = {',
+        '  providers: [',
+        '    provideHttpClient(',
+        '      withFetch(),',
+        '      withXsrfConfiguration({ headerName: `X-${suffix})` })',
+        '    ),',
+        '  ],',
+        '};',
+      ].join('\n')
+    );
+
+    await initAuthGenerator(tree, options);
+
+    const content = tree.read('apps/test-app/src/app/app.config.ts', 'utf-8');
+    expect(content).toContain('`X-${suffix})`');
+    expect(content).toContain('withInterceptors([authInterceptor])');
+  });
+
+  it('should update an empty provideHttpClient call', async () => {
+    tree.write('apps/test-app/src/app/app.config.ts', `
+import { ApplicationConfig } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideHttpClient()],
+};
+    `.trim());
+
+    await initAuthGenerator(tree, options);
+
+    const content = tree.read('apps/test-app/src/app/app.config.ts', 'utf-8');
+    expect(content).toContain('provideHttpClient(withInterceptors([authInterceptor]))');
+    expect(content).toMatch(/import\s*\{[^}]*withInterceptors[^}]*\}\s*from\s*'@angular\/common\/http'/);
+
   });
 
   it('should update vite.config.ts with noExternal', async () => {

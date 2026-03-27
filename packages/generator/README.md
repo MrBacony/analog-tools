@@ -311,6 +311,8 @@ vite.config.ts                         # Updated with ssr.noExternal
    SESSION_SECRET=your-secure-random-secret
    ```
 
+  `SESSION_SECRET` is required. The generated `auth.config.ts` throws during startup if it is missing.
+
 2. **Start Redis** (default session storage):
 
    ```bash
