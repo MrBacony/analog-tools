@@ -76,7 +76,7 @@ export async function apiRouteGenerator(
 
   const baseDir = projectConfig.projectType === 'application'
     ? joinPathFragments(projectRoot, 'src/server/routes/api')
-    : joinPathFragments(projectRoot, 'src/api/routes/api');
+    : joinPathFragments(projectRoot, 'src/backend/api/routes/api');
 
   const normalizedRoute = normalizeRoute(options.route);
   const routeDir = path.posix.dirname(normalizedRoute);

@@ -23,7 +23,7 @@ describe('api-route generator', () => {
     });
 
     expect(
-      tree.exists('libs/test-lib/src/api/routes/api/v1/hello.ts')
+      tree.exists('libs/test-lib/src/backend/api/routes/api/v1/hello.ts')
     ).toBe(true);
   });
 
@@ -58,7 +58,7 @@ describe('api-route generator', () => {
     });
 
     expect(
-      tree.exists('libs/test-lib/src/api/routes/api/v1/user.post.ts')
+      tree.exists('libs/test-lib/src/backend/api/routes/api/v1/user.post.ts')
     ).toBe(true);
   });
 
@@ -75,7 +75,7 @@ describe('api-route generator', () => {
     });
 
     expect(
-      tree.exists('libs/test-lib/src/api/routes/api/users/[id].ts')
+      tree.exists('libs/test-lib/src/backend/api/routes/api/users/[id].ts')
     ).toBe(true);
   });
 
@@ -86,7 +86,7 @@ describe('api-route generator', () => {
       targets: {},
     });
 
-    const existing = 'libs/test-lib/src/api/routes/api/v1/hello.ts';
+    const existing = 'libs/test-lib/src/backend/api/routes/api/v1/hello.ts';
     tree.write(existing, 'export default {};');
 
     await expect(
