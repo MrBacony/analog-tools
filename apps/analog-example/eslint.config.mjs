@@ -1,19 +1,18 @@
+import nx from '@nx/eslint-plugin';
 import baseConfig from '../../eslint.config.mjs';
 
 export default [
+  ...nx.configs['flat/angular'],
+  ...nx.configs['flat/angular-template'],
   ...baseConfig,
   {
-    files: ['*.ts'],
-    extends: [
-      'plugin:@nx/angular',
-      'plugin:@angular-eslint/template/process-inline-templates',
-    ],
+    files: ['**/*.ts'],
     rules: {
       '@angular-eslint/directive-selector': [
         'error',
         {
           type: 'attribute',
-          prefix: 'app',
+          prefix: 'analog-example',
           style: 'camelCase',
         },
       ],
@@ -21,13 +20,14 @@ export default [
         'error',
         {
           type: 'element',
-          prefix: 'app',
+          prefix: 'analog-example',
           style: 'kebab-case',
         },
       ],
     },
-    languageOptions: {
-      parser: await import('jsonc-eslint-parser'),
-    },
+  },
+  {
+    files: ['**/*.html'],
+    rules: {},
   },
 ];

@@ -2,9 +2,16 @@
   "name": "analog-example",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
+  "prefix": "analog-example",
   "targets": {
     "build": {
       "executor": "@analogjs/platform:vite",
+      "options": {
+        "main": "apps/analog-example/src/main.ts",
+        "configFile": "apps/analog-example/vite.config.ts",
+        "outputPath": "dist/apps/analog-example/client",
+        "tsConfig": "apps/analog-example/tsconfig.app.json"
+      },
       "defaultConfiguration": "production",
       "configurations": {
         "development": {
@@ -15,21 +22,11 @@
           "mode": "production"
         }
       },
-      "outputs": [
-        "{options.outputPath}",
-        "{workspaceRoot}/dist/apps/analog-example/.nitro",
-        "{workspaceRoot}/dist/apps/analog-example/ssr",
-        "{workspaceRoot}/dist/apps/analog-example/analog"
-      ],
-      "options": {
-        "main": "apps/analog-example/src/main.ts",
-        "configFile": "apps/analog-example/vite.config.ts",
-        "outputPath": "dist/apps/analog-example/client",
-        "tsConfig": "apps/analog-example/tsconfig.app.json"
-      }
+      "outputs": ["{workspaceRoot}/dist/apps/analog-example"]
     },
     "serve": {
       "executor": "@analogjs/platform:vite-dev-server",
+      "continuous": true,
       "defaultConfiguration": "development",
       "options": {
         "buildTarget": "analog-example:build",
@@ -45,9 +42,25 @@
         }
       }
     },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "serve-static": {
+      "continuous": true,
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "analog-example:build",
+        "port": 4200,
+        "staticFilePath": "dist/apps/analog-example/browser",
+        "spa": true
+      }
+    },
     "test": {
       "executor": "@analogjs/vitest-angular:test",
-      "outputs": ["{projectRoot}/coverage"]
+      "outputs": ["{projectRoot}/coverage"],
+      "options": {
+        "config": "vite.config.ts"
+      }
     }
   },
   "tags": [],

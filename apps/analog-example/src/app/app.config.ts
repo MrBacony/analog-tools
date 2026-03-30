@@ -1,4 +1,7 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import {
+  ApplicationConfig,
+  provideBrowserGlobalErrorListeners,
+} from '@angular/core';
 import {
   provideHttpClient,
   withFetch,
@@ -13,7 +16,7 @@ import { authInterceptor, provideAuthClient } from '@analog-tools/auth/angular';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideBrowserGlobalErrorListeners(),
     provideFileRouter(),
     provideClientHydration(),
     provideAuthClient(),
