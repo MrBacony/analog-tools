@@ -13,10 +13,9 @@ export const authConfig: AnalogAuthConfig = {
     sessionSecret: process.env['SESSION_SECRET'] || 'default-dev-secret',
 
     driver: {
-      type: 'redis',
+      type: 'fs',
       options: {
-        url: process.env['REDIS_URL'] || 'redis://localhost:6379',
-        ttl: 86400, // 24 hours
+        base: './.sessions',
       },
     },
   },
