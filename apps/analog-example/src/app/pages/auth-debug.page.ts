@@ -3,12 +3,12 @@ import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { map, interval, switchMap, startWith } from 'rxjs';
+import { interval, switchMap, startWith } from 'rxjs';
 
 @Component({
   standalone: true,
   imports: [CommonModule, FormsModule],
-  selector: 'app-auth-debug',
+  selector: 'analog-example-auth-debug',
   template: `
     <div class="auth-debug-container p-4 bg-gray-100 rounded-lg">
       <h2 class="text-lg font-bold mb-4">Authentication Debug</h2>
