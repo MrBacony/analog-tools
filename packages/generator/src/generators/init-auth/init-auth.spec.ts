@@ -52,6 +52,12 @@ export default defineConfig({
     expect(content).toContain("const sessionSecret = process.env['SESSION_SECRET'];");
     expect(content).toContain('throw new Error');
     expect(content).not.toContain('default-dev-secret');
+    expect(content).toContain('driver: {');
+    expect(content).toContain("type: 'fs'");
+    expect(content).toContain("base: './.sessions'");
+    expect(content).toContain('sessionSecret,');
+    expect(content).not.toContain('REDIS_URL');
+    expect(content).not.toContain("type: 'redis'");
   });
 
   it('should create auth middleware', async () => {
