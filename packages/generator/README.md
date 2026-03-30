@@ -307,24 +307,15 @@ vite.config.ts                         # Updated with ssr.noExternal
    AUTH_AUDIENCE=your-api-audience
    AUTH_SCOPE=openid profile email
    AUTH_CALLBACK_URL=http://localhost:4200/api/auth/callback
-   REDIS_URL=redis://localhost:6379
    SESSION_SECRET=your-secure-random-secret
    ```
 
   `SESSION_SECRET` is required. The generated `auth.config.ts` throws during startup if it is missing.
 
-2. **Start Redis** (default session storage):
+2. **Review the default filesystem session storage**:
 
-   ```bash
-   # Docker
-   docker run -d -p 6379:6379 redis:alpine
-
-   # macOS
-   brew install redis && brew services start redis
-
-   # Ubuntu/Debian
-   sudo apt-get install redis-server && sudo systemctl start redis
-   ```
+  The generator now uses the unstorage `fs` driver by default and writes sessions under `./.sessions`.
+  Adjust the `driver.options.base` path in `src/auth.config.ts` if you want a different location.
 
 3. **Configure unprotected routes** in `auth.config.ts` -- add any public routes that should bypass authentication.
 

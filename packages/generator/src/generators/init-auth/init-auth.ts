@@ -8,7 +8,6 @@ import {
   Tree,
 } from '@nx/devkit';
 import { InitAuthGeneratorSchema } from './schema';
-import * as path from 'path';
 
 function ensureNamedImport(
   content: string,
@@ -399,11 +398,13 @@ export const authConfig: AnalogAuthConfig = {
   unprotectedRoutes: [],
 
   sessionStorage: {
-    type: 'redis',
-    config: {
-      url: process.env['REDIS_URL'] || 'redis://localhost:6379',
-      sessionSecret,
-      ttl: 86400, // 24 hours
+    sessionSecret,
+    ttl: 86400, // 24 hours
+    driver: {
+      type: 'fs',
+      options: {
+        base: './.sessions',
+      },
     },
   },
 };
@@ -460,7 +461,7 @@ export default defineEventHandler(async (event: H3Event) => {
   logger.info('Next steps:');
   logger.info('  1. Configure your authentication provider in auth.config.ts');
   logger.info('  2. Set up environment variables (AUTH_ISSUER, AUTH_CLIENT_ID, etc.)');
-  logger.info('  3. Configure Redis connection (REDIS_URL, SESSION_SECRET)');
+  logger.info("  3. Review the filesystem session storage path ('./.sessions') and SESSION_SECRET");
   logger.info('');
   
   return installTask;

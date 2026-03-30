@@ -20,7 +20,7 @@ This generator automates the setup of authentication in your AnalogJS applicatio
 
 1. **Creating `auth.config.ts`** in the application root (`src/`)
    - Configures authentication provider (OAuth/OIDC)
-   - Sets up session storage (Redis by default)
+   - Sets up session storage (filesystem by default)
    - Defines unprotected routes
 
 2. **Creating server middleware** at `src/server/middleware/auth.ts`
