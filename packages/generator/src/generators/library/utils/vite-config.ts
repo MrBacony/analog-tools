@@ -138,12 +138,29 @@ export function updateViteConfig(
   const apiDirFormatted = `'/${apiDir}'`;
 
   const arrayContainsPath = (dirs: string, candidate: string): boolean => {
+    const normalizeToken = (value: string): string => {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return trimmed;
+      }
+
+      const firstChar = trimmed[0];
+      const lastChar = trimmed[trimmed.length - 1];
+      const isQuote =
+        (firstChar === "'" || firstChar === '"' || firstChar === '`') &&
+        firstChar === lastChar;
+
+      return isQuote ? trimmed.slice(1, -1) : trimmed;
+    };
+
     const normalizedDirs = dirs
       .split(',')
-      .map((item) => item.trim())
+      .map((item) => normalizeToken(item))
       .filter(Boolean);
 
-    return normalizedDirs.includes(candidate);
+    const normalizedCandidate = normalizeToken(candidate);
+
+    return normalizedDirs.includes(normalizedCandidate);
   };
 
   // Find the analog() call and its content
