@@ -61,3 +61,5 @@ vitest.config.*.timestamp*
 docs/issues
 .env.local
 .env.*.local
+.nx/polygraph
+.nx/self-healing
