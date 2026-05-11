@@ -7,6 +7,7 @@ const KNOWN_NOISE_PATTERNS = [
   /\[HMR\]/,
   /favicon\.ico/,
   /third-party cookie/i,
+  /net::ERR_ABORTED/,
 ];
 
 export function createConsoleFilter(page: Page): {

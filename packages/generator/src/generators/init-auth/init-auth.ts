@@ -380,18 +380,25 @@ export async function initAuthGenerator(
   // Step 1: Create auth.config.ts in src/
   const authConfigContent = `import { AnalogAuthConfig } from '@analog-tools/auth';
 
-const sessionSecret = process.env['SESSION_SECRET'];
+function readRequiredEnv(name: string): string {
+  const value = process.env[name];
 
-if (!sessionSecret) {
-  throw new Error(
-    'SESSION_SECRET environment variable is required for Analog auth session storage.'
-  );
+  if (!value) {
+    throw new Error(\`\${name} environment variable is required\`);
+  }
+
+  return value;
 }
 
+const issuer = readRequiredEnv('AUTH_ISSUER');
+const clientId = readRequiredEnv('AUTH_CLIENT_ID');
+const clientSecret = readRequiredEnv('AUTH_CLIENT_SECRET');
+const sessionSecret = readRequiredEnv('SESSION_SECRET');
+
 export const authConfig: AnalogAuthConfig = {
-  issuer: process.env['AUTH_ISSUER'] || '',
-  clientId: process.env['AUTH_CLIENT_ID'] || '',
-  clientSecret: process.env['AUTH_CLIENT_SECRET'] || '',
+  issuer,
+  clientId,
+  clientSecret,
   audience: process.env['AUTH_AUDIENCE'] || '',
   scope: process.env['AUTH_SCOPE'] || 'openid profile email',
   callbackUri: process.env['AUTH_CALLBACK_URL'] || '',
@@ -461,7 +468,7 @@ export default defineEventHandler(async (event: H3Event) => {
   logger.info('Next steps:');
   logger.info('  1. Configure your authentication provider in auth.config.ts');
   logger.info('  2. Set up environment variables (AUTH_ISSUER, AUTH_CLIENT_ID, etc.)');
-  logger.info("  3. Review the filesystem session storage path ('./.sessions') and SESSION_SECRET");
+  logger.info("  3. Review the filesystem session storage path ('./.sessions')");
   logger.info('');
   
   return installTask;

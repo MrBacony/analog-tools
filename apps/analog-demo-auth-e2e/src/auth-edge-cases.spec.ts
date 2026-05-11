@@ -6,38 +6,59 @@ test.describe('Auth Edge Cases', () => {
     page,
   }) => {
     await loginAsTestUser(page);
-    await expect(page.locator('text=Welcome')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByTestId('welcome-message')).toBeVisible({
+      timeout: 30000,
+    });
 
     // Refresh the page
-    await page.reload({ waitUntil: 'networkidle' });
+    await page.reload();
 
     // Should still be on dashboard, not redirected to login
-    await expect(page.locator('h1')).toHaveText('Dashboard', { timeout: 30000 });
-    await expect(page.locator('text=Welcome')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('h1')).toContainText('Dashboard', {
+      timeout: 30000,
+    });
+    await expect(page.getByTestId('welcome-message')).toBeVisible({
+      timeout: 30000,
+    });
   });
 
   test('authenticated API call returns user data', async ({ page }) => {
     await loginAsTestUser(page);
 
     // Make an API call using the browser's session cookie
-    const response = await page.request.get('/api/v1/me');
-    expect(response.status()).toBe(200);
-    const body = await response.json();
+    const body = await page.evaluate(async () => {
+      const response = await fetch('/api/v1/me');
+
+      if (!response.ok) {
+        throw new Error(
+          `Expected /api/v1/me to return 200, got ${response.status}`
+        );
+      }
+
+      return response.json();
+    });
+
     expect(body.isAuthenticated).toBe(true);
     expect(body.user).toBeTruthy();
   });
 
   test('navigating from protected to public route works', async ({ page }) => {
     await loginAsTestUser(page);
-    await expect(page.locator('text=Welcome')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByTestId('welcome-message')).toBeVisible({
+      timeout: 30000,
+    });
 
     // Navigate to public route
     await page.goto('/info');
     await expect(page.locator('h1')).toHaveText('Info');
 
     // Navigate back to protected route — should not re-auth
-    await page.goto('/dashboard', { waitUntil: 'networkidle' });
-    await expect(page.locator('h1')).toHaveText('Dashboard', { timeout: 30000 });
-    await expect(page.locator('text=Welcome')).toBeVisible({ timeout: 30000 });
+    await page.goto('/dashboard');
+    await expect(page.locator('h1')).toContainText('Dashboard', {
+      timeout: 30000,
+    });
+    await expect(page.getByTestId('welcome-message')).toBeVisible({
+      timeout: 30000,
+    });
   });
 });

@@ -1,9 +1,10 @@
 import { rm } from 'fs/promises';
 import { join } from 'path';
+import { workspaceRoot } from '@nx/devkit';
 
 export default async function globalTeardown() {
   try {
-    await rm(join(process.cwd(), '.sessions'), {
+    await rm(join(workspaceRoot, '.sessions'), {
       recursive: true,
       force: true,
     });

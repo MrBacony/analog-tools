@@ -1,17 +1,24 @@
 import { AnalogAuthConfig } from '@analog-tools/auth';
 
-const sessionSecret = process.env['SESSION_SECRET'];
+function readRequiredEnv(name: string): string {
+  const value = process.env[name];
 
-if (!sessionSecret) {
-  throw new Error(
-    'SESSION_SECRET environment variable is required for Analog auth session storage.',
-  );
+  if (!value) {
+    throw new Error(`${name} environment variable is required`);
+  }
+
+  return value;
 }
 
+const issuer = readRequiredEnv('AUTH_ISSUER');
+const clientId = readRequiredEnv('AUTH_CLIENT_ID');
+const clientSecret = readRequiredEnv('AUTH_CLIENT_SECRET');
+const sessionSecret = readRequiredEnv('SESSION_SECRET');
+
 export const authConfig: AnalogAuthConfig = {
-  issuer: process.env['AUTH_ISSUER'] || '',
-  clientId: process.env['AUTH_CLIENT_ID'] || '',
-  clientSecret: process.env['AUTH_CLIENT_SECRET'] || '',
+  issuer,
+  clientId,
+  clientSecret,
   audience: process.env['AUTH_AUDIENCE'] || '',
   scope: process.env['AUTH_SCOPE'] || 'openid profile email',
   callbackUri:

@@ -65,29 +65,13 @@ After running the generator, you'll need to:
    AUTH_AUDIENCE=your-api-audience
    AUTH_SCOPE=openid profile email
    AUTH_CALLBACK_URL=http://localhost:4200/api/auth/callback
-   ```
-
-3. **Configure Redis connection**:
-   ```env
-   REDIS_URL=redis://localhost:6379
    SESSION_SECRET=your-secure-random-secret
    ```
 
-   `SESSION_SECRET` is required. The generated `auth.config.ts` throws during startup if it is missing.
+   `AUTH_ISSUER`, `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, and `SESSION_SECRET` are required. The generated `auth.config.ts` throws during startup if any of them are missing.
 
-4. **Install Redis** (if not already installed):
-   ```bash
-   # macOS
-   brew install redis
-   brew services start redis
-   
-   # Ubuntu/Debian
-   sudo apt-get install redis-server
-   sudo systemctl start redis
-   
-   # Docker
-   docker run -d -p 6379:6379 redis:alpine
-   ```
+3. **Review filesystem session storage**:
+   The generated config uses the unstorage `fs` driver under `./.sessions`. Adjust `driver.options.base` in `src/auth.config.ts` if your deployment needs a different path.
 
 ## File Structure
 
@@ -108,11 +92,11 @@ src/
 This generator requires:
 - `@analog-tools/auth` - Core authentication library
 - `@analog-tools/auth/angular` - Angular integration
-- Redis server for session storage
+- `@analog-tools/session` - Session storage integration
 
 ## Notes
 
 - The generator only works with application projects, not libraries
 - If `vite.config.ts` is not found, you'll need to manually add `@analog-tools/auth` to `ssr.noExternal`
-- The default session storage is Redis; you can modify this in `auth.config.ts`
+- The default session storage is filesystem-backed; you can modify this in `auth.config.ts`
 - All routes are protected by default except those in `unprotectedRoutes` array

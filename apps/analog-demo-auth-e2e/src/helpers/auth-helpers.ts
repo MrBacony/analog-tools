@@ -1,28 +1,41 @@
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
+const dashboardUrlPattern = /.*\/dashboard.*/;
+const keycloakLoginUrlPattern =
+  /.*\/realms\/dev\/protocol\/openid-connect\/auth.*/;
+const username = process.env['TEST_USERNAME'] || 'testuser';
+const password = process.env['TEST_PASSWORD'] || 'test123';
+
 export async function loginAsTestUser(page: Page): Promise<void> {
   // Navigate to protected route — triggers redirect chain:
   // /dashboard → /api/auth/login → Keycloak → /api/auth/callback → /dashboard
-  const response = await page.goto('/dashboard');
+  await page.goto('/dashboard');
 
-  // After all redirects settle, check where we ended up
-  // Give the page a moment to finish any client-side redirects
-  await page.waitForLoadState('load');
+  const keycloakLogin = page.locator('#kc-login');
+  const welcomeMessage = page.getByTestId('welcome-message');
 
-  const currentUrl = page.url();
+  await Promise.race([
+    page.waitForURL(keycloakLoginUrlPattern, { timeout: 30000 }),
+    welcomeMessage.waitFor({ state: 'visible', timeout: 30000 }),
+  ]);
 
-  if (currentUrl.includes('/openid-connect/auth')) {
-    // On Keycloak login page — fill credentials
-    await page.locator('#username').fill('testuser');
-    await page.locator('#password').fill('test123');
-    await page.locator('#kc-login').click();
-    await page.waitForURL('**/dashboard', { timeout: 30000 });
-  } else if (!currentUrl.includes('/dashboard')) {
-    // Unexpected location — wait for redirect to complete
-    await page.waitForURL('**/dashboard', { timeout: 30000 });
+  if (
+    page.url().includes('/openid-connect/auth') ||
+    (await keycloakLogin.isVisible())
+  ) {
+    await expect(keycloakLogin).toBeVisible({ timeout: 30000 });
+    await page.locator('#username').fill(username);
+    await page.locator('#password').fill(password);
+    await keycloakLogin.click();
   }
 
-  // Wait for Angular to hydrate auth state (SSR may initially show loading state)
-  await expect(page.locator('text=Welcome')).toBeVisible({ timeout: 30000 });
+  // Wait for Angular to hydrate auth state and load the user resource.
+  await page.waitForURL(dashboardUrlPattern, { timeout: 30000 });
+  await expect(welcomeMessage).toBeVisible({
+    timeout: 30000,
+  });
+  await expect(page.getByTestId('user-info')).toContainText(username, {
+    timeout: 30000,
+  });
 }

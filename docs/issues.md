@@ -11,7 +11,7 @@ Reviewed on 2026-05-11 against the current workspace, the running demo app at `h
 | Priority | Meaning | Count |
 | --- | --- | ---: |
 | P0 | Should block merge; real security or correctness issue in the current implementation | 0 open / 2 fixed |
-| P1 | Should fix before merge; important reliability or DX issue with direct impact | 3 |
+| P1 | Should fix before merge; important reliability or DX issue with direct impact | 0 open / 3 fixed |
 | P2 | Worth fixing soon; real issue, but not currently merge-blocking | 17 |
 | P3 | Low-risk polish or process follow-up | 4 |
 | NR | Not relevant, outdated, or already covered by current tooling/docs | 4 |
@@ -24,11 +24,11 @@ Reviewed on 2026-05-11 against the current workspace, the running demo app at `h
 
 ## P1 - Should Fix Before Merge
 
-1. **Fail fast on missing OAuth config** — `apps/analog-demo-auth/src/auth.config.ts`. Confirmed. `issuer`, `clientId`, and `clientSecret` currently fall back to empty strings, while `SESSION_SECRET` already fails fast. This is a real startup/DX issue, but not a runtime blocker when env vars are present. Action: validate the required OAuth env vars at startup.
+1. **Fail fast on missing OAuth config** — `apps/analog-demo-auth/src/auth.config.ts`. Fixed in the current workspace. `AUTH_ISSUER`, `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, and `SESSION_SECRET` are now read through the same required-env helper and throw during config initialization when missing. The `init-auth` generator now scaffolds the same fail-fast config so new apps inherit the behavior. Regression coverage imports the demo config with each required env var absent and verifies the generated `auth.config.ts` template uses required-env reads instead of empty-string OAuth fallbacks.
 
-2. **Avoid stacked dashboard login timers** — `apps/analog-demo-auth/src/app/pages/dashboard.page.ts`. Confirmed. The current `effect()` schedules `setTimeout()` repeatedly and never clears previous timers. That can cause duplicate login attempts and make the demo page behave erratically. Action: store the timeout id, clear before rescheduling, and clean up on destroy.
+2. **Avoid stacked dashboard login timers** — `apps/analog-demo-auth/src/app/pages/dashboard.page.ts`. Fixed in the current workspace. The dashboard now stores the pending login timeout, clears it before each reschedule, and registers effect cleanup so pending login redirects are cancelled on destroy. Regression coverage verifies repeated auth-state changes produce only one login attempt and destroying the component cancels the pending timeout.
 
-3. **Add a timeout to Keycloak discovery fetch** — `apps/analog-demo-auth-e2e/src/global-setup.ts`. Confirmed. The setup fetch has no timeout, so CI can hang when Keycloak is down or slow. Action: use `AbortController` with a configurable timeout.
+3. **Add a timeout to Keycloak discovery fetch** — `apps/analog-demo-auth-e2e/src/global-setup.ts`. Fixed in the current workspace. The global setup now checks Keycloak discovery with an `AbortController`, defaults to a 10 second timeout, and supports `KEYCLOAK_DISCOVERY_TIMEOUT_MS` for CI tuning. Focused Vitest coverage verifies timeout parsing and abort behavior.
 
 ## P2 - Real Issues, But Not Blockers
 

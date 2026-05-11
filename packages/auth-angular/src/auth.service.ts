@@ -47,6 +47,9 @@ export class AuthService implements OnDestroy {
   private injector = inject(Injector);
   private httpRequest = injectRequest();
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
+  private userReloadEffect: EffectRef | null = null;
+  private userReloadTimeout: ReturnType<typeof setTimeout> | null = null;
+  private userReloadAttempts = 0;
 
   // Auth state - order matters: isAuthenticatedResource and isAuthenticated must be defined first
   readonly isAuthenticatedResource = httpResource<boolean>(
@@ -113,6 +116,29 @@ export class AuthService implements OnDestroy {
 
   constructor() {
     if (isPlatformBrowser(this.platformId)) {
+      this.userReloadEffect = effect(
+        () => {
+          const isAuthenticated = this.isAuthenticated();
+          const user = this.userResource.value();
+          const status = this.userResource.status();
+
+          if (!isAuthenticated || user !== null) {
+            this.clearUserReloadRetry();
+            return;
+          }
+
+          if (
+            this.userReloadAttempts < 3 &&
+            (status === 'resolved' || status === 'local' || status === 'error')
+          ) {
+            this.userReloadAttempts += 1;
+            this.userResource.reload();
+            this.scheduleUserReloadRetry();
+          }
+        },
+        { injector: this.injector }
+      );
+
       // Set up periodic check for authentication status
       this.checkAuthInterval = setInterval(() => {
         this.isAuthenticatedResource.reload();
@@ -124,6 +150,33 @@ export class AuthService implements OnDestroy {
     if (this.checkAuthInterval) {
       clearInterval(this.checkAuthInterval);
     }
+    this.clearUserReloadRetry();
+    this.userReloadEffect?.destroy();
+  }
+
+  private clearUserReloadRetry(): void {
+    this.userReloadAttempts = 0;
+
+    if (this.userReloadTimeout) {
+      clearTimeout(this.userReloadTimeout);
+      this.userReloadTimeout = null;
+    }
+  }
+
+  private scheduleUserReloadRetry(): void {
+    if (this.userReloadTimeout || this.userReloadAttempts >= 10) {
+      return;
+    }
+
+    this.userReloadTimeout = setTimeout(() => {
+      this.userReloadTimeout = null;
+
+      if (this.isAuthenticated() && this.userResource.value() === null) {
+        this.userReloadAttempts += 1;
+        this.userResource.reload();
+        this.scheduleUserReloadRetry();
+      }
+    }, 1000);
   }
 
   waitForAuthentication(): Promise<boolean> {
