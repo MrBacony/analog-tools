@@ -7,6 +7,7 @@ import * as checkAuthenticationModule from './checkAuthentication';
 import * as h3Module from 'h3';
 import { H3Event, sendRedirect } from 'h3';
 import { TRPCError } from '@trpc/server';
+import { updateSession } from '@analog-tools/session';
 
 // Mock the dependencies
 vi.mock('h3', async () => {
@@ -198,14 +199,26 @@ describe('useAnalogAuthMiddleware', () => {
     mockGetRequestURL.mockReturnValue({ pathname: '/api/protected' });
     mockCheckAuthentication.mockResolvedValue(false);
 
-    const { updateSession } = await import('@analog-tools/session');
-
     await useAnalogAuthMiddleware(mockEvent);
 
     expect(updateSession).toHaveBeenCalledWith(
       mockEvent,
       expect.any(Function)
     );
+    expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/api/auth/login');
+  });
+
+  it('should store fallback redirect URL for scheme-relative browser request paths', async () => {
+    mockGetRequestURL.mockReturnValue({ pathname: '//evil.example/dashboard' });
+    mockCheckAuthentication.mockResolvedValue(false);
+
+    await useAnalogAuthMiddleware(mockEvent);
+
+    const redirectMutator = vi.mocked(updateSession).mock.calls[0]?.[1];
+    expect(redirectMutator?.({ existing: true })).toEqual({
+      existing: true,
+      redirectUrl: '/',
+    });
     expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/api/auth/login');
   });
 
