@@ -59,6 +59,7 @@ vitest.config.*.timestamp*
 .github/prompts/*.md
 
 docs/issues
+.env
 .env.local
 .env.*.local
 .nx/polygraph

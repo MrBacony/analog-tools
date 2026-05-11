@@ -185,13 +185,11 @@ export class AuthService implements OnDestroy {
     }
 
     return new Promise<boolean>((resolve) => {
-      let watcher: EffectRef | undefined;
-
-      watcher = effect(
+      const watcher = effect(
         () => {
           if (this.isAuthenticationResolved()) {
             resolve(this.isAuthenticated());
-            queueMicrotask(() => watcher?.destroy());
+            queueMicrotask(() => watcher.destroy());
           }
         },
         { injector: this.injector }

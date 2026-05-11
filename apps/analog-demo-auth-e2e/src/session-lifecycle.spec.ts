@@ -12,10 +12,12 @@ test.describe('Session Lifecycle', () => {
     await expect(logoutButton).toBeVisible({ timeout: 10000 });
     await logoutButton.click();
 
-    // Wait for navigation away from dashboard
-    await page.waitForURL((url) => !url.pathname.includes('/dashboard'), {
-      timeout: 15000,
-    });
+    await page.waitForURL(
+      /.*\/realms\/dev\/protocol\/openid-connect\/logout.*/,
+      {
+        timeout: 15000,
+      }
+    );
 
     // Second login
     await loginAsTestUser(page);

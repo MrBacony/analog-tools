@@ -14,16 +14,19 @@ export const authGuard: CanActivateFn = (route, state) => {
     return true;
   }
 
-  return authService.waitForAuthentication().then((isAuthenticated) => {
-    if (isAuthenticated) {
-      // User is authenticated, allow access
-      return true;
-    }
+  return authService
+    .waitForAuthentication()
+    .then((isAuthenticated) => {
+      if (isAuthenticated) {
+        // User is authenticated, allow access
+        return true;
+      }
 
-    // User is not authenticated, redirect to login
-    authService.login(state.url);
-    return false;
-  });
+      // User is not authenticated, redirect to login
+      authService.login(state.url);
+      return false;
+    })
+    .catch(() => false);
 };
 
 /**
@@ -46,19 +49,22 @@ export const roleGuard: CanActivateFn = (route, state) => {
     return true;
   }
 
-  return authService.waitForAuthentication().then((isAuthenticated) => {
-    if (!isAuthenticated) {
-      authService.login(state.url);
+  return authService
+    .waitForAuthentication()
+    .then((isAuthenticated) => {
+      if (!isAuthenticated) {
+        authService.login(state.url);
+        return false;
+      }
+
+      // Check if user has any of the required roles
+      if (authService.hasRoles(requiredRoles)) {
+        return true;
+      }
+
+      // User doesn't have required roles, redirect to access denied
+      router.navigate(['/access-denied']);
       return false;
-    }
-
-    // Check if user has any of the required roles
-    if (authService.hasRoles(requiredRoles)) {
-      return true;
-    }
-
-    // User doesn't have required roles, redirect to access denied
-    router.navigate(['/access-denied']);
-    return false;
-  });
+    })
+    .catch(() => false);
 };

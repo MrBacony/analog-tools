@@ -1,5 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpErrorResponse, HttpRequest, HttpEvent, HttpHandlerFn } from '@angular/common/http';
+import {
+  HttpErrorResponse,
+  HttpRequest,
+  HttpEvent,
+  HttpHandlerFn,
+} from '@angular/common/http';
 import { authInterceptor } from './auth.interceptor';
 import { of, throwError } from 'rxjs';
 import { expect, vi, describe, it, beforeEach } from 'vitest';
@@ -24,38 +29,24 @@ describe('AuthInterceptor', () => {
     // Reset mocks
     vi.clearAllMocks();
     // Set up the mock next handler function
-    nextHandlerFn = vi.fn().mockReturnValue(of({ type: 4, body: { data: 'test' } } as HttpEvent<unknown>));
+    nextHandlerFn = vi
+      .fn()
+      .mockReturnValue(of({ type: 4, body: { data: 'test' } } as HttpEvent<unknown>));
     req = new HttpRequest('GET', 'https://example.com/api/data');
   });
   
-  it('should skip interception for all /api/auth/ routes', () => {
-    const callbackReq = new HttpRequest('GET', 'https://example.com/api/auth/callback');
-    const loginReq = new HttpRequest('GET', 'https://example.com/api/auth/login');
-    const userReq = new HttpRequest('GET', 'https://example.com/api/auth/user');
-    const authReq = new HttpRequest('GET', 'https://example.com/api/auth/authenticated');
+  it.each([
+    '/api/auth/callback',
+    '/api/auth/login',
+    '/api/auth/user',
+    '/api/auth/authenticated',
+  ])('should skip interception for %s', (path) => {
+    const authReq = new HttpRequest('GET', `https://example.com${path}`);
 
-    // Should skip for /api/auth/callback
-    TestBed.runInInjectionContext(() => {
-      authInterceptor(callbackReq, nextHandlerFn);
-    });
-    expect(nextHandlerFn).toHaveBeenCalledWith(callbackReq);
-
-    // Should skip for /api/auth/login
-    TestBed.runInInjectionContext(() => {
-      authInterceptor(loginReq, nextHandlerFn);
-    });
-    expect(nextHandlerFn).toHaveBeenCalledWith(loginReq);
-
-    // Should skip for /api/auth/user
-    TestBed.runInInjectionContext(() => {
-      authInterceptor(userReq, nextHandlerFn);
-    });
-    expect(nextHandlerFn).toHaveBeenCalledWith(userReq);
-
-    // Should skip for /api/auth/authenticated
     TestBed.runInInjectionContext(() => {
       authInterceptor(authReq, nextHandlerFn);
     });
+
     expect(nextHandlerFn).toHaveBeenCalledWith(authReq);
   });
   

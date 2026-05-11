@@ -1,13 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { loginAsTestUser } from './helpers/auth-helpers';
 
+const TIMEOUT_MS = 30000;
+
 test.describe('Auth Edge Cases', () => {
   test('page refresh on protected route maintains session', async ({
     page,
   }) => {
     await loginAsTestUser(page);
     await expect(page.getByTestId('welcome-message')).toBeVisible({
-      timeout: 30000,
+      timeout: TIMEOUT_MS,
     });
 
     // Refresh the page
@@ -15,10 +17,10 @@ test.describe('Auth Edge Cases', () => {
 
     // Should still be on dashboard, not redirected to login
     await expect(page.locator('h1')).toContainText('Dashboard', {
-      timeout: 30000,
+      timeout: TIMEOUT_MS,
     });
     await expect(page.getByTestId('welcome-message')).toBeVisible({
-      timeout: 30000,
+      timeout: TIMEOUT_MS,
     });
   });
 
@@ -45,7 +47,7 @@ test.describe('Auth Edge Cases', () => {
   test('navigating from protected to public route works', async ({ page }) => {
     await loginAsTestUser(page);
     await expect(page.getByTestId('welcome-message')).toBeVisible({
-      timeout: 30000,
+      timeout: TIMEOUT_MS,
     });
 
     // Navigate to public route
@@ -55,10 +57,10 @@ test.describe('Auth Edge Cases', () => {
     // Navigate back to protected route — should not re-auth
     await page.goto('/dashboard');
     await expect(page.locator('h1')).toContainText('Dashboard', {
-      timeout: 30000,
+      timeout: TIMEOUT_MS,
     });
     await expect(page.getByTestId('welcome-message')).toBeVisible({
-      timeout: 30000,
+      timeout: TIMEOUT_MS,
     });
   });
 });

@@ -12,7 +12,7 @@ Reviewed on 2026-05-11 against the current workspace, the running demo app at `h
 | --- | --- | ---: |
 | P0 | Should block merge; real security or correctness issue in the current implementation | 0 open / 2 fixed |
 | P1 | Should fix before merge; important reliability or DX issue with direct impact | 0 open / 3 fixed |
-| P2 | Worth fixing soon; real issue, but not currently merge-blocking | 17 |
+| P2 | Worth fixing soon; real issue, but not currently merge-blocking | 5 open / 12 fixed |
 | P3 | Low-risk polish or process follow-up | 4 |
 | NR | Not relevant, outdated, or already covered by current tooling/docs | 4 |
 
@@ -32,7 +32,7 @@ Reviewed on 2026-05-11 against the current workspace, the running demo app at `h
 
 ## P2 - Real Issues, But Not Blockers
 
-1. **Fix serve-static output path** — `apps/analog-demo-auth/project.json`. Confirmed, but lower relevance than originally scored. `serve-static.staticFilePath` points at `dist/apps/analog-demo-auth/browser` while the build writes to `dist/apps/analog-demo-auth/client`. This affects the optional `serve-static` target, not the current dev server or Playwright flow. Action: point it at `dist/apps/analog-demo-auth/client`.
+1. **Fix serve-static output path** — `apps/analog-demo-auth/project.json`. Fixed in the current workspace. `serve-static.staticFilePath` now points at `dist/apps/analog-demo-auth/client`, matching the build target output path.
 
 2. **Fix or explicitly validate the Vite dev-server fs allowlist for package aliases** — `apps/analog-demo-auth/vite.config.ts`. The config only allows `.` even though aliases point into `../../packages`. This is worth cleaning up, but it is not reproducibly blocking right now: the demo app currently serves successfully at `http://localhost:4201/`. Action: either add the packages directory to `server.fs.allow` or verify/document why current Vite/Nx behavior is already sufficient.
 
@@ -40,27 +40,27 @@ Reviewed on 2026-05-11 against the current workspace, the running demo app at `h
 
 4. **Use a deployment-safe session directory** — `apps/analog-demo-auth/src/auth.config.ts`. Confirmed. `./.sessions` depends on the working directory and is awkward in CI/containers. This is deployment hardening, not an immediate blocker for the demo app. Action: support `SESSION_DIR` and resolve to an absolute path.
 
-5. **Do not suppress global teardown errors** — `apps/analog-demo-auth-e2e/src/global-teardown.ts`. Confirmed, but mostly observability hardening. `rm(..., { recursive: true, force: true })` already handles the common missing-directory case, so this is about surfacing unexpected failures rather than fixing a broken flow. Action: swallow only benign not-found cases and rethrow the rest.
+5. **Do not suppress global teardown errors** — `apps/analog-demo-auth-e2e/src/global-teardown.ts`. Fixed in the current workspace. Teardown now ignores only missing session directories and rethrows unexpected cleanup failures. Unit coverage verifies both missing-directory and unexpected-error behavior.
 
-6. **Replace fixed waits in console error tests** — `apps/analog-demo-auth-e2e/src/console-errors.spec.ts`. Confirmed. The current `waitForTimeout(...)` calls are flaky and slow, but this is standard Playwright cleanup rather than merge-blocking behavior. Action: wait for deterministic UI state.
+6. **Replace fixed waits in console error tests** — `apps/analog-demo-auth-e2e/src/console-errors.spec.ts`. Fixed in the current workspace. The console-error tests now wait for deterministic page state instead of `waitForTimeout(...)` or global `networkidle`.
 
-7. **Replace `networkidle` logout wait** — `apps/analog-demo-auth-e2e/src/session-lifecycle.spec.ts`. Confirmed. Waiting for global network idle is brittle when background requests exist. Action: wait for a concrete post-logout URL or element.
+7. **Replace `networkidle` logout wait** — `apps/analog-demo-auth-e2e/src/session-lifecycle.spec.ts`. Fixed in the current workspace. The session lifecycle test now waits for the concrete identity-provider logout URL.
 
-8. **Assert explicit logout destination** — `apps/analog-demo-auth-e2e/src/auth-flow.spec.ts`. Confirmed. The test name claims redirect-to-home but only asserts “not dashboard”. Action: assert `/` or the exact expected route.
+8. **Assert explicit logout destination** — `apps/analog-demo-auth-e2e/src/auth-flow.spec.ts`. Fixed in the current workspace. The logout flow test now names and asserts the concrete provider logout destination.
 
-9. **Remove unused `response` variable** — `apps/analog-demo-auth-e2e/src/helpers/auth-helpers.ts`. Confirmed. This is harmless cleanup. Action: use `await page.goto('/dashboard')` directly.
+9. **Remove unused `response` variable** — `apps/analog-demo-auth-e2e/src/helpers/auth-helpers.ts`. Fixed in the current workspace. The helper now calls `await page.goto('/dashboard')` directly.
 
-10. **Make E2E credentials configurable** — `apps/analog-demo-auth-e2e/src/helpers/auth-helpers.ts`. Confirmed. Hard-coded test credentials are fine locally but reduce reuse in CI or alternate fixtures. Action: read `TEST_USERNAME` and `TEST_PASSWORD` with local defaults.
+10. **Make E2E credentials configurable** — `apps/analog-demo-auth-e2e/src/helpers/auth-helpers.ts`. Fixed in the current workspace. The helper reads `TEST_USERNAME` and `TEST_PASSWORD` with local defaults.
 
-11. **Use stable selectors for authenticated state** — `apps/analog-demo-auth-e2e/src/helpers/auth-helpers.ts`, `apps/analog-demo-auth/src/app/pages/dashboard.page.ts`. Confirmed. The tests currently rely on `text=Welcome`, which is brittle. Action: add a stable `data-testid` and assert against it.
+11. **Use stable selectors for authenticated state** — `apps/analog-demo-auth-e2e/src/helpers/auth-helpers.ts`, `apps/analog-demo-auth/src/app/pages/dashboard.page.ts`. Fixed in the current workspace. The dashboard exposes `data-testid="welcome-message"` and E2E tests assert against stable test IDs.
 
-12. **Extract repeated timeout constant** — `apps/analog-demo-auth-e2e/src/auth-edge-cases.spec.ts`. Confirmed. This is straightforward test maintenance. Action: introduce a named constant such as `TIMEOUT_MS`.
+12. **Extract repeated timeout constant** — `apps/analog-demo-auth-e2e/src/auth-edge-cases.spec.ts`. Fixed in the current workspace. Repeated edge-case timeouts now use a named `TIMEOUT_MS` constant.
 
-13. **Strongly type auth guard test mocks** — `packages/auth-angular/src/auth.guard.spec.ts`. Confirmed. The test currently uses very loose mock typing. Action: replace with a typed alias or `Partial<AuthService>`-style mock.
+13. **Strongly type auth guard test mocks** — `packages/auth-angular/src/auth.guard.spec.ts`. Fixed in the current workspace. Guard mocks now use typed `AuthService`/`Router` slices instead of loose `any` fields.
 
-14. **Cover auth guard rejection path** — `packages/auth-angular/src/auth.guard.spec.ts`. Confirmed. There is no test for `waitForAuthentication()` rejecting. Action: add a rejection-path test and assert `login` is not called.
+14. **Cover auth guard rejection path** — `packages/auth-angular/src/auth.guard.spec.ts`. Fixed in the current workspace. Both auth and role guards now have rejection-path coverage, and the guards deny access without triggering login or access-denied navigation when the initial auth check rejects.
 
-15. **Split auth interceptor route assertions** — `packages/auth-angular/src/auth.interceptor.spec.ts`. Confirmed. One bundled test makes failures less precise. Action: split into separate or parameterized cases.
+15. **Split auth interceptor route assertions** — `packages/auth-angular/src/auth.interceptor.spec.ts`. Fixed in the current workspace. The auth-route skip assertions are now parameterized so failures point to the exact route.
 
 16. **Share mock resource backing value** — `packages/auth-angular/src/auth.service.spec.ts`. Confirmed. `asReadonly().value` currently returns a different mock, so readonly consumers can drift from the mutable resource. Action: back both with the same value mock.
 
