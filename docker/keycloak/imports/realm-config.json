@@ -18,10 +18,15 @@
       "secret": "QAZKVBwuFROLVu9u64HwOfy65SR1Q7dD",
       "redirectUris": [
         "http://localhost:4200",
-        "http://localhost:4200/api/auth/callback"
+        "http://localhost:4200/api/auth/callback",
+        "http://localhost:4201",
+        "http://localhost:4201/api/auth/callback",
+        "http://localhost:4200/*",
+        "http://localhost:4201/*"
       ],
       "webOrigins": [
-        "http://localhost:4200"
+        "http://localhost:4200",
+        "http://localhost:4201"
       ],
       "notBefore": 0,
       "bearerOnly": false,
@@ -38,7 +43,7 @@
         "oidc.ciba.grant.enabled": "false",
         "client.secret.creation.time": "1743007392",
         "backchannel.logout.session.required": "true",
-        "post.logout.redirect.uris": "http://localhost:4200/api/auth/logout",
+        "post.logout.redirect.uris": "http://localhost:4200/api/auth/logout##http://localhost:4201/api/auth/logout",
         "display.on.consent.screen": "false",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.revoke.offline.tokens": "false"

@@ -1,0 +1,67 @@
+{
+  "name": "analog-demo-auth",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "app",
+  "sourceRoot": "apps/analog-demo-auth/src",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@analogjs/platform:vite",
+      "options": {
+        "configFile": "apps/analog-demo-auth/vite.config.ts",
+        "main": "apps/analog-demo-auth/src/main.ts",
+        "outputPath": "dist/apps/analog-demo-auth/client",
+        "tsConfig": "apps/analog-demo-auth/tsconfig.app.json"
+      },
+      "defaultConfiguration": "production",
+      "configurations": {
+        "development": {
+          "mode": "development"
+        },
+        "production": {
+          "sourcemap": false,
+          "mode": "production"
+        }
+      },
+      "outputs": ["{workspaceRoot}/dist/apps/analog-demo-auth"]
+    },
+    "serve": {
+      "executor": "@analogjs/platform:vite-dev-server",
+      "continuous": true,
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "analog-demo-auth:build",
+        "port": 4201
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "analog-demo-auth:build:development",
+          "hmr": true
+        },
+        "production": {
+          "buildTarget": "analog-demo-auth:build:production"
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "serve-static": {
+      "continuous": true,
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "analog-demo-auth:build",
+        "port": 4201,
+        "staticFilePath": "dist/apps/analog-demo-auth/browser",
+        "spa": true
+      }
+    },
+    "test": {
+      "executor": "@analogjs/vitest-angular:test",
+      "options": {
+        "config": "vite.config.ts"
+      }
+    }
+  }
+}

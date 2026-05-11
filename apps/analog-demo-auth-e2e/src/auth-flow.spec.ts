@@ -1,0 +1,33 @@
+import { test, expect } from '@playwright/test';
+import { loginAsTestUser } from './helpers/auth-helpers';
+
+test.describe('Auth Flow', () => {
+  test('login redirects to Keycloak and back to dashboard with user info', async ({
+    page,
+  }) => {
+    await loginAsTestUser(page);
+
+    // Should be on dashboard with user info
+    await expect(page.locator('h1')).toHaveText('Dashboard');
+    await expect(page.locator('text=Welcome')).toBeVisible();
+  });
+
+  test('logout clears session and redirects to home', async ({ page }) => {
+    await loginAsTestUser(page);
+
+    // Wait for auth state to load and Logout button to appear
+    const logoutButton = page.locator('button:has-text("Logout")');
+    await expect(logoutButton).toBeVisible({ timeout: 10000 });
+    await logoutButton.click();
+
+    // Should be redirected away from dashboard
+    await page.waitForURL((url) => !url.pathname.includes('/dashboard'));
+  });
+
+  test('user info is displayed after login', async ({ page }) => {
+    await loginAsTestUser(page);
+
+    // User info should contain the test user's data
+    await expect(page.locator('[data-testid="user-info"]')).toContainText('testuser');
+  });
+});

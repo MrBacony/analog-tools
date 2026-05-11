@@ -1,8 +1,11 @@
 import {
   DOCUMENT,
+  computed,
+  EffectRef,
   effect,
   inject,
   Injectable,
+  Injector,
   OnDestroy,
   PLATFORM_ID,
 } from '@angular/core';
@@ -36,24 +39,32 @@ export interface AuthUser {
  * Auth service for BFF (Backend for Frontend) authentication pattern
  * Uses server-side sessions with Auth0 instead of client-side tokens
  */
-@Injectable()
+@Injectable({ providedIn: 'root' })
 export class AuthService implements OnDestroy {
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
   private document = inject(DOCUMENT);
+  private injector = inject(Injector);
   private httpRequest = injectRequest();
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
 
   // Auth state - order matters: isAuthenticatedResource and isAuthenticated must be defined first
   readonly isAuthenticatedResource = httpResource<boolean>(
-    () => ({
-      url: '/api/auth/authenticated',
-      method: 'GET',
-      headers: getRequestHeaders(this.httpRequest, {
-        accept: 'application/json',
-      }),
-      withCredentials: true,
-    }),
+    () => {
+      // Skip on SSR – the server has no session cookie so the request
+      // always returns 401 and poisons the hydrated resource state.
+      if (!isPlatformBrowser(this.platformId)) {
+        return undefined;
+      }
+      return {
+        url: '/api/auth/authenticated',
+        method: 'GET',
+        headers: getRequestHeaders(this.httpRequest, {
+          accept: 'application/json',
+        }),
+        withCredentials: true,
+      };
+    },
     {
       defaultValue: false,
       parse: (value: unknown) => {
@@ -64,19 +75,31 @@ export class AuthService implements OnDestroy {
 
   readonly isAuthenticated = this.isAuthenticatedResource.asReadonly().value;
 
+  readonly isAuthenticationResolved = computed(() => {
+    const status = this.isAuthenticatedResource.status();
+
+    return status === 'resolved' || status === 'local' || status === 'error';
+  });
+
+  readonly isAuthenticationLoading = computed(() => {
+    const status = this.isAuthenticatedResource.status();
+
+    return status === 'idle' || status === 'loading' || status === 'reloading';
+  });
+
   readonly userResource = httpResource<AuthUser | null>(
     () => {
-      if (this.isAuthenticated()) {
-        return {
-          url: '/api/auth/user',
-          method: 'GET',
-          headers: getRequestHeaders(this.httpRequest, {
-            accept: 'application/json',
-          }),
-          withCredentials: true,
-        };
+      if (!isPlatformBrowser(this.platformId) || !this.isAuthenticated()) {
+        return undefined;
       }
-      return;
+      return {
+        url: '/api/auth/user',
+        method: 'GET',
+        headers: getRequestHeaders(this.httpRequest, {
+          accept: 'application/json',
+        }),
+        withCredentials: true,
+      };
     },
     {
       defaultValue: null,
@@ -89,28 +112,38 @@ export class AuthService implements OnDestroy {
   readonly user = this.userResource.asReadonly().value;
 
   constructor() {
-    // Check authentication status on startup
-    this.isAuthenticatedResource.reload();
-
     if (isPlatformBrowser(this.platformId)) {
       // Set up periodic check for authentication status
       this.checkAuthInterval = setInterval(() => {
         this.isAuthenticatedResource.reload();
       }, 5 * 60 * 1000); // Check every 5 minutes
     }
-
-    effect(() => {
-      // Automatically fetch user profile when authenticated
-      if (this.isAuthenticated()) {
-        this.userResource.reload();
-      }
-    });
   }
 
   ngOnDestroy(): void {
     if (this.checkAuthInterval) {
       clearInterval(this.checkAuthInterval);
     }
+  }
+
+  waitForAuthentication(): Promise<boolean> {
+    if (!isPlatformBrowser(this.platformId) || this.isAuthenticationResolved()) {
+      return Promise.resolve(this.isAuthenticated());
+    }
+
+    return new Promise<boolean>((resolve) => {
+      let watcher: EffectRef | undefined;
+
+      watcher = effect(
+        () => {
+          if (this.isAuthenticationResolved()) {
+            resolve(this.isAuthenticated());
+            queueMicrotask(() => watcher?.destroy());
+          }
+        },
+        { injector: this.injector }
+      );
+    });
   }
 
   /**
