@@ -4,6 +4,7 @@ import { OAuthAuthenticationService } from '../services/oauth-authentication.ser
 import { AuthSessionData } from '../types/auth-session.types';
 import { inject } from '@analog-tools/inject';
 import { getSession, updateSession } from '@analog-tools/session';
+import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
 
 /**
  * Handles the OAuth callback from the authentication provider.
@@ -56,7 +57,7 @@ const route: AuthRoute = {
 
     // Get redirect URL from session or use default
     const currentSessionData = getSession<AuthSessionData>(event);
-    const redirectUrl = currentSessionData?.redirectUrl || '/';
+    const redirectUrl = sanitizeRedirectUrl(currentSessionData?.redirectUrl);
 
     // Remove redirectUrl from session
     await updateSession<AuthSessionData>(event, (data) => {

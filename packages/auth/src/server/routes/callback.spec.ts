@@ -144,4 +144,15 @@ describe('callback route', () => {
 
     expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/');
   });
+
+  it('should use default redirect URL when session redirect URL is scheme-relative', async () => {
+    mockGetSession.mockReturnValue({
+      ...mockSessionData,
+      redirectUrl: '//evil.example/dashboard',
+    });
+
+    await callbackRoute.handler(mockEvent);
+
+    expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/');
+  });
 });

@@ -5,6 +5,7 @@ import { inject } from '@analog-tools/inject';
 import { TRPCError } from '@trpc/server';
 import { checkAuthentication } from './checkAuthentication';
 import { updateSession } from '@analog-tools/session';
+import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
 
 export async function useAnalogAuthMiddleware(event: H3Event) {
   // Skip authentication for public auth routes
@@ -45,7 +46,7 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
         // Browser request - store the original URL and redirect to login page
         await updateSession(event, (currentSession: Record<string, unknown>) => ({
           ...currentSession,
-          redirectUrl: pathname,
+          redirectUrl: sanitizeRedirectUrl(pathname),
         }));
         await sendRedirect(event, '/api/auth/login');
       }
