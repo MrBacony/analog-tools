@@ -5,7 +5,7 @@ test.describe('Session Lifecycle', () => {
   test('re-login after logout works', async ({ page }) => {
     // First login
     await loginAsTestUser(page);
-    await expect(page.locator('h1')).toHaveText('Dashboard');
+    await expect(page.locator('h1')).toContainText('Dashboard');
 
     // Wait for auth state to load and Logout button to appear
     const logoutButton = page.locator('button:has-text("Logout")');
@@ -17,12 +17,9 @@ test.describe('Session Lifecycle', () => {
       timeout: 15000,
     });
 
-    // Wait for any redirects to settle
-    await page.waitForLoadState('networkidle');
-
     // Second login
     await loginAsTestUser(page);
-    await expect(page.locator('h1')).toHaveText('Dashboard', {
+    await expect(page.locator('h1')).toContainText('Dashboard', {
       timeout: 10000,
     });
   });

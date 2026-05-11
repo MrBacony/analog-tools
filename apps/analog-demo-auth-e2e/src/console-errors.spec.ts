@@ -8,12 +8,12 @@ test.describe('Console Errors', () => {
 
     await loginAsTestUser(page);
 
-    // Wait a moment for any async errors
-    await page.waitForTimeout(1000);
+    // Wait for network to settle before checking for async errors
+    await page.waitForLoadState('networkidle');
 
     expect(
       errors.map((e) => e.text()),
-      'Unexpected console errors detected'
+      'Unexpected console errors detected during login'
     ).toEqual([]);
   });
 

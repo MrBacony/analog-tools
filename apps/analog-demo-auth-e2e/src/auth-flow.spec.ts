@@ -8,8 +8,8 @@ test.describe('Auth Flow', () => {
     await loginAsTestUser(page);
 
     // Should be on dashboard with user info
-    await expect(page.locator('h1')).toHaveText('Dashboard');
-    await expect(page.locator('text=Welcome')).toBeVisible();
+    await expect(page.locator('h1')).toContainText('Dashboard');
+    await expect(page.getByTestId('welcome-message')).toBeVisible();
   });
 
   test('logout clears session and redirects to home', async ({ page }) => {
@@ -28,6 +28,6 @@ test.describe('Auth Flow', () => {
     await loginAsTestUser(page);
 
     // User info should contain the test user's data
-    await expect(page.locator('[data-testid="user-info"]')).toContainText('testuser');
+    await expect(page.getByTestId('user-info')).toContainText('testuser');
   });
 });

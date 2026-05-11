@@ -11,7 +11,7 @@ import { JsonPipe } from '@angular/common';
       @if (authService.isAuthenticationLoading()) {
         <p>Loading authentication state...</p>
       } @else if (authService.isAuthenticated()) {
-        <p>Welcome, {{ authService.user()?.fullName || authService.user()?.username || 'User' }}!</p>
+        <p data-testid="welcome-message">Welcome, {{ authService.user()?.fullName || authService.user()?.username || 'User' }}!</p>
         <h2>User Info</h2>
         <pre data-testid="user-info">{{ authService.user() | json }}</pre>
         <button (click)="authService.logout()">Logout</button>
@@ -25,15 +25,31 @@ import { JsonPipe } from '@angular/common';
 })
 export default class DashboardPageComponent {
   readonly authService = inject(AuthService);
+  private loginRedirectTimeout: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
-    effect(() => {
+    effect((onCleanup) => {
       console.log('Auth state changed: ', this.authService.isAuthenticated());
-      if(!this.authService.isAuthenticationLoading() && !this.authService.isAuthenticated()) {
-        setTimeout(() => {
+      this.clearLoginRedirectTimeout();
+
+      if (
+        !this.authService.isAuthenticationLoading() &&
+        !this.authService.isAuthenticated()
+      ) {
+        this.loginRedirectTimeout = setTimeout(() => {
+          this.loginRedirectTimeout = undefined;
           this.authService.login();
         }, 3000);
       }
+
+      onCleanup(() => this.clearLoginRedirectTimeout());
     });
+  }
+
+  private clearLoginRedirectTimeout() {
+    if (this.loginRedirectTimeout !== undefined) {
+      clearTimeout(this.loginRedirectTimeout);
+      this.loginRedirectTimeout = undefined;
+    }
   }
 }

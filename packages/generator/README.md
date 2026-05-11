@@ -273,7 +273,7 @@ npx nx generate @analog-tools/generator:init-auth --project=my-app
 
 The generator performs four operations:
 
-1. **Creates `src/auth.config.ts`** -- OAuth/OIDC provider configuration with Redis session storage. Reads credentials from environment variables.
+1. **Creates `src/auth.config.ts`** -- OAuth/OIDC provider configuration with filesystem session storage. Reads credentials from environment variables and fails fast when required values are missing.
 
 2. **Creates `src/server/middleware/auth.ts`** -- H3 middleware that calls `useAnalogAuth` on every request, protecting all routes not listed in `unprotectedRoutes`.
 
@@ -310,7 +310,7 @@ vite.config.ts                         # Updated with ssr.noExternal
    SESSION_SECRET=your-secure-random-secret
    ```
 
-  `SESSION_SECRET` is required. The generated `auth.config.ts` throws during startup if it is missing.
+  `AUTH_ISSUER`, `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, and `SESSION_SECRET` are required. The generated `auth.config.ts` throws during startup if any of them are missing.
 
 2. **Review the default filesystem session storage**:
 

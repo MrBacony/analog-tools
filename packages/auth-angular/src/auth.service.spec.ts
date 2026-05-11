@@ -199,4 +199,80 @@ describe('AuthService', () => {
 
     expect(reloadSpy).toHaveBeenCalled();
   });
+
+  it('should reload user data when authentication is true but user data is empty', async () => {
+    TestBed.resetTestingModule();
+    authenticatedResource = createMockResource(true);
+    userResource = createMockResource(null);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (httpResource as any).mockImplementation(
+      (configOrFn: any, options?: any) => {
+        const config =
+          typeof configOrFn === 'function' ? configOrFn() : configOrFn;
+
+        if (config?.url === '/api/auth/user') {
+          return userResource;
+        } else if (config?.url === '/api/auth/authenticated') {
+          return authenticatedResource;
+        }
+
+        return createMockResource(options?.defaultValue || null);
+      }
+    );
+
+    await TestBed.configureTestingModule({
+      providers: [
+        AuthService,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        Router,
+        { provide: PLATFORM_ID, useValue: 'browser' },
+        { provide: DOCUMENT, useValue: mockDocument },
+      ],
+    }).compileComponents();
+
+    TestBed.inject(AuthService);
+    TestBed.flushEffects();
+
+    expect(userResource.reload).toHaveBeenCalled();
+  });
+
+  it('should retry user data when authenticated user resource is in an error state', async () => {
+    TestBed.resetTestingModule();
+    authenticatedResource = createMockResource(true);
+    userResource = createMockResource(null, 'error');
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (httpResource as any).mockImplementation(
+      (configOrFn: any, options?: any) => {
+        const config =
+          typeof configOrFn === 'function' ? configOrFn() : configOrFn;
+
+        if (config?.url === '/api/auth/user') {
+          return userResource;
+        } else if (config?.url === '/api/auth/authenticated') {
+          return authenticatedResource;
+        }
+
+        return createMockResource(options?.defaultValue || null);
+      }
+    );
+
+    await TestBed.configureTestingModule({
+      providers: [
+        AuthService,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        Router,
+        { provide: PLATFORM_ID, useValue: 'browser' },
+        { provide: DOCUMENT, useValue: mockDocument },
+      ],
+    }).compileComponents();
+
+    TestBed.inject(AuthService);
+    TestBed.flushEffects();
+
+    expect(userResource.reload).toHaveBeenCalled();
+  });
 });

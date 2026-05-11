@@ -49,8 +49,19 @@ export default defineConfig({
     const content = tree.read('apps/test-app/src/auth.config.ts', 'utf-8');
     expect(content).toContain('AnalogAuthConfig');
     expect(content).toContain('authConfig');
-    expect(content).toContain("const sessionSecret = process.env['SESSION_SECRET'];");
+    expect(content).toContain('function readRequiredEnv(name: string): string');
+    expect(content).toContain("const issuer = readRequiredEnv('AUTH_ISSUER');");
+    expect(content).toContain("const clientId = readRequiredEnv('AUTH_CLIENT_ID');");
+    expect(content).toContain(
+      "const clientSecret = readRequiredEnv('AUTH_CLIENT_SECRET');"
+    );
+    expect(content).toContain("const sessionSecret = readRequiredEnv('SESSION_SECRET');");
     expect(content).toContain('throw new Error');
+    expect(content).not.toContain("issuer: process.env['AUTH_ISSUER'] || ''");
+    expect(content).not.toContain("clientId: process.env['AUTH_CLIENT_ID'] || ''");
+    expect(content).not.toContain(
+      "clientSecret: process.env['AUTH_CLIENT_SECRET'] || ''"
+    );
     expect(content).not.toContain('default-dev-secret');
     expect(content).toContain('driver: {');
     expect(content).toContain("type: 'fs'");

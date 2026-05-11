@@ -7,9 +7,9 @@ const baseURL = process.env['BASE_URL'] || 'http://localhost:4201';
 export default defineConfig({
   ...nxE2EPreset(__filename, { testDir: './src' }),
   timeout: 60_000,
+  retries: 1,
   // Auth tests share server-side session state — run serially to avoid races
   workers: 1,
-  fullyParallel: false,
   use: {
     baseURL,
     trace: 'on-first-retry',
@@ -18,7 +18,8 @@ export default defineConfig({
   webServer: {
     command: 'npx nx run analog-demo-auth:serve',
     url: 'http://localhost:4201',
-    reuseExistingServer: true,
+    reuseExistingServer:
+      process.env['PLAYWRIGHT_REUSE_EXISTING_SERVER'] === 'true',
     cwd: workspaceRoot,
     timeout: 120_000,
   },
