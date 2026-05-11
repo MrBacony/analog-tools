@@ -7,6 +7,7 @@ import {
 import { authGuard, roleGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PLATFORM_ID } from '@angular/core';
 
 describe('Auth Guards', () => {
   let authService: {
@@ -35,6 +36,7 @@ describe('Auth Guards', () => {
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: Router, useValue: router },
+        { provide: PLATFORM_ID, useValue: 'browser' },
       ],
     });
   });
@@ -65,6 +67,21 @@ describe('Auth Guards', () => {
 
       expect(result).toBe(false);
       expect(authService.login).toHaveBeenCalledWith('/profile');
+    });
+
+    it('should allow access without checking authentication on the server', () => {
+      TestBed.overrideProvider(PLATFORM_ID, { useValue: 'server' });
+
+      const route = {} as unknown as ActivatedRouteSnapshot;
+      const state = { url: '/profile' } as unknown as RouterStateSnapshot;
+
+      const result = TestBed.runInInjectionContext(() =>
+        authGuard(route, state)
+      );
+
+      expect(result).toBe(true);
+      expect(authService.waitForAuthentication).not.toHaveBeenCalled();
+      expect(authService.login).not.toHaveBeenCalled();
     });
 
     it('should wait for the initial authentication check before redirecting', async () => {
@@ -152,6 +169,24 @@ describe('Auth Guards', () => {
 
       expect(result).toBe(false);
       expect(router.navigate).toHaveBeenCalledWith(['/access-denied']);
+    });
+
+    it('should allow access without checking authentication on the server', () => {
+      TestBed.overrideProvider(PLATFORM_ID, { useValue: 'server' });
+
+      const route = {
+        data: { roles: ['admin'] },
+      } as unknown as ActivatedRouteSnapshot;
+      const state = { url: '/admin' } as unknown as RouterStateSnapshot;
+
+      const result = TestBed.runInInjectionContext(() =>
+        roleGuard(route, state)
+      );
+
+      expect(result).toBe(true);
+      expect(authService.waitForAuthentication).not.toHaveBeenCalled();
+      expect(authService.login).not.toHaveBeenCalled();
+      expect(router.navigate).not.toHaveBeenCalled();
     });
   });
 });
