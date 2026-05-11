@@ -53,7 +53,7 @@
       "options": {
         "buildTarget": "analog-demo-auth:build",
         "port": 4201,
-        "staticFilePath": "dist/apps/analog-demo-auth/browser",
+        "staticFilePath": "dist/apps/analog-demo-auth/client",
         "spa": true
       }
     },

@@ -12,7 +12,9 @@ test.describe('Auth Flow', () => {
     await expect(page.getByTestId('welcome-message')).toBeVisible();
   });
 
-  test('logout clears session and redirects to home', async ({ page }) => {
+  test('logout clears session and redirects to provider logout', async ({
+    page,
+  }) => {
     await loginAsTestUser(page);
 
     // Wait for auth state to load and Logout button to appear
@@ -20,8 +22,10 @@ test.describe('Auth Flow', () => {
     await expect(logoutButton).toBeVisible({ timeout: 10000 });
     await logoutButton.click();
 
-    // Should be redirected away from dashboard
-    await page.waitForURL((url) => !url.pathname.includes('/dashboard'));
+    // Should be redirected to the configured identity provider logout route.
+    await page.waitForURL(
+      /.*\/realms\/dev\/protocol\/openid-connect\/logout.*/
+    );
   });
 
   test('user info is displayed after login', async ({ page }) => {

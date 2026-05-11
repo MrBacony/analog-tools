@@ -7,9 +7,7 @@ test.describe('Console Errors', () => {
     const { errors } = createConsoleFilter(page);
 
     await loginAsTestUser(page);
-
-    // Wait for network to settle before checking for async errors
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByTestId('user-info')).toContainText('testuser');
 
     expect(
       errors.map((e) => e.text()),
@@ -21,9 +19,10 @@ test.describe('Console Errors', () => {
     const { errors } = createConsoleFilter(page);
 
     await page.goto('/');
-    await page.waitForTimeout(500);
+    await expect(page.locator('h1')).toHaveText('Analog Auth Demo');
+
     await page.goto('/info');
-    await page.waitForTimeout(500);
+    await expect(page.locator('h1')).toHaveText('Info');
 
     expect(
       errors.map((e) => e.text()),

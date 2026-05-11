@@ -17,6 +17,9 @@ test.describe('Route Protection', () => {
     await page.goto('/dashboard');
     // Should redirect to Keycloak login
     await page.waitForURL(/.*\/realms\/dev\/protocol\/openid-connect\/auth.*/);
+    await expect(page).toHaveURL(
+      /.*\/realms\/dev\/protocol\/openid-connect\/auth.*/
+    );
   });
 
   test('health API is accessible without auth', async ({ request }) => {

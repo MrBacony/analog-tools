@@ -9,20 +9,26 @@ import { AuthService } from './auth.service';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PLATFORM_ID } from '@angular/core';
 
+type AuthServiceGuardMock = Pick<
+  AuthService,
+  'waitForAuthentication' | 'login' | 'hasRoles'
+>;
+
+type RouterMock = Pick<Router, 'navigate' | 'url'>;
+
 describe('Auth Guards', () => {
   let authService: {
-    isAuthenticated: any;
-    isAuthenticatedAsync: any;
-    waitForAuthentication: any;
-    login: any;
-    hasRoles: any;
-  };
-  let router: { navigate: any; url: string };
+    waitForAuthentication: ReturnType<typeof vi.fn>;
+    login: ReturnType<typeof vi.fn>;
+    hasRoles: ReturnType<typeof vi.fn>;
+  } & AuthServiceGuardMock;
+  let router: {
+    navigate: ReturnType<typeof vi.fn>;
+    url: string;
+  } & RouterMock;
 
   beforeEach(() => {
     authService = {
-      isAuthenticated: vi.fn(),
-      isAuthenticatedAsync: vi.fn(),
       waitForAuthentication: vi.fn(),
       login: vi.fn(),
       hasRoles: vi.fn(),
@@ -67,6 +73,22 @@ describe('Auth Guards', () => {
 
       expect(result).toBe(false);
       expect(authService.login).toHaveBeenCalledWith('/profile');
+    });
+
+    it('should deny access without redirecting when authentication check rejects', async () => {
+      authService.waitForAuthentication.mockRejectedValue(
+        new Error('Auth check failed')
+      );
+
+      const route = {} as unknown as ActivatedRouteSnapshot;
+      const state = { url: '/profile' } as unknown as RouterStateSnapshot;
+
+      const result = await TestBed.runInInjectionContext(() =>
+        authGuard(route, state)
+      );
+
+      expect(result).toBe(false);
+      expect(authService.login).not.toHaveBeenCalled();
     });
 
     it('should allow access without checking authentication on the server', () => {
@@ -152,6 +174,25 @@ describe('Auth Guards', () => {
 
       expect(result).toBe(false);
       expect(authService.login).toHaveBeenCalledWith('/admin');
+    });
+
+    it('should deny access without redirecting when role authentication check rejects', async () => {
+      authService.waitForAuthentication.mockRejectedValue(
+        new Error('Auth check failed')
+      );
+
+      const route = {
+        data: { roles: ['admin'] },
+      } as unknown as ActivatedRouteSnapshot;
+      const state = { url: '/admin' } as unknown as RouterStateSnapshot;
+
+      const result = await TestBed.runInInjectionContext(() =>
+        roleGuard(route, state)
+      );
+
+      expect(result).toBe(false);
+      expect(authService.login).not.toHaveBeenCalled();
+      expect(router.navigate).not.toHaveBeenCalled();
     });
 
     it('should redirect to access-denied when user lacks required roles', async () => {
