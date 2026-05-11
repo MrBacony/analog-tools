@@ -9,7 +9,8 @@ import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
 
 export async function useAnalogAuthMiddleware(event: H3Event) {
   // Skip authentication for public auth routes
-  const pathname = getRequestURL(event).pathname;
+  const requestUrl = getRequestURL(event);
+  const pathname = requestUrl.pathname;
   const authService = inject(OAuthAuthenticationService);
   const logger = inject(LoggerService).forContext('AuthMiddleware');
 
@@ -46,7 +47,9 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
         // Browser request - store the original URL and redirect to login page
         await updateSession(event, (currentSession: Record<string, unknown>) => ({
           ...currentSession,
-          redirectUrl: sanitizeRedirectUrl(pathname),
+          redirectUrl: sanitizeRedirectUrl(
+            `${requestUrl.pathname}${requestUrl.search}${requestUrl.hash}`
+          ),
         }));
         await sendRedirect(event, '/api/auth/login');
       }
