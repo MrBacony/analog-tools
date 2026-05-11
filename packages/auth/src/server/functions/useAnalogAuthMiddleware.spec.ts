@@ -21,6 +21,10 @@ vi.mock('h3', async () => {
 
 vi.mock('./checkAuthentication');
 
+vi.mock('@analog-tools/session', () => ({
+  updateSession: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe('useAnalogAuthMiddleware', () => {
   let mockAuthService: {
     initSession: ReturnType<typeof vi.fn>;
@@ -134,6 +138,15 @@ describe('useAnalogAuthMiddleware', () => {
     expect(mockCheckAuthentication).not.toHaveBeenCalled();
   });
 
+  it('should bypass authentication for user routes', async () => {
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/auth/user' });
+
+    await useAnalogAuthMiddleware(mockEvent);
+
+    expect(mockAuthService.initSession).not.toHaveBeenCalled();
+    expect(mockCheckAuthentication).not.toHaveBeenCalled();
+  });
+
   it('should bypass authentication for trpc routes', async () => {
     mockGetRequestURL.mockReturnValue({ pathname: '/api/trpc' });
 
@@ -185,8 +198,14 @@ describe('useAnalogAuthMiddleware', () => {
     mockGetRequestURL.mockReturnValue({ pathname: '/api/protected' });
     mockCheckAuthentication.mockResolvedValue(false);
 
+    const { updateSession } = await import('@analog-tools/session');
+
     await useAnalogAuthMiddleware(mockEvent);
 
+    expect(updateSession).toHaveBeenCalledWith(
+      mockEvent,
+      expect.any(Function)
+    );
     expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/api/auth/login');
   });
 

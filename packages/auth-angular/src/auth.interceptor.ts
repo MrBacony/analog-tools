@@ -1,4 +1,6 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { catchError, EMPTY } from 'rxjs';
 import { login } from './functions/login';
 import { injectRequest } from '@analogjs/router/tokens';
@@ -13,12 +15,11 @@ import { mergeRequest } from './functions/utils/merge-request';
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   // Skip interception for auth endpoints to avoid circular issues
-  if (
-    req.url.includes('/api/auth/callback') ||
-    req.url.includes('/api/auth/login')
-  ) {
+  if (req.url.includes('/api/auth/')) {
     return next(req);
   }
+
+  const platformId = inject(PLATFORM_ID);
 
   // Clone the request and add the fetch=true header
   const request = injectRequest();
@@ -29,13 +30,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((error: unknown) => {
       // Only handle HttpErrorResponse with 401 status
       if (error instanceof HttpErrorResponse && error.status === 401) {
-        // Get current URL to redirect back after login
-        const currentUrl = window.location.pathname + window.location.search;
-
-        // Redirect to login page with the current URL as redirect target
-        login(currentUrl);
-
-        // Return empty observable to prevent the error from propagating
+        if (isPlatformBrowser(platformId)) {
+          const currentUrl = window.location.pathname + window.location.search;
+          login(currentUrl);
+        }
+        // Return EMPTY to suppress the error — httpResource will use defaultValue
         return EMPTY;
       }
 

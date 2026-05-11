@@ -12,6 +12,7 @@ describe('Auth Guards', () => {
   let authService: {
     isAuthenticated: any;
     isAuthenticatedAsync: any;
+    waitForAuthentication: any;
     login: any;
     hasRoles: any;
   };
@@ -21,6 +22,7 @@ describe('Auth Guards', () => {
     authService = {
       isAuthenticated: vi.fn(),
       isAuthenticatedAsync: vi.fn(),
+      waitForAuthentication: vi.fn(),
       login: vi.fn(),
       hasRoles: vi.fn(),
     };
@@ -39,7 +41,7 @@ describe('Auth Guards', () => {
 
   describe('authGuard', () => {
     it('should allow access when user is authenticated', async () => {
-      authService.isAuthenticated.mockReturnValue(true);
+      authService.waitForAuthentication.mockResolvedValue(true);
 
       const route = {} as unknown as ActivatedRouteSnapshot;
       const state = { url: '/profile' } as unknown as RouterStateSnapshot;
@@ -52,7 +54,7 @@ describe('Auth Guards', () => {
     });
 
     it('should redirect to login when user is not authenticated', async () => {
-      authService.isAuthenticated.mockReturnValue(false);
+      authService.waitForAuthentication.mockResolvedValue(false);
 
       const route = {} as unknown as ActivatedRouteSnapshot;
       const state = { url: '/profile' } as unknown as RouterStateSnapshot;
@@ -60,6 +62,30 @@ describe('Auth Guards', () => {
       const result = await TestBed.runInInjectionContext(() =>
         authGuard(route, state)
       );
+
+      expect(result).toBe(false);
+      expect(authService.login).toHaveBeenCalledWith('/profile');
+    });
+
+    it('should wait for the initial authentication check before redirecting', async () => {
+      let resolveAuthentication!: (value: boolean) => void;
+      authService.waitForAuthentication.mockReturnValue(
+        new Promise<boolean>((resolve) => {
+          resolveAuthentication = resolve;
+        })
+      );
+
+      const route = {} as unknown as ActivatedRouteSnapshot;
+      const state = { url: '/profile' } as unknown as RouterStateSnapshot;
+
+      const resultPromise = TestBed.runInInjectionContext(() =>
+        authGuard(route, state)
+      );
+
+      expect(authService.login).not.toHaveBeenCalled();
+
+      resolveAuthentication(false);
+      const result = await resultPromise;
 
       expect(result).toBe(false);
       expect(authService.login).toHaveBeenCalledWith('/profile');
@@ -78,8 +104,8 @@ describe('Auth Guards', () => {
       expect(result).toBe(true);
     });
 
-    it('should allow access when user has required roles', () => {
-      authService.isAuthenticated.mockReturnValue(true);
+    it('should allow access when user has required roles', async () => {
+      authService.waitForAuthentication.mockResolvedValue(true);
       authService.hasRoles.mockReturnValue(true);
 
       const route = {
@@ -87,7 +113,7 @@ describe('Auth Guards', () => {
       } as unknown as ActivatedRouteSnapshot;
       const state = { url: '/admin' } as unknown as RouterStateSnapshot;
 
-      const result = TestBed.runInInjectionContext(() =>
+      const result = await TestBed.runInInjectionContext(() =>
         roleGuard(route, state)
       );
 
@@ -95,15 +121,15 @@ describe('Auth Guards', () => {
       expect(authService.hasRoles).toHaveBeenCalledWith(['admin']);
     });
 
-    it('should redirect to login when user is not authenticated', () => {
-      authService.isAuthenticated.mockReturnValue(false);
+    it('should redirect to login when user is not authenticated', async () => {
+      authService.waitForAuthentication.mockResolvedValue(false);
 
       const route = {
         data: { roles: ['admin'] },
       } as unknown as ActivatedRouteSnapshot;
       const state = { url: '/admin' } as unknown as RouterStateSnapshot;
 
-      const result = TestBed.runInInjectionContext(() =>
+      const result = await TestBed.runInInjectionContext(() =>
         roleGuard(route, state)
       );
 
@@ -111,8 +137,8 @@ describe('Auth Guards', () => {
       expect(authService.login).toHaveBeenCalledWith('/admin');
     });
 
-    it('should redirect to access-denied when user lacks required roles', () => {
-      authService.isAuthenticated.mockReturnValue(true);
+    it('should redirect to access-denied when user lacks required roles', async () => {
+      authService.waitForAuthentication.mockResolvedValue(true);
       authService.hasRoles.mockReturnValue(false);
 
       const route = {
@@ -120,7 +146,7 @@ describe('Auth Guards', () => {
       } as unknown as ActivatedRouteSnapshot;
       const state = { url: '/admin' } as unknown as RouterStateSnapshot;
 
-      const result = TestBed.runInInjectionContext(() =>
+      const result = await TestBed.runInInjectionContext(() =>
         roleGuard(route, state)
       );
 

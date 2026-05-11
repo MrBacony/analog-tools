@@ -28,10 +28,11 @@ describe('AuthInterceptor', () => {
     req = new HttpRequest('GET', 'https://example.com/api/data');
   });
   
-  it('should skip interception only for /api/auth/callback and /api/auth/login', () => {
+  it('should skip interception for all /api/auth/ routes', () => {
     const callbackReq = new HttpRequest('GET', 'https://example.com/api/auth/callback');
     const loginReq = new HttpRequest('GET', 'https://example.com/api/auth/login');
     const userReq = new HttpRequest('GET', 'https://example.com/api/auth/user');
+    const authReq = new HttpRequest('GET', 'https://example.com/api/auth/authenticated');
 
     // Should skip for /api/auth/callback
     TestBed.runInInjectionContext(() => {
@@ -45,16 +46,17 @@ describe('AuthInterceptor', () => {
     });
     expect(nextHandlerFn).toHaveBeenCalledWith(loginReq);
 
-    // Should NOT skip for /api/auth/user (should modify request)
+    // Should skip for /api/auth/user
     TestBed.runInInjectionContext(() => {
       authInterceptor(userReq, nextHandlerFn);
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const calledReq = ((nextHandlerFn as any).mock.calls.find(([req]: [HttpRequest<unknown>]) => req.url === userReq.url))[0];
-    expect(calledReq).not.toBe(userReq);
-    expect(calledReq.headers.has('fetch')).toBe(true);
-    expect(calledReq.headers.get('fetch')).toBe('true');
-    expect(calledReq.withCredentials).toBe(true);
+    expect(nextHandlerFn).toHaveBeenCalledWith(userReq);
+
+    // Should skip for /api/auth/authenticated
+    TestBed.runInInjectionContext(() => {
+      authInterceptor(authReq, nextHandlerFn);
+    });
+    expect(nextHandlerFn).toHaveBeenCalledWith(authReq);
   });
   
   it('should add fetch header to non-auth requests', () => {

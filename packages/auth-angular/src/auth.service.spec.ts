@@ -22,6 +22,8 @@ describe('AuthService', () => {
   let service: AuthService;
   let httpTestingController: HttpTestingController;
   let mockDocument: Partial<Document>;
+  let authenticatedResource: ReturnType<typeof createMockResource>;
+  let userResource: ReturnType<typeof createMockResource>;
 
   const mockUser = {
     username: 'testuser',
@@ -32,6 +34,22 @@ describe('AuthService', () => {
     roles: ['user', 'admin'],
   };
 
+  const createMockResource = (defaultValue: unknown, status = 'resolved') => ({
+    value: vi.fn(() => defaultValue),
+    asReadonly: () => ({ value: vi.fn(() => defaultValue) }),
+    reload: vi.fn(),
+    set: vi.fn(),
+    headers: vi.fn(() => ({})),
+    statusCode: vi.fn(() => 200),
+    progress: vi.fn(() => ({ value: 0 })),
+    hasValue: vi.fn(() => true),
+    status: vi.fn(() => status),
+    isLoading: vi.fn(() => false),
+    isFetching: vi.fn(() => false),
+    error: vi.fn(() => null),
+    request: vi.fn(),
+  });
+
   beforeEach(async () => {
     // Mock document
     mockDocument = {
@@ -41,21 +59,8 @@ describe('AuthService', () => {
       } as Location,
     };
 
-    // Mock httpResource to create simple mock resources
-    const createMockResource = (defaultValue: unknown) => ({
-      value: vi.fn(() => defaultValue),
-      asReadonly: () => ({ value: vi.fn(() => defaultValue) }),
-      reload: vi.fn(),
-      set: vi.fn(),
-      headers: vi.fn(() => ({})),
-      statusCode: vi.fn(() => 200),
-      progress: vi.fn(() => ({ value: 0 })),
-      hasValue: vi.fn(() => true),
-      isLoading: vi.fn(() => false),
-      isFetching: vi.fn(() => false),
-      error: vi.fn(() => null),
-      request: vi.fn(),
-    });
+    authenticatedResource = createMockResource(true);
+    userResource = createMockResource(mockUser);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (httpResource as any).mockImplementation(
@@ -64,9 +69,9 @@ describe('AuthService', () => {
           typeof configOrFn === 'function' ? configOrFn() : configOrFn;
 
         if (config?.url === '/api/auth/user') {
-          return createMockResource(options?.defaultValue || mockUser);
+          return userResource;
         } else if (config?.url === '/api/auth/authenticated') {
-          return createMockResource(options?.defaultValue || true);
+          return authenticatedResource;
         }
 
         return createMockResource(options?.defaultValue || null);
@@ -98,6 +103,15 @@ describe('AuthService', () => {
 
   it('should check authentication status', () => {
     expect(service.isAuthenticated()).toBe(true);
+  });
+
+  it('should report when authentication status is resolved', () => {
+    expect(service.isAuthenticationResolved()).toBe(true);
+  });
+
+  it('should let auth resources load and cache without forcing startup reloads', () => {
+    expect(authenticatedResource.reload).not.toHaveBeenCalled();
+    expect(userResource.reload).not.toHaveBeenCalled();
   });
 
   it('should return current user', () => {

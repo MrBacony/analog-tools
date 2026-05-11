@@ -4,6 +4,7 @@ import { LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
 import { TRPCError } from '@trpc/server';
 import { checkAuthentication } from './checkAuthentication';
+import { updateSession } from '@analog-tools/session';
 
 export async function useAnalogAuthMiddleware(event: H3Event) {
   // Skip authentication for public auth routes
@@ -14,11 +15,8 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
   logger.info('Processing authentication middleware', pathname);
 
   // Public routes that should bypass authentication
-  if (
-    pathname.startsWith('/api/auth/login') ||
-    pathname.startsWith('/api/auth/callback') ||
-    pathname.startsWith('/api/auth/authenticated')
-  ) {
+  // All /api/auth/* routes are handled by handleAuthRoute
+  if (pathname.startsWith('/api/auth/')) {
     return;
   }
 
@@ -44,7 +42,11 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
         });
       } else {
         logger.debug('Redirecting to login page', { path: pathname });
-        // Browser request - redirect to login page
+        // Browser request - store the original URL and redirect to login page
+        await updateSession(event, (currentSession: Record<string, unknown>) => ({
+          ...currentSession,
+          redirectUrl: pathname,
+        }));
         await sendRedirect(event, '/api/auth/login');
       }
     }
