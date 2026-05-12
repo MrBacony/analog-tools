@@ -29,7 +29,7 @@ test.describe('Route Protection', () => {
     expect(body.status).toBe('ok');
   });
 
-  test('me API returns 401 or 302without auth', async ({ request }) => {
+  test('me API returns 401 or 302 without auth', async ({ request }) => {
     const response = await request.get('/api/v1/me', {
       maxRedirects: 0,
     });

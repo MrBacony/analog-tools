@@ -48,7 +48,7 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
         await updateSession(event, (currentSession: Record<string, unknown>) => ({
           ...currentSession,
           redirectUrl: sanitizeRedirectUrl(
-            `${requestUrl.pathname}${requestUrl.search}${requestUrl.hash}`
+            `${requestUrl.pathname}${requestUrl.search}`
           ),
         }));
         await sendRedirect(event, '/api/auth/login');
