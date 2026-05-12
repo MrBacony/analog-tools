@@ -195,8 +195,8 @@ describe('useAnalogAuthMiddleware', () => {
     expect(lastCall?.[0]).toBe(mockEvent);
   });
 
-  it('should redirect to login for unauthenticated browser requests', async () => {
-    // include search and hash to ensure middleware stores full path (pathname+search+hash)
+  it('should redirect to login for unauthenticated browser requests and not include URL fragments', async () => {
+    // include search and hash; fragments are not sent to the server and should not be stored
     mockGetRequestURL.mockReturnValue({
       pathname: '/api/protected',
       search: '?q=1',
@@ -208,11 +208,11 @@ describe('useAnalogAuthMiddleware', () => {
 
     expect(updateSession).toHaveBeenCalledWith(mockEvent, expect.any(Function));
 
-    // verify the mutator stores the full sanitized redirectUrl (pathname + search + hash)
+    // verify the mutator stores only pathname + search (no fragment)
     const redirectMutator = vi.mocked(updateSession).mock.calls[0]?.[1];
     expect(redirectMutator?.({ existing: true })).toEqual({
       existing: true,
-      redirectUrl: '/api/protected?q=1#frag',
+      redirectUrl: '/api/protected?q=1',
     });
 
     expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/api/auth/login');
