@@ -1,11 +1,15 @@
-/* eslint-disable playwright/no-standalone-expect */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   checkKeycloakDiscovery,
+  cleanupSessionDirectory,
   getKeycloakDiscoveryTimeoutMs,
 } from '../src/global-setup';
 
 describe('global setup Keycloak discovery', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('uses the configured discovery timeout', () => {
     expect(
       getKeycloakDiscoveryTimeoutMs({ KEYCLOAK_DISCOVERY_TIMEOUT_MS: '2500' })
@@ -41,7 +45,15 @@ describe('global setup Keycloak discovery', () => {
     await vi.advanceTimersByTimeAsync(50);
     await expectedTimeout;
     expect(fetchFn.mock.calls[0]?.[1].signal.aborted).toBe(true);
+  });
 
-    vi.useRealTimers();
+  it('reports session cleanup failures without a misleading Keycloak error', async () => {
+    const rmFn = vi.fn(async () => {
+      throw new Error('permission denied');
+    });
+
+    await expect(cleanupSessionDirectory({ rmFn })).rejects.toThrow(
+      /Failed to clean up session directory.*permission denied/s
+    );
   });
 });
