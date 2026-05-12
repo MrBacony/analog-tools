@@ -95,6 +95,7 @@ describe('AuthService', () => {
 
   afterEach(() => {
     httpTestingController.verify();
+    vi.useRealTimers();
   });
 
   it('should be created', () => {
@@ -274,5 +275,56 @@ describe('AuthService', () => {
     TestBed.flushEffects();
 
     expect(userResource.reload).toHaveBeenCalled();
+  });
+
+  it('should not increment user reload attempts inside scheduled retries', async () => {
+    vi.useFakeTimers();
+    TestBed.resetTestingModule();
+    authenticatedResource = createMockResource(true);
+    userResource = createMockResource(null, 'error');
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (httpResource as any).mockImplementation(
+      (configOrFn: any, options?: any) => {
+        const config =
+          typeof configOrFn === 'function' ? configOrFn() : configOrFn;
+
+        if (config?.url === '/api/auth/user') {
+          return userResource;
+        } else if (config?.url === '/api/auth/authenticated') {
+          return authenticatedResource;
+        }
+
+        return createMockResource(options?.defaultValue || null);
+      }
+    );
+
+    await TestBed.configureTestingModule({
+      providers: [
+        AuthService,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        Router,
+        { provide: PLATFORM_ID, useValue: 'browser' },
+        { provide: DOCUMENT, useValue: mockDocument },
+      ],
+    }).compileComponents();
+
+    const retryingService = TestBed.inject(AuthService);
+    TestBed.flushEffects();
+
+    expect(userResource.reload).toHaveBeenCalledTimes(1);
+    expect(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (retryingService as any).userReloadAttempts
+    ).toBe(1);
+
+    vi.advanceTimersByTime(1000);
+
+    expect(userResource.reload).toHaveBeenCalledTimes(2);
+    expect(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (retryingService as any).userReloadAttempts
+    ).toBe(1);
   });
 });
