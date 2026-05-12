@@ -35,6 +35,8 @@ export interface AuthUser {
   roles?: string[];
 }
 
+const MAX_USER_RELOAD_ATTEMPTS = 3;
+
 /**
  * Auth service for BFF (Backend for Frontend) authentication pattern
  * Uses server-side sessions with Auth0 instead of client-side tokens
@@ -128,7 +130,7 @@ export class AuthService implements OnDestroy {
           }
 
           if (
-            this.userReloadAttempts < 3 &&
+            this.userReloadAttempts < MAX_USER_RELOAD_ATTEMPTS &&
             (status === 'resolved' || status === 'local' || status === 'error')
           ) {
             this.userReloadAttempts += 1;
@@ -164,7 +166,10 @@ export class AuthService implements OnDestroy {
   }
 
   private scheduleUserReloadRetry(): void {
-    if (this.userReloadTimeout || this.userReloadAttempts >= 10) {
+    if (
+      this.userReloadTimeout ||
+      this.userReloadAttempts >= MAX_USER_RELOAD_ATTEMPTS
+    ) {
       return;
     }
 
@@ -172,7 +177,6 @@ export class AuthService implements OnDestroy {
       this.userReloadTimeout = null;
 
       if (this.isAuthenticated() && this.userResource.value() === null) {
-        this.userReloadAttempts += 1;
         this.userResource.reload();
         this.scheduleUserReloadRetry();
       }
