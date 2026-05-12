@@ -11,6 +11,7 @@ type DiscoveryFetch = (
   input: string,
   init: { signal: AbortSignal }
 ) => Promise<{ ok: boolean; status: number }>;
+type RemoveDirectory = typeof rm;
 
 export function getKeycloakDiscoveryTimeoutMs(
   env: NodeJS.ProcessEnv = process.env
@@ -63,12 +64,28 @@ export async function checkKeycloakDiscovery({
   }
 }
 
-export default async function globalSetup() {
+export async function cleanupSessionDirectory({
+  rmFn = rm,
+}: {
+  rmFn?: RemoveDirectory;
+} = {}) {
   try {
-    await rm(sessionDirectory, {
+    await rmFn(sessionDirectory, {
       recursive: true,
       force: true,
     });
+  } catch (error) {
+    throw new Error(
+      `Failed to clean up session directory in globalSetup with rm at ${sessionDirectory}.\n` +
+        `Error: ${error}`
+    );
+  }
+}
+
+export default async function globalSetup() {
+  await cleanupSessionDirectory();
+
+  try {
     await checkKeycloakDiscovery();
   } catch (error) {
     throw new Error(
