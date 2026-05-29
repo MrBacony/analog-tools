@@ -111,4 +111,14 @@ describe('handleAuthRoute', () => {
     expect(mockAuthService.initSession).toHaveBeenCalledWith(mockEvent);
     expect(result).toBe('callback-handler-result');
   });
+
+  it('should handle h3 useBase stripped auth alias routes', async () => {
+    mockEvent = { path: '/auth/login' } as Partial<H3Event>;
+
+    const result = await handleAuthRoute(mockEvent as H3Event);
+
+    expect(mockAuthService.initSession).toHaveBeenCalledWith(mockEvent);
+    expect(getLastPathSegment).toHaveBeenCalledWith('/api/auth/login');
+    expect(result).toBe('login-handler-result');
+  });
 });

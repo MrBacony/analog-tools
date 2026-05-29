@@ -6,6 +6,7 @@ import { TRPCError } from '@trpc/server';
 import { checkAuthentication } from './checkAuthentication';
 import { updateSession } from '@analog-tools/session';
 import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
+import { isAuthRoutePath } from '../utils/auth-route-path';
 
 export async function useAnalogAuthMiddleware(event: H3Event) {
   // Skip authentication for public auth routes
@@ -17,8 +18,9 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
   logger.info('Processing authentication middleware', pathname);
 
   // Public routes that should bypass authentication
-  // All /api/auth/* routes are handled by handleAuthRoute
-  if (pathname.startsWith('/api/auth/')) {
+  // All internal auth routes are handled by handleAuthRoute.
+  // Nitro/h3 may strip the /api mount prefix before we see the pathname.
+  if (isAuthRoutePath(pathname)) {
     return;
   }
 

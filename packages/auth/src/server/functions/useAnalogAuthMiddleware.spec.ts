@@ -130,6 +130,16 @@ describe('useAnalogAuthMiddleware', () => {
     expect(mockCheckAuthentication).not.toHaveBeenCalled();
   });
 
+  it('should bypass authentication for h3 useBase stripped auth routes', async () => {
+    mockGetRequestURL.mockReturnValue({ pathname: '/auth/login' });
+
+    await useAnalogAuthMiddleware(mockEvent);
+
+    expect(mockAuthService.initSession).not.toHaveBeenCalled();
+    expect(mockCheckAuthentication).not.toHaveBeenCalled();
+    expect(sendRedirect).not.toHaveBeenCalledWith(mockEvent, '/api/auth/login');
+  });
+
   it('should bypass authentication for authenticated routes', async () => {
     mockGetRequestURL.mockReturnValue({ pathname: '/api/auth/authenticated' });
 

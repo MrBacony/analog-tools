@@ -3,10 +3,13 @@ import { registerRoutes } from './registerRoutes';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { getLastPathSegment } from '../utils/getLastPathSegment';
 import { inject } from '@analog-tools/inject';
+import { isAuthRoutePath, normalizeAuthPath } from '../utils/auth-route-path';
 
 export async function handleAuthRoute(event: H3Event) {
-  if (event.path.includes('/api/auth/')) {
-    const path = getLastPathSegment(event.path);
+  const normalizedPath = normalizeAuthPath(event.path);
+
+  if (isAuthRoutePath(normalizedPath)) {
+    const path = getLastPathSegment(normalizedPath);
 
     if (!path) {
       throw createError({
