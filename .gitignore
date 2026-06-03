@@ -64,3 +64,4 @@ docs/issues
 .env.*.local
 .nx/polygraph
 .nx/self-healing
+.agents/skills
