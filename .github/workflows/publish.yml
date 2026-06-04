@@ -17,31 +17,72 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 1
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build packages
         run: npx nx run-many -t build --projects=tag:publishable --skipRemoteCache --skipNxCache
-      
+
       - name: Get version
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-      
+
       - name: Check if tag exists
         id: tag_check
         run: |
-          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+          if git ls-remote --exit-code --tags origin "refs/tags/v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
-      
+
+      - name: Publish to npm
+        run: |
+          publishable_packages=$(node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+
+          const packagesDir = path.join(process.cwd(), 'packages');
+          const internalPackages = new Set(['@analog-tools/auth-angular']);
+
+          const packageNames = fs
+            .readdirSync(packagesDir, { withFileTypes: true })
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => path.join(packagesDir, entry.name, 'package.json'))
+            .filter((filePath) => fs.existsSync(filePath))
+            .map((filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8')).name)
+            .filter((name) => Boolean(name) && !internalPackages.has(name));
+
+          console.log(packageNames.join(' '));
+          NODE
+          )
+
+          if [[ -z "$publishable_packages" ]]; then
+            echo "No publishable packages found under packages/."
+            exit 1
+          fi
+
+          for package_name in $publishable_packages; do
+            build_dir="node_modules/$package_name"
+            if [ -f "$build_dir/package.json" ]; then
+              echo "Publishing $build_dir"
+              (cd "$build_dir" && npm publish --provenance --access public)
+            else
+              echo "Expected build output missing for $package_name at $build_dir"
+              exit 1
+            fi
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Create Git tag
         if: steps.tag_check.outputs.exists == 'false'
         run: |
@@ -49,33 +90,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
           git push origin "v${{ steps.version.outputs.version }}"
-      
-      - name: Publish to npm
-        run: |
-          # Get list of projects tagged as publishable from Nx
-          publishable_projects=$(npx nx show projects --with-tag=publishable --json | node -e "let data=''; process.stdin.on('data',d=>data+=d); process.stdin.on('end',()=>{const arr=JSON.parse(data); console.log(arr.join(' '));});")
-          
-          # Publish from built output directories (skip internal packages)
-          for project in $publishable_projects; do
-            # Skip internal packages that are bundled into other packages
-            if [[ "$project" == *"auth-angular"* ]]; then
-              echo "Skipping internal package $project"
-              continue
-            fi
-            
-            build_dir="node_modules/$project"
-            if [ -f "$build_dir/package.json" ]; then
-              echo "Publishing $build_dir"
-              (cd "$build_dir" && npm publish --provenance --access public)
-            else
-              echo "Skipping $build_dir; package.json not found"
-            fi
-          done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      
+
       - name: Create GitHub Release
-        if: steps.tag_check.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
