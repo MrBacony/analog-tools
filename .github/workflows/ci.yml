@@ -29,7 +29,7 @@ jobs:
         run: git rev-parse --verify main || git remote set-branches origin main && git fetch --depth 1 origin main && git branch main origin/main
 
       - name: Run Nx tests
-        run: npx nx affected --target=test --parallel=3 --verbose
+        run: npx nx affected --target=test --parallel=3
 
       - name: Build packages
         run: npx nx affected --target=build --parallel=3
@@ -39,5 +39,5 @@ jobs:
 
         # NEW: Add this step at the end of your job
       - name: Fix CI
-        run: npx nx fix-ci --verbose
+        run: npx nx fix-ci
         if: always() # IMPORTANT: Always run
