@@ -27,7 +27,7 @@ jobs:
         run: npm ci
       
       - name: Build packages
-        run: npx nx run-many -t build --projects=tag:publishable --skipRemoteCache
+        run: npx nx run-many -t build --projects=tag:publishable --skipRemoteCache --skipNxCache
       
       - name: Get version
         id: version

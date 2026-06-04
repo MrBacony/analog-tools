@@ -32,7 +32,7 @@ jobs:
         run: npx nx affected --target=test --parallel=3 --skipRemoteCache
 
       - name: Build packages
-        run: npx nx affected --target=build --parallel=3 --skipRemoteCache
+        run: npx nx affected --target=build --parallel=3 --skipRemoteCache --skipNxCache
 
       - name: Build example app
         run: npx nx build analog-example
