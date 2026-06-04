@@ -29,10 +29,10 @@ jobs:
         run: git rev-parse --verify main || git remote set-branches origin main && git fetch --depth 1 origin main && git branch main origin/main
 
       - name: Run Nx tests
-        run: npx nx affected --target=test --parallel=3
+        run: npx nx affected --target=test --parallel=3 --skipRemoteCache
 
       - name: Build packages
-        run: npx nx affected --target=build --parallel=3
+        run: npx nx affected --target=build --parallel=3 --skipRemoteCache
 
       - name: Build example app
         run: npx nx build analog-example
