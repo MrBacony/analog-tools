@@ -109,5 +109,8 @@
   "release": { "version": { "preVersionCommand": "npx nx run-many -t build" } },
   "tui": { "enabled": false },
   "analytics": false,
-  "nxCloudId": "6a2116ce5ae17cdb4ac121f1"
+  "nxCloudId": "6a2116ce5ae17cdb4ac121f1",
+  "migrate": {
+    "agentic": true
+  }
 }
