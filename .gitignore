@@ -65,3 +65,4 @@ docs/issues
 .nx/polygraph
 .nx/self-healing
 .agents/skills
+.nx/migrate-runs
