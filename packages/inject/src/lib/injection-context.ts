@@ -5,7 +5,7 @@
 
 import { ServiceRegistry } from './service-registry';
 import { InjectionServiceClass, InjectOptions } from './inject.types';
-import { InjectionError } from './inject.util';
+import { AggregateDestructionError, InjectionError } from './inject.util';
 
 export class InjectionContext {
   private static contexts = new Map<string, ServiceRegistry>();
@@ -63,7 +63,6 @@ export class InjectionContext {
    * Clear all scopes asynchronously with proper resource cleanup
    */
   static async clearAllAsync(): Promise<void> {
-    const { AggregateDestructionError } = await import('./inject.util');
     const errors: Array<{ serviceName: string; error: Error }> = [];
 
     const entries = Array.from(this.contexts.entries());
