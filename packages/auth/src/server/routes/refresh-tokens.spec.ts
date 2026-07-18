@@ -3,7 +3,7 @@ import { getRequestHeaders, H3Event } from 'h3';
 import refreshTokensRoute from './refresh-tokens';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { LoggerService } from '@analog-tools/logger';
-import { AnalogAuthConfig } from '../types/auth.types';
+import type { AnalogAuthConfig } from '../types/auth.types';
 import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 
 // Mock dependencies

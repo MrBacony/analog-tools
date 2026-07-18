@@ -327,4 +327,44 @@ describe('AuthService', () => {
       (retryingService as any).userReloadAttempts
     ).toBe(1);
   });
+
+  it('should request /api/auth/authenticated on SSR', async () => {
+    TestBed.resetTestingModule();
+
+    authenticatedResource = createMockResource(true);
+    userResource = createMockResource(null);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (httpResource as any).mockImplementation(
+      (configOrFn: any, options?: any) => {
+        const config =
+          typeof configOrFn === 'function' ? configOrFn() : configOrFn;
+
+        if (config?.url === '/api/auth/user') {
+          return userResource;
+        }
+
+        if (config?.url === '/api/auth/authenticated') {
+          return authenticatedResource;
+        }
+
+        return createMockResource(options?.defaultValue || null);
+      }
+    );
+
+    await TestBed.configureTestingModule({
+      providers: [
+        AuthService,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        Router,
+        { provide: PLATFORM_ID, useValue: 'server' },
+        { provide: DOCUMENT, useValue: mockDocument },
+      ],
+    }).compileComponents();
+
+    const ssrService = TestBed.inject(AuthService);
+
+    expect(ssrService.isAuthenticated()).toBe(true);
+  });
 });

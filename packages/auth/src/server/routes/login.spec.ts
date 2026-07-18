@@ -82,9 +82,23 @@ describe('login route', () => {
     await loginRoute.handler(mockEvent);
 
     expect(mockAuthService.getAuthorizationUrl).toHaveBeenCalledWith(
-      'mock-state-uuid',
-      'https://app.example.com/dashboard'
+      'mock-state-uuid'
     );
+  });
+
+  it('should store sanitized post-login redirect target in session', async () => {
+    await loginRoute.handler(mockEvent);
+
+    expect(mockUpdateSession).toHaveBeenCalledWith(
+      mockEvent,
+      expect.any(Function)
+    );
+
+    const updateCalls = mockUpdateSession.mock.calls;
+    const redirectUpdateFn = updateCalls[1][1];
+    const updated = redirectUpdateFn({ state: 'mock-state-uuid' });
+
+    expect(updated.redirectUrl).toBe('/dashboard');
   });
 
   it('should redirect to OAuth provider', async () => {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAnalogAuth } from './useAnalogAuth';
-import { AnalogAuthConfig, MemorySessionConfig } from '../types/auth.types';
+import type { AnalogAuthConfig, MemorySessionConfig } from '../types/auth.types';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import * as injectModule from '@analog-tools/inject';
 import * as useAnalogAuthMiddlewareModule from './useAnalogAuthMiddleware';

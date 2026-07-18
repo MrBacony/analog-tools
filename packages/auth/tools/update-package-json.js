@@ -18,6 +18,10 @@ const mainPackagePath = path.resolve(
   __dirname,
   '../../../node_modules/@analog-tools/auth/package.json'
 );
+const sourcePackagePath = path.resolve(
+  __dirname,
+  '../../package.json'
+);
 const angularPackagePath = path.resolve(
   __dirname,
   '../../../node_modules/@analog-tools/auth/angular/package.json'
@@ -25,6 +29,14 @@ const angularPackagePath = path.resolve(
 
 // Read package.json files
 try {
+  if (!fs.existsSync(mainPackagePath)) {
+    console.warn(
+      'Main package.json missing in build output. Copying from packages/auth/package.json...'
+    );
+    fs.mkdirSync(path.dirname(mainPackagePath), { recursive: true });
+    fs.copyFileSync(sourcePackagePath, mainPackagePath);
+  }
+
   const mainPackage = JSON.parse(fs.readFileSync(mainPackagePath, 'utf8'));
   const angularPackage = JSON.parse(
     fs.readFileSync(angularPackagePath, 'utf8')

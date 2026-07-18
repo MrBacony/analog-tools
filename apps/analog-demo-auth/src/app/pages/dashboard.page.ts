@@ -1,6 +1,6 @@
-import { Component, effect, inject } from '@angular/core';
+import { isPlatformBrowser, JsonPipe } from '@angular/common';
+import { Component, effect, inject, PLATFORM_ID } from '@angular/core';
 import { AuthService } from '@analog-tools/auth/angular';
-import { JsonPipe } from '@angular/common';
 
 @Component({
   selector: 'app-dashboard',
@@ -25,11 +25,14 @@ import { JsonPipe } from '@angular/common';
 })
 export default class DashboardPageComponent {
   readonly authService = inject(AuthService);
+  private readonly platformId = inject(PLATFORM_ID);
   private loginRedirectTimeout: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
-    effect((onCleanup) => {
+    effect(() => {
       console.log('Auth state changed: ', this.authService.isAuthenticated());
+    });
+    effect((onCleanup) => {
       this.clearLoginRedirectTimeout();
 
       if (

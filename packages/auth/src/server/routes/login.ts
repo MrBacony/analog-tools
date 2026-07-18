@@ -5,6 +5,7 @@ import { AuthSessionData } from '../types/auth-session.types';
 import { AuthRoute } from '../types/auth.types';
 import { inject } from '@analog-tools/inject';
 import { updateSession } from '@analog-tools/session';
+import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
 
 const route: AuthRoute = {
   path: 'login',
@@ -27,8 +28,18 @@ const route: AuthRoute = {
     const query = getQuery(event);
     const redirectUri = query['redirect_uri'] as string;
 
+    if (redirectUri) {
+      const sanitizedTargetPath = sanitizeRedirectUrl(redirectUri);
+      if (sanitizedTargetPath !== '/') {
+        await updateSession<AuthSessionData>(event, (currentSession) => ({
+          ...currentSession,
+          redirectUrl: sanitizedTargetPath,
+        }));
+      }
+    }
+
     // Get authorization URL
-    const authUrl = await authService.getAuthorizationUrl(state, redirectUri);
+    const authUrl = await authService.getAuthorizationUrl(state);
 
     // Redirect to OAuth provider
     return sendRedirect(event, authUrl);

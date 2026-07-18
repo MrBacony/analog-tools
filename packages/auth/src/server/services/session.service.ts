@@ -29,7 +29,7 @@ export class SessionService {
     const existingSession = getSession<AuthSessionData>(event);
     
     if (!existingSession) {
-      this.logger.info('Creating new session');
+      this.logger.debug('Initializing request session context');
       
       // Create appropriate store based on config
       if (!this.store) {

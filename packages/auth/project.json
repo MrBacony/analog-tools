@@ -37,6 +37,7 @@
       "options": {
         "commands": [
           "nx run @analog-tools/auth-angular:build && nx run @analog-tools/auth:vite:build",
+          "cp packages/auth/package.json node_modules/@analog-tools/auth/package.json",
           "mkdir -p node_modules/@analog-tools/auth/angular",
           "cp -R node_modules/@analog-tools/auth-angular/* node_modules/@analog-tools/auth/angular/",
           "node packages/auth/tools/update-package-json.js"

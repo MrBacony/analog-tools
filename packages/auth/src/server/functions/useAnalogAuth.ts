@@ -1,5 +1,5 @@
 import { H3Event } from 'h3';
-import { AnalogAuthConfig } from '../types/auth.types';
+import type { AnalogAuthConfig } from '../types/auth.types';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { handleAuthRoute } from './handleAuthRoute';
 import { useAnalogAuthMiddleware } from './useAnalogAuthMiddleware';

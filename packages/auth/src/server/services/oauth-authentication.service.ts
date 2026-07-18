@@ -2,7 +2,7 @@ import { extname } from 'path';
 import { createError, H3Event } from 'h3';
 import { SessionService } from './session.service';
 import { AuthSessionData } from '../types/auth-session.types';
-import { AnalogAuthConfig } from '../types/auth.types';
+import type { AnalogAuthConfig } from '../types/auth.types';
 import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 import { getSession, updateSession } from '@analog-tools/session';
@@ -432,10 +432,131 @@ export class OAuthAuthenticationService {
     // Update session with user and auth data
     await updateSession(event, () => ({ user, auth }));
 
+    if (this.getConfigValue('singleSessionPerUser', false)) {
+      // Optional policy: keep current request session and invalidate
+      // other authenticated sessions for the same resolved user identity.
+      await this.invalidateOtherUserSessions(event, user, userData);
+    }
+
     // Log successful session save
     this.logger.debug('Authentication session data saved successfully');
 
     return { user, tokens };
+  }
+
+  private resolveUserIdentity(
+    user: Record<string, unknown> | null | undefined,
+    userData: Record<string, unknown> | null | undefined
+  ): string | null {
+    const candidates = [
+      user?.['id'],
+      user?.['sub'],
+      userData?.['id'],
+      userData?.['sub'],
+      userData?.['email'],
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.length > 0) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private resolveSessionIdentity(session: AuthSessionData): string | null {
+    const sessionUser =
+      session.user && typeof session.user === 'object'
+        ? (session.user as Record<string, unknown>)
+        : null;
+    const sessionUserInfo =
+      session.auth?.userInfo && typeof session.auth.userInfo === 'object'
+        ? (session.auth.userInfo as Record<string, unknown>)
+        : null;
+
+    const candidates = [
+      sessionUser?.['id'],
+      sessionUser?.['sub'],
+      sessionUserInfo?.['id'],
+      sessionUserInfo?.['sub'],
+      sessionUserInfo?.['email'],
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.length > 0) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private async invalidateOtherUserSessions(
+    event: H3Event,
+    user: Record<string, unknown> | null | undefined,
+    userData: Record<string, unknown> | null | undefined
+  ): Promise<void> {
+    const targetIdentity = this.resolveUserIdentity(user, userData);
+    if (!targetIdentity) {
+      this.logger.debug(
+        'Skipping session invalidation because user identity could not be resolved'
+      );
+      return;
+    }
+
+    const currentSessionId =
+      typeof event.context['__session_id__'] === 'string'
+        ? (event.context['__session_id__'] as string)
+        : null;
+
+    if (!currentSessionId) {
+      this.logger.debug(
+        'Skipping session invalidation because current session id is unavailable'
+      );
+      return;
+    }
+
+    const sessionService = inject(SessionService);
+    const activeSessions = await sessionService.getActiveSessions();
+
+    for (const activeSession of activeSessions) {
+      if (activeSession.id === currentSessionId) {
+        continue;
+      }
+
+      if (!activeSession.data.auth?.isAuthenticated) {
+        continue;
+      }
+
+      const sessionIdentity = this.resolveSessionIdentity(activeSession.data);
+      if (!sessionIdentity || sessionIdentity !== targetIdentity) {
+        continue;
+      }
+
+      activeSession.update((data) => {
+        const currentAuth = data.auth;
+        return {
+          ...data,
+          auth: {
+            ...(currentAuth ?? { isAuthenticated: false }),
+            isAuthenticated: false,
+            accessToken: undefined,
+            idToken: undefined,
+            refreshToken: undefined,
+            expiresAt: undefined,
+            userInfo: undefined,
+          },
+          user: null,
+        };
+      });
+
+      await activeSession.save();
+      this.logger.debug('Invalidated stale authenticated session', {
+        sessionId: activeSession.id,
+        targetIdentity,
+      });
+    }
   }
 
   /**

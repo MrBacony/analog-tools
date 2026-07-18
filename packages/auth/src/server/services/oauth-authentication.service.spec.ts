@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OAuthAuthenticationService } from './oauth-authentication.service';
 import { LoggerService } from '@analog-tools/logger';
 import { SessionService } from './session.service';
-import { AnalogAuthConfig } from '../types/auth.types';
+import type { AnalogAuthConfig } from '../types/auth.types';
 import {
   AuthSessionData,
   SessionWithHandler,
@@ -840,6 +840,102 @@ describe('OAuthAuthenticationService', () => {
   describe('handleCallback', () => {
     const mockCode = 'auth-code-123';
     const mockState = 'state-456';
+
+    it('should not invalidate other authenticated sessions by default', async () => {
+      const currentSessionId = 'current-session-id';
+      mockEvent.context = {
+        ...(mockEvent.context ?? {}),
+        __session_id__: currentSessionId,
+      };
+
+      const otherSessionForSameUser = {
+        id: 'other-session-id',
+        data: {
+          auth: {
+            isAuthenticated: true,
+            userInfo: { sub: 'user123' },
+          },
+          user: { id: 'user123' },
+        },
+        update: vi.fn(),
+        save: vi.fn().mockResolvedValue(undefined),
+      } as unknown as SessionWithHandler;
+
+      const unrelatedSession = {
+        id: 'unrelated-session-id',
+        data: {
+          auth: {
+            isAuthenticated: true,
+            userInfo: { sub: 'another-user' },
+          },
+          user: { id: 'another-user' },
+        },
+        update: vi.fn(),
+        save: vi.fn().mockResolvedValue(undefined),
+      } as unknown as SessionWithHandler;
+
+      mockSessionService.getActiveSessions = vi
+        .fn()
+        .mockResolvedValue([otherSessionForSameUser, unrelatedSession]);
+
+      await service.handleCallback(mockEvent as H3Event, mockCode, mockState);
+
+      expect(mockSessionService.getActiveSessions).not.toHaveBeenCalled();
+      expect(otherSessionForSameUser.update).not.toHaveBeenCalled();
+      expect(otherSessionForSameUser.save).not.toHaveBeenCalled();
+      expect(unrelatedSession.update).not.toHaveBeenCalled();
+      expect(unrelatedSession.save).not.toHaveBeenCalled();
+    });
+
+    it('should invalidate other authenticated sessions for the same user when singleSessionPerUser is enabled', async () => {
+      const currentSessionId = 'current-session-id';
+      mockEvent.context = {
+        ...(mockEvent.context ?? {}),
+        __session_id__: currentSessionId,
+      };
+
+      Object.defineProperty(service, 'config', {
+        value: { ...mockConfig, singleSessionPerUser: true },
+        writable: true,
+      });
+
+      const otherSessionForSameUser = {
+        id: 'other-session-id',
+        data: {
+          auth: {
+            isAuthenticated: true,
+            userInfo: { sub: 'user123' },
+          },
+          user: { id: 'user123' },
+        },
+        update: vi.fn(),
+        save: vi.fn().mockResolvedValue(undefined),
+      } as unknown as SessionWithHandler;
+
+      const unrelatedSession = {
+        id: 'unrelated-session-id',
+        data: {
+          auth: {
+            isAuthenticated: true,
+            userInfo: { sub: 'another-user' },
+          },
+          user: { id: 'another-user' },
+        },
+        update: vi.fn(),
+        save: vi.fn().mockResolvedValue(undefined),
+      } as unknown as SessionWithHandler;
+
+      mockSessionService.getActiveSessions = vi
+        .fn()
+        .mockResolvedValue([otherSessionForSameUser, unrelatedSession]);
+
+      await service.handleCallback(mockEvent as H3Event, mockCode, mockState);
+
+      expect(otherSessionForSameUser.update).toHaveBeenCalledTimes(1);
+      expect(otherSessionForSameUser.save).toHaveBeenCalledTimes(1);
+      expect(unrelatedSession.update).not.toHaveBeenCalled();
+      expect(unrelatedSession.save).not.toHaveBeenCalled();
+    });
 
     it('should exchange code for tokens and store in session', async () => {
       // Mock successful responses

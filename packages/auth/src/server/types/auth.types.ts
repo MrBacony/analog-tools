@@ -92,6 +92,12 @@ export type AnalogAuthConfig = {
   whitelistFileTypes?: string[];
   unprotectedRoutes?: string[];
   logoutUrl?: string;
+  /**
+   * Optional security policy: if true, a successful login invalidates
+   * other authenticated sessions for the same user identity.
+   * Default: false (allow multiple device/browser sessions).
+   */
+  singleSessionPerUser?: boolean;
 
   /**
    * Session storage configuration with type-safe mapping between

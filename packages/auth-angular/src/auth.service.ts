@@ -56,11 +56,6 @@ export class AuthService implements OnDestroy {
   // Auth state - order matters: isAuthenticatedResource and isAuthenticated must be defined first
   readonly isAuthenticatedResource = httpResource<boolean>(
     () => {
-      // Skip on SSR – the server has no session cookie so the request
-      // always returns 401 and poisons the hydrated resource state.
-      if (!isPlatformBrowser(this.platformId)) {
-        return undefined;
-      }
       return {
         url: '/api/auth/authenticated',
         method: 'GET',
