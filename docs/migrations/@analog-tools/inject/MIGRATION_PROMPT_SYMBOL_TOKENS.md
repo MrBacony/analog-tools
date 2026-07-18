@@ -160,12 +160,12 @@ ssr: {
 
 ```bash
 # Run all tests
-npm test
+pnpm test
 # or for Nx monorepos
-npx nx run-many -t test
+pnpm nx run-many -t test
 
 # Or test specific project
-npx nx test <project-name>
+pnpm nx test <project-name>
 ```
 
 **Action Items**:
@@ -200,7 +200,7 @@ grep -rl "static INJECTABLE" --include="*.ts" . | wc -l  # Should be 0
 
 **Action Items**:
 - [ ] Confirm no `static INJECTABLE` remains in source code
-- [ ] Run build: `npm run build` or `npx nx build <project>`
+- [ ] Run build: `pnpm build` or `pnpm nx build <project>`
 - [ ] Verify build succeeds without errors
 - [ ] Clean up migration tracking files
 
@@ -431,7 +431,7 @@ echo ""
 echo "⚠️  IMPORTANT: Review all changes carefully!"
 echo "   1. Review changes: git diff"
 echo "   2. Check decorator placement manually"
-echo "   3. Run tests: npm test"
+echo "   3. Run tests: pnpm test"
 echo "   4. Fix any issues before committing"
 ```
 
@@ -446,7 +446,7 @@ chmod +x migrate.sh
 git diff
 
 # Test before proceeding
-npm test
+pnpm test
 ```
 
 ### Windows (PowerShell)
@@ -504,7 +504,7 @@ Write-Host ""
 Write-Host "⚠️  IMPORTANT: Review all changes carefully!" -ForegroundColor Yellow
 Write-Host "   1. Review changes: git diff"
 Write-Host "   2. Check decorator placement manually"
-Write-Host "   3. Run tests: npm test"
+Write-Host "   3. Run tests: pnpm test"
 Write-Host "   4. Fix any issues before committing"
 ```
 
@@ -518,7 +518,7 @@ Write-Host "   4. Fix any issues before committing"
 git diff
 
 # Test before proceeding
-npm test
+pnpm test
 ```
 
 **Script Limitations:**
@@ -548,9 +548,9 @@ npm test
 - [ ] Pre-migration: Generated list of all files to migrate
 - [ ] Updated each file (import, remove line, add decorator)
 - [ ] Updated vite.config.ts ssr.noExternal (if applicable)
-- [ ] Ran tests: `npm test` or `npx nx run-many -t test`
+- [ ] Ran tests: `pnpm test` or `pnpm nx run-many -t test`
 - [ ] All tests pass
-- [ ] Built successfully: `npm run build`
+- [ ] Built successfully: `pnpm build`
 - [ ] Verified completion: `rg "static INJECTABLE" -t ts -g '!*.md'` returns nothing
 - [ ] Reviewed changes: `git diff`
 - [ ] Ready to commit changes
@@ -561,31 +561,31 @@ npm test
 
 ### 1. Run Full Test Suite
 ```bash
-# Standard npm
-npm test
+# Standard pnpm
+pnpm test
 
 # Nx monorepo - all projects
-npx nx run-many -t test
+pnpm nx run-many -t test
 
 # Nx monorepo - specific project
-npx nx test <project-name>
+pnpm nx test <project-name>
 ```
 
 ### 2. Build All Projects
 ```bash
-# Standard npm
-npm run build
+# Standard pnpm
+pnpm build
 
 # Nx monorepo
-npx nx run-many -t build
+pnpm nx run-many -t build
 ```
 
 ### 3. Start Development Server
 ```bash
 # Verify app runs without errors
-npm run dev
+pnpm dev
 # or
-npx nx serve <app-name>
+pnpm nx serve <app-name>
 ```
 
 ### 4. Final Verification Commands
@@ -600,7 +600,7 @@ Write-Host "Remaining files: $((Get-ChildItem -Recurse -Filter *.ts | Select-Str
 git diff --stat
 
 # All platforms - Check for compilation errors
-npx tsc --noEmit
+pnpm tsc --noEmit
 ```
 
 ---

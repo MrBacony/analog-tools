@@ -84,7 +84,7 @@ Reviewed on 2026-05-11 against the current workspace, the running demo app at `h
 
 3. **Add the custom DI marker to `AuthService`** — `packages/auth-angular/src/auth.service.ts`. Outdated guidance. The repo’s custom DI package has moved to `@Injectable()`-based symbol tokens; the legacy `static readonly INJECTABLE = true` pattern is deprecated, and this Angular service is not resolved through `@analog-tools/inject` anyway.
 
-4. **Add a manual E2E target to `apps/analog-demo-auth-e2e/project.json`**. Not needed right now. Nx already infers an `e2e` target via `@nx/playwright/plugin`; `npx nx show project analog-demo-auth-e2e --json` confirms the inferred target even though `targets` is empty.
+4. **Add a manual E2E target to `apps/analog-demo-auth-e2e/project.json`**. Not needed right now. Nx already infers an `e2e` target via `@nx/playwright/plugin`; `pnpm nx show project analog-demo-auth-e2e --json` confirms the inferred target even though `targets` is empty.
 
 ## Recommended Fix Order
 

@@ -18,7 +18,7 @@ docker compose -f docker/docker-compose.yml up -d
 cp apps/analog-demo-auth/.env.example apps/analog-demo-auth/.env.local
 
 # 3. Serve the app (port 4201)
-npx nx serve analog-demo-auth
+pnpm nx serve analog-demo-auth
 
 # 4. Open http://localhost:4201
 ```
@@ -42,7 +42,7 @@ npx nx serve analog-demo-auth
 
 ```bash
 # Requires Keycloak running
-npx nx e2e analog-demo-auth-e2e
+pnpm nx e2e analog-demo-auth-e2e
 ```
 
 ## Environment Variables

@@ -26,13 +26,13 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) to foster a wel
    git clone https://github.com/YOUR_USERNAME/analog-tools.git
    cd analog-tools
    ```
-2. **Install dependencies** (requires Node.js v18.13.0+ and npm):
+2. **Install dependencies** (requires Node.js v18.13.0+ and pnpm):
    ```zsh
-   npm install
+  pnpm install
    ```
 3. **Set up Nx CLI** (optional, for global usage):
    ```zsh
-   npm install -g nx
+  pnpm add -g nx
    ```
 
 ## Project Structure
@@ -48,12 +48,12 @@ This is an [Nx](https://nx.dev/) monorepo. Key directories:
 
 - Use Nx for all development tasks (build, test, lint, etc.):
   ```zsh
-  npx nx run <project>:<target>
-  # Example: npx nx run analog-example:serve
+  pnpm nx run <project>:<target>
+  # Example: pnpm nx run analog-example:serve
   ```
 - Generate new libraries, components, or apps using Nx generators:
   ```zsh
-  npx nx g @nx/angular:component my-component --project=analog-example
+  pnpm nx g @nx/angular:component my-component --project=analog-example
   ```
 - Use feature branches for your work:
   ```zsh
@@ -77,11 +77,11 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/) for clear co
 
 - Run all tests:
   ```zsh
-  npx nx run-many --target=vite:test --all
+  pnpm nx run-many --target=vite:test --all
   ```
 - Run tests for a specific project:
   ```zsh
-  npx nx run <project>:vite:test
+  pnpm nx run <project>:vite:test
   ```
 
 ## Code Style
@@ -89,7 +89,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/) for clear co
 - Use [ESLint](https://eslint.org/) and [Prettier](https://prettier.io/) for code quality and formatting.
 - Lint your code before pushing:
   ```zsh
-  npx nx run-many --target=lint --all
+  pnpm nx run-many --target=lint --all
   ```
 - Follow the Angular, AnalogJS, and Nx style guides.
 

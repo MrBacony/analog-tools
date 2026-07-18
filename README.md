@@ -22,14 +22,14 @@ Each package can be installed separately:
 
 ```sh
 # Authentication
-npm install @analog-tools/auth
+pnpm add @analog-tools/auth
 
 # Session management
-npm install @analog-tools/session
+pnpm add @analog-tools/session
 
 # Utilities
-npm install @analog-tools/inject
-npm install @analog-tools/logger
+pnpm add @analog-tools/inject
+pnpm add @analog-tools/logger
 ```
 
 Refer to each package's README for detailed usage instructions.
@@ -43,19 +43,19 @@ This project is built as an [Nx workspace](https://nx.dev).
 To run the dev server for the example app, use:
 
 ```sh
-npx nx serve analog-example
+pnpm nx serve analog-example
 ```
 
 To create a production bundle:
 
 ```sh
-npx nx build analog-example
+pnpm nx build analog-example
 ```
 
 To see all available targets to run for a project, run:
 
 ```sh
-npx nx show project analog-tools
+pnpm nx show project analog-tools
 ```
 
 These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
