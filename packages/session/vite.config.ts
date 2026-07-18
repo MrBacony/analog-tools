@@ -1,20 +1,20 @@
 import { defineConfig } from 'vite';
-import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
-import { nxCopyAssetsPlugin } from '@nx/vite/plugins/nx-copy-assets.plugin';
 import dts from 'vite-plugin-dts';
 import * as path from 'path';
 
 export default defineConfig(() => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/packages/session',
+  resolve: {
+    tsconfigPaths: true,
+  },
   plugins: [
-    nxViteTsPaths(),
-    nxCopyAssetsPlugin(['*.md']),
     dts({
       entryRoot: 'src',
       tsconfigPath: path.join(__dirname, 'tsconfig.lib.json'),
     }),
   ],
+  publicDir: false,
   // Uncomment this if you are using workers.
   // worker: {
   //  plugins: [ nxViteTsPaths() ],
@@ -51,6 +51,7 @@ export default defineConfig(() => ({
         'node:buffer',
         'h3',
         'defu',
+        'nanoid',
         'uncrypto',
         'unstorage',
         'ioredis',
