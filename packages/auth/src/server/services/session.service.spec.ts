@@ -289,6 +289,41 @@ describe('SessionService', () => {
         })
       );
     });
+
+    it('should use configured cookieName when provided', async () => {
+      vi.mocked(getSession).mockReturnValue(null);
+
+      const configWithCookieName: SessionStorageConfig = {
+        driver: {
+          type: 'memory',
+        },
+        cookieName: 'auth.session.demo-auth',
+      };
+
+      const serviceWithCookieName = new SessionService(configWithCookieName);
+
+      await serviceWithCookieName.initSession(mockEvent);
+
+      expect(useSession).toHaveBeenCalledWith(
+        mockEvent,
+        expect.objectContaining({
+          name: 'auth.session.demo-auth',
+        })
+      );
+    });
+
+    it('should use default cookieName if storageConfig.cookieName is not provided', async () => {
+      vi.mocked(getSession).mockReturnValue(null);
+
+      await service.initSession(mockEvent);
+
+      expect(useSession).toHaveBeenCalledWith(
+        mockEvent,
+        expect.objectContaining({
+          name: 'auth.session',
+        })
+      );
+    });
   });
 
   describe('getSession', () => {

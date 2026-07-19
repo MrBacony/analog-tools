@@ -12,12 +12,11 @@ const route: AuthRoute = {
   path: 'authenticated',
   handler: async (event: H3Event) => {
     const authService = inject(OAuthAuthenticationService);
+    const logger = inject(LoggerService).forContext('AuthMiddleware');
 
     const result = { authenticated: await authService.isAuthenticated(event) };
 
-    inject(LoggerService)
-      .forContext('AuthMiddleware')
-      .info('User authentication status checked', result);
+    logger.info('User authentication status checked', result);
 
     return result;
   },

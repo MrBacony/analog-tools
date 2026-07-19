@@ -40,7 +40,7 @@ export class SessionService {
         store: this.store,
         secret:
           this.storageConfig.sessionSecret || 'change-me-in-production',
-        name: 'auth.session',
+        name: this.storageConfig.cookieName || 'auth.session',
         maxAge: 60 * 60 * 24, // 24 hours
         cookie: {
           httpOnly: true,

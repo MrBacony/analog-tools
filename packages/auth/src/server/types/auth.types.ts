@@ -21,6 +21,7 @@ type StorageBasicConfig = {
   ttl?: number; // Time to live in seconds
   prefix?: string; // Prefix for session keys
   sessionSecret?: string; // Secret key for session encryption
+  cookieName?: string; // Session cookie name (defaults to 'auth.session')
 };
 
 type RedisBasicConfig = {

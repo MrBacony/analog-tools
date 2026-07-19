@@ -1,25 +1,19 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AuthService } from '@analog-tools/auth/angular';
-import DashboardPageComponent from './dashboard.page';
+import DashboardPageComponent, { routeMeta } from './dashboard.page';
 
 describe('DashboardPageComponent', () => {
   let fixture: ComponentFixture<DashboardPageComponent>;
-  let isAuthenticationLoading: ReturnType<typeof signal<boolean>>;
-  let isAuthenticated: ReturnType<typeof signal<boolean>>;
   let authService: Pick<
     AuthService,
     'isAuthenticationLoading' | 'isAuthenticated' | 'login' | 'logout' | 'user'
   >;
 
   beforeEach(() => {
-    vi.useFakeTimers();
-    isAuthenticationLoading = signal(true);
-    isAuthenticated = signal(false);
-
     authService = {
-      isAuthenticationLoading,
-      isAuthenticated,
+      isAuthenticationLoading: signal(false),
+      isAuthenticated: signal(false),
       login: vi.fn(),
       logout: vi.fn(),
       user: signal(null),
@@ -38,34 +32,19 @@ describe('DashboardPageComponent', () => {
 
   afterEach(() => {
     fixture.destroy();
-    vi.useRealTimers();
   });
 
-  it('clears the previous login timer before scheduling another one', () => {
+  it('creates the dashboard component', () => {
     fixture.detectChanges();
 
-    isAuthenticationLoading.set(false);
-    fixture.detectChanges();
-
-    isAuthenticationLoading.set(true);
-    fixture.detectChanges();
-    isAuthenticationLoading.set(false);
-    fixture.detectChanges();
-
-    vi.advanceTimersByTime(3000);
-
-    expect(authService.login).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('clears pending login timer when destroyed', () => {
-    fixture.detectChanges();
+  it('declares authGuard route protection metadata', () => {
+    expect(routeMeta).toMatchObject({
+      title: 'Dashboard',
+    });
 
-    isAuthenticationLoading.set(false);
-    fixture.detectChanges();
-
-    fixture.destroy();
-    vi.advanceTimersByTime(3000);
-
-    expect(authService.login).not.toHaveBeenCalled();
+    expect('canActivate' in routeMeta).toBe(true);
   });
 });

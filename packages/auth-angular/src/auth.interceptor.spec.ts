@@ -9,9 +9,13 @@ import { authInterceptor } from './auth.interceptor';
 import { of, throwError } from 'rxjs';
 import { expect, vi, describe, it, beforeEach } from 'vitest';
 
+let mockServerRequest:
+  | { headers: Record<string, string | null | undefined> }
+  | undefined;
+
 // Mock the router tokens module
 vi.mock('@analogjs/router/tokens', () => ({
-  injectRequest: vi.fn().mockReturnValue(undefined),
+  injectRequest: vi.fn(() => mockServerRequest),
 }));
 
 // Mock the login function
@@ -28,6 +32,7 @@ describe('AuthInterceptor', () => {
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks();
+    mockServerRequest = undefined;
     // Set up the mock next handler function
     nextHandlerFn = vi
       .fn()
@@ -40,14 +45,41 @@ describe('AuthInterceptor', () => {
     '/api/auth/login',
     '/api/auth/user',
     '/api/auth/authenticated',
-  ])('should skip interception for %s', (path) => {
+  ])('should bypass 401 redirect handling for %s while still forwarding request context', (path) => {
     const authReq = new HttpRequest('GET', `https://example.com${path}`);
 
     TestBed.runInInjectionContext(() => {
       authInterceptor(authReq, nextHandlerFn);
     });
 
-    expect(nextHandlerFn).toHaveBeenCalledWith(authReq);
+    expect(nextHandlerFn).toHaveBeenCalled();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const modifiedReq = (nextHandlerFn as any).mock.calls[0][0] as HttpRequest<unknown>;
+
+    expect(modifiedReq.url).toBe(authReq.url);
+    expect(modifiedReq.headers.get('fetch')).toBe('true');
+  });
+
+  it('should merge SSR request headers for auth endpoints without applying 401 redirect handling', () => {
+    mockServerRequest = {
+      headers: {
+        cookie: 'auth.session.demo-auth=signed-session-id',
+      },
+    };
+
+    const authReq = new HttpRequest('GET', 'https://example.com/api/auth/authenticated');
+
+    TestBed.runInInjectionContext(() => {
+      authInterceptor(authReq, nextHandlerFn);
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const modifiedReq = (nextHandlerFn as any).mock.calls[0][0] as HttpRequest<unknown>;
+
+    expect(modifiedReq.headers.get('cookie')).toBe(
+      'auth.session.demo-auth=signed-session-id'
+    );
+    expect(modifiedReq.headers.get('fetch')).toBe('true');
   });
   
   it('should add fetch header to non-auth requests', () => {

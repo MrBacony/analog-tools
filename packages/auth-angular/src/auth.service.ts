@@ -8,6 +8,8 @@ import {
   Injector,
   OnDestroy,
   PLATFORM_ID,
+  runInInjectionContext,
+  signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { isPlatformBrowser } from '@angular/common';
@@ -47,11 +49,32 @@ export class AuthService implements OnDestroy {
   private platformId = inject(PLATFORM_ID);
   private document = inject(DOCUMENT);
   private injector = inject(Injector);
-  private httpRequest = injectRequest();
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
   private userReloadEffect: EffectRef | null = null;
   private userReloadTimeout: ReturnType<typeof setTimeout> | null = null;
   private userReloadAttempts = 0;
+  private hasRevalidatedBrowserAuth = false;
+  private providedServerRequest = signal<ReturnType<typeof injectRequest>>(null);
+
+  setServerRequest(serverRequest: ReturnType<typeof injectRequest>): void {
+    if (serverRequest) {
+      this.providedServerRequest.set(serverRequest);
+    }
+  }
+
+  private resolveRequestHeaders(
+    originalHeaderValues?: { [key: string]: string | null | undefined }
+  ) {
+    const providedServerRequest = this.providedServerRequest();
+
+    if (providedServerRequest) {
+      return getRequestHeaders(providedServerRequest, originalHeaderValues);
+    }
+
+    return runInInjectionContext(this.injector, () => {
+      return getRequestHeaders(injectRequest(), originalHeaderValues);
+    });
+  }
 
   // Auth state - order matters: isAuthenticatedResource and isAuthenticated must be defined first
   readonly isAuthenticatedResource = httpResource<boolean>(
@@ -59,7 +82,7 @@ export class AuthService implements OnDestroy {
       return {
         url: '/api/auth/authenticated',
         method: 'GET',
-        headers: getRequestHeaders(this.httpRequest, {
+        headers: this.resolveRequestHeaders({
           accept: 'application/json',
         }),
         withCredentials: true,
@@ -95,7 +118,7 @@ export class AuthService implements OnDestroy {
       return {
         url: '/api/auth/user',
         method: 'GET',
-        headers: getRequestHeaders(this.httpRequest, {
+        headers: this.resolveRequestHeaders({
           accept: 'application/json',
         }),
         withCredentials: true,
@@ -113,6 +136,17 @@ export class AuthService implements OnDestroy {
 
   constructor() {
     if (isPlatformBrowser(this.platformId)) {
+      queueMicrotask(() => {
+        if (
+          !this.hasRevalidatedBrowserAuth &&
+          this.isAuthenticationResolved() &&
+          !this.isAuthenticated()
+        ) {
+          this.hasRevalidatedBrowserAuth = true;
+          this.isAuthenticatedResource.reload();
+        }
+      });
+
       this.userReloadEffect = effect(
         () => {
           const isAuthenticated = this.isAuthenticated();

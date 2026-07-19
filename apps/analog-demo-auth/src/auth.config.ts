@@ -30,6 +30,7 @@ export const authConfig: AnalogAuthConfig = {
   sessionStorage: {
     sessionSecret,
     ttl: 86400, // 24 hours
+    cookieName: process.env['SESSION_COOKIE_NAME'] || 'auth.session.demo-auth',
     driver: {
       type: 'fs',
       options: {
