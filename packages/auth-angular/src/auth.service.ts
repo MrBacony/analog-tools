@@ -12,8 +12,9 @@ import {
   signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { isPlatformBrowser } from '@angular/common';
+import { isPlatformBrowser, isPlatformServer } from '@angular/common';
 import { httpResource } from '@angular/common/http';
+import { makeStateKey, TransferState } from '@angular/core';
 import {
   GenericUserInfo,
   transformUserFromProvider,
@@ -39,6 +40,15 @@ export interface AuthUser {
 
 const MAX_USER_RELOAD_ATTEMPTS = 3;
 
+type AuthTransferSnapshot = {
+  authenticated: boolean;
+  user: AuthUser | null;
+};
+
+export const AUTH_TRANSFER_STATE_KEY = makeStateKey<AuthTransferSnapshot | null>(
+  'analog-tools.auth.snapshot'
+);
+
 /**
  * Auth service for BFF (Backend for Frontend) authentication pattern
  * Uses server-side sessions with Auth0 instead of client-side tokens
@@ -49,12 +59,29 @@ export class AuthService implements OnDestroy {
   private platformId = inject(PLATFORM_ID);
   private document = inject(DOCUMENT);
   private injector = inject(Injector);
+  private transferState = inject(TransferState);
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
   private userReloadEffect: EffectRef | null = null;
   private userReloadTimeout: ReturnType<typeof setTimeout> | null = null;
   private userReloadAttempts = 0;
   private hasRevalidatedBrowserAuth = false;
   private providedServerRequest = signal<ReturnType<typeof injectRequest>>(null);
+  private transferredSnapshot = this.consumeTransferredSnapshot();
+
+  private consumeTransferredSnapshot(): AuthTransferSnapshot | null {
+    if (!isPlatformBrowser(this.platformId)) {
+      return null;
+    }
+
+    if (!this.transferState.hasKey(AUTH_TRANSFER_STATE_KEY)) {
+      return null;
+    }
+
+    const snapshot = this.transferState.get(AUTH_TRANSFER_STATE_KEY, null);
+    this.transferState.remove(AUTH_TRANSFER_STATE_KEY);
+
+    return snapshot;
+  }
 
   setServerRequest(serverRequest: ReturnType<typeof injectRequest>): void {
     if (serverRequest) {
@@ -89,7 +116,7 @@ export class AuthService implements OnDestroy {
       };
     },
     {
-      defaultValue: false,
+      defaultValue: this.transferredSnapshot?.authenticated ?? false,
       parse: (value: unknown) => {
         return (value as { authenticated: boolean }).authenticated;
       },
@@ -112,7 +139,7 @@ export class AuthService implements OnDestroy {
 
   readonly userResource = httpResource<AuthUser | null>(
     () => {
-      if (!isPlatformBrowser(this.platformId) || !this.isAuthenticated()) {
+      if (!this.isAuthenticated()) {
         return undefined;
       }
       return {
@@ -125,7 +152,7 @@ export class AuthService implements OnDestroy {
       };
     },
     {
-      defaultValue: null,
+      defaultValue: this.transferredSnapshot?.user ?? null,
       parse: (raw: unknown) => {
         return transformUserFromProvider(raw as GenericUserInfo);
       },
@@ -135,6 +162,33 @@ export class AuthService implements OnDestroy {
   readonly user = this.userResource.asReadonly().value;
 
   constructor() {
+    if (isPlatformServer(this.platformId)) {
+      effect(
+        () => {
+          if (!this.isAuthenticationResolved()) {
+            return;
+          }
+
+          const userStatus = this.userResource.status();
+
+          if (
+            this.isAuthenticated() &&
+            userStatus !== 'resolved' &&
+            userStatus !== 'local' &&
+            userStatus !== 'error'
+          ) {
+            return;
+          }
+
+          this.transferState.set(AUTH_TRANSFER_STATE_KEY, {
+            authenticated: this.isAuthenticated(),
+            user: this.userResource.value(),
+          });
+        },
+        { injector: this.injector }
+      );
+    }
+
     if (isPlatformBrowser(this.platformId)) {
       queueMicrotask(() => {
         if (
