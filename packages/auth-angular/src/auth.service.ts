@@ -6,15 +6,16 @@ import {
   inject,
   Injectable,
   Injector,
+  makeStateKey,
   OnDestroy,
   PLATFORM_ID,
   runInInjectionContext,
   signal,
+  TransferState,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { isPlatformBrowser, isPlatformServer } from '@angular/common';
 import { httpResource } from '@angular/common/http';
-import { makeStateKey, TransferState } from '@angular/core';
 import {
   GenericUserInfo,
   transformUserFromProvider,
@@ -67,6 +68,10 @@ export class AuthService implements OnDestroy {
   private hasRevalidatedBrowserAuth = false;
   private providedServerRequest = signal<ReturnType<typeof injectRequest>>(null);
   private transferredSnapshot = this.consumeTransferredSnapshot();
+
+  private isSettledResourceStatus(status: string): boolean {
+    return status === 'resolved' || status === 'local' || status === 'error';
+  }
 
   private consumeTransferredSnapshot(): AuthTransferSnapshot | null {
     if (!isPlatformBrowser(this.platformId)) {
@@ -128,13 +133,13 @@ export class AuthService implements OnDestroy {
   readonly isAuthenticationResolved = computed(() => {
     const status = this.isAuthenticatedResource.status();
 
-    return status === 'resolved' || status === 'local' || status === 'error';
+    return this.isSettledResourceStatus(status);
   });
 
   readonly isAuthenticationLoading = computed(() => {
     const status = this.isAuthenticatedResource.status();
 
-    return status === 'idle' || status === 'loading' || status === 'reloading';
+    return !this.isSettledResourceStatus(status);
   });
 
   readonly userResource = httpResource<AuthUser | null>(
@@ -169,13 +174,9 @@ export class AuthService implements OnDestroy {
             return;
           }
 
-          const userStatus = this.userResource.status();
-
           if (
             this.isAuthenticated() &&
-            userStatus !== 'resolved' &&
-            userStatus !== 'local' &&
-            userStatus !== 'error'
+            !this.isSettledResourceStatus(this.userResource.status())
           ) {
             return;
           }
@@ -214,7 +215,7 @@ export class AuthService implements OnDestroy {
 
           if (
             this.userReloadAttempts < MAX_USER_RELOAD_ATTEMPTS &&
-            (status === 'resolved' || status === 'local' || status === 'error')
+            this.isSettledResourceStatus(status)
           ) {
             this.userReloadAttempts += 1;
             this.userResource.reload();
