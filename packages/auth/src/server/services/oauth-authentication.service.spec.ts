@@ -18,11 +18,12 @@ import {
 // Mock the @analog-tools/session functions
 vi.mock('@analog-tools/session', () => ({
   getSession: vi.fn(),
+  refetchSession: vi.fn(),
   updateSession: vi.fn(),
 }));
 
 // Import the mocked functions for use in tests
-import { getSession, updateSession } from '@analog-tools/session';
+import { getSession, refetchSession, updateSession } from '@analog-tools/session';
 
 // Mock the fetch function
 vi.stubGlobal('fetch', vi.fn());
@@ -802,9 +803,18 @@ describe('OAuthAuthenticationService', () => {
         refreshToken: 'shared-refresh-token',
       };
 
-      let resolveRefresh: ((value: unknown) => void) | undefined;
+      let resolveRefresh: (value: unknown) => void;
       const refreshPromise = new Promise((resolve) => {
         resolveRefresh = resolve;
+      });
+
+      // Signals when the token-endpoint fetch actually starts waiting, so
+      // the test can release it deterministically instead of relying on
+      // both isAuthenticated() calls having reached that point by the time
+      // this synchronous test body continues.
+      let signalTokenFetchStarted: () => void;
+      const tokenFetchStarted = new Promise<void>((resolve) => {
+        signalTokenFetchStarted = resolve;
       });
 
       vi.mocked(global.fetch)
@@ -814,6 +824,7 @@ describe('OAuthAuthenticationService', () => {
         } as Response)
         .mockImplementation(async (url) => {
           if (url === mockOpenIDConfig.token_endpoint) {
+            signalTokenFetchStarted();
             await refreshPromise;
             return {
               ok: true,
@@ -841,7 +852,8 @@ describe('OAuthAuthenticationService', () => {
       const first = service.isAuthenticated(mockEvent as H3Event);
       const second = service.isAuthenticated(mockEvent as H3Event);
 
-      resolveRefresh?.(undefined);
+      await tokenFetchStarted;
+      resolveRefresh(undefined);
 
       const [firstResult, secondResult] = await Promise.all([first, second]);
 
@@ -878,9 +890,11 @@ describe('OAuthAuthenticationService', () => {
         },
       } as AuthSessionData;
 
-      vi.mocked(getSession)
-        .mockReturnValueOnce(staleExpiredSession)
-        .mockReturnValueOnce(latestValidSession);
+      vi.mocked(getSession).mockReturnValue(staleExpiredSession);
+      // Simulates a concurrent request having already refreshed the token
+      // and written it to storage - only a real storage read (refetchSession)
+      // can see this, not the request-scoped getSession(event).
+      vi.mocked(refetchSession).mockResolvedValue(latestValidSession);
 
       vi.mocked(global.fetch)
         .mockResolvedValueOnce({
@@ -895,6 +909,7 @@ describe('OAuthAuthenticationService', () => {
 
       const result = await service.isAuthenticated(mockEvent as H3Event);
 
+      expect(refetchSession).toHaveBeenCalledWith(mockEvent);
       expect(result).toBe(true);
       expect(mockSessionData.auth?.isAuthenticated).toBe(true);
     });
@@ -1043,6 +1058,32 @@ describe('OAuthAuthenticationService', () => {
       expect(otherSessionForSameUser.save).toHaveBeenCalledTimes(1);
       expect(unrelatedSession.update).not.toHaveBeenCalled();
       expect(unrelatedSession.save).not.toHaveBeenCalled();
+    });
+
+    it('should not fail login when invalidating other user sessions throws', async () => {
+      const currentSessionId = 'current-session-id';
+      mockEvent.context = {
+        ...(mockEvent.context ?? {}),
+        __session_id__: currentSessionId,
+      };
+
+      Object.defineProperty(service, 'config', {
+        value: { ...mockConfig, singleSessionPerUser: true },
+        writable: true,
+      });
+
+      mockSessionService.getActiveSessions = vi
+        .fn()
+        .mockRejectedValue(new Error('storage unavailable'));
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).resolves.not.toThrow();
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to invalidate other user sessions',
+        expect.any(Error)
+      );
     });
 
     it('should exchange code for tokens and store in session', async () => {

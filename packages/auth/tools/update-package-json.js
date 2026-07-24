@@ -20,7 +20,7 @@ const mainPackagePath = path.resolve(
 );
 const sourcePackagePath = path.resolve(
   __dirname,
-  '../../package.json'
+  '../package.json'
 );
 const angularPackagePath = path.resolve(
   __dirname,

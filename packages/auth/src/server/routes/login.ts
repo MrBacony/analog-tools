@@ -28,15 +28,15 @@ const route: AuthRoute = {
     const query = getQuery(event);
     const redirectUri = query['redirect_uri'] as string;
 
-    if (redirectUri) {
-      const sanitizedTargetPath = sanitizeRedirectUrl(redirectUri);
-      if (sanitizedTargetPath !== '/') {
-        await updateSession<AuthSessionData>(event, (currentSession) => ({
-          ...currentSession,
-          redirectUrl: sanitizedTargetPath,
-        }));
-      }
-    }
+    const sanitizedTargetPath = redirectUri
+      ? sanitizeRedirectUrl(redirectUri)
+      : '/';
+
+    await updateSession<AuthSessionData>(event, (currentSession) => ({
+      ...currentSession,
+      redirectUrl:
+        sanitizedTargetPath !== '/' ? sanitizedTargetPath : undefined,
+    }));
 
     // Get authorization URL
     const authUrl = await authService.getAuthorizationUrl(state);

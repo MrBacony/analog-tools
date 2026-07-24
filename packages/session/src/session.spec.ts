@@ -4,12 +4,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { 
-  useSession, 
-  getSession, 
-  updateSession, 
-  destroySession, 
-  regenerateSession 
+import {
+  useSession,
+  getSession,
+  refetchSession,
+  updateSession,
+  destroySession,
+  regenerateSession
 } from './session';
 import { createUnstorageStore } from './storage';
 import type { SessionData, SessionConfig } from './types';
@@ -178,6 +179,31 @@ describe('Core Session Functions', () => {
     it('should return null when no session exists', () => {
       const sessionData = getSession<TestSessionData>(mockEvent);
       expect(sessionData).toBeNull();
+    });
+  });
+
+  describe('refetchSession', () => {
+    it('should read the latest data from storage, not the cached context copy', async () => {
+      await useSession(mockEvent, config);
+
+      const sessionId = mockEvent.context['__session_id__'];
+      // Simulate a concurrent request writing a newer version directly to
+      // storage, without going through this event's context.
+      await store.setItem(sessionId, {
+        userId: 'new-user',
+        username: 'updated-by-another-request',
+      });
+
+      // The cached context copy is unaware of the concurrent write.
+      expect(getSession<TestSessionData>(mockEvent)?.username).toBeUndefined();
+
+      const refetched = await refetchSession<TestSessionData>(mockEvent);
+      expect(refetched?.username).toBe('updated-by-another-request');
+    });
+
+    it('should return null when no session exists', async () => {
+      const refetched = await refetchSession<TestSessionData>(mockEvent);
+      expect(refetched).toBeNull();
     });
   });
 

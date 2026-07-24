@@ -177,7 +177,7 @@ describe('AuthService', () => {
     const targetUrl = '/dashboard';
     service.login(targetUrl);
     expect(mockDocument.location?.href).toBe(
-      '/api/auth/login?redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fdashboard'
+      '/api/auth/login?redirect_uri=%2Fdashboard'
     );
   });
 
@@ -188,7 +188,7 @@ describe('AuthService', () => {
 
     service.login();
     expect(mockDocument.location?.href).toBe(
-      '/api/auth/login?redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcurrent-page'
+      '/api/auth/login?redirect_uri=%2Fcurrent-page'
     );
   });
 

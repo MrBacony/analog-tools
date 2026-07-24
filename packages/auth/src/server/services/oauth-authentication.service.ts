@@ -5,7 +5,7 @@ import { AuthSessionData } from '../types/auth-session.types';
 import type { AnalogAuthConfig } from '../types/auth.types';
 import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
-import { getSession, updateSession } from '@analog-tools/session';
+import { getSession, refetchSession, updateSession } from '@analog-tools/session';
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
@@ -463,7 +463,13 @@ export class OAuthAuthenticationService {
     if (this.getConfigValue('singleSessionPerUser', false)) {
       // Optional policy: keep current request session and invalidate
       // other authenticated sessions for the same resolved user identity.
-      await this.invalidateOtherUserSessions(event, user, userData);
+      // Guarded so a storage error in this optional cleanup can't fail an
+      // otherwise-successful login (tokens are already saved above).
+      try {
+        await this.invalidateOtherUserSessions(event, user, userData);
+      } catch (error) {
+        this.logger.error('Failed to invalidate other user sessions', error);
+      }
     }
 
     // Log successful session save
@@ -582,7 +588,6 @@ export class OAuthAuthenticationService {
       await activeSession.save();
       this.logger.debug('Invalidated stale authenticated session', {
         sessionId: activeSession.id,
-        targetIdentity,
       });
     }
   }
@@ -782,7 +787,10 @@ export class OAuthAuthenticationService {
         } catch (error) {
           this.logger.error('Error refreshing token', error);
 
-          const latestSession = getSession(event) as AuthSessionData;
+          // Re-read from storage, not the request-scoped context copy: a
+          // concurrent request may have already refreshed this session
+          // successfully, and getSession(event) can never observe that.
+          const latestSession = await refetchSession<AuthSessionData>(event);
           const hasLatestValidAuth =
             !!latestSession?.auth?.isAuthenticated &&
             typeof latestSession.auth.expiresAt === 'number' &&

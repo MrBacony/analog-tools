@@ -101,6 +101,21 @@ describe('login route', () => {
     expect(updated.redirectUrl).toBe('/dashboard');
   });
 
+  it('should clear a stale redirectUrl when no valid redirect_uri is provided', async () => {
+    (getQuery as unknown as Mock).mockReturnValue({});
+
+    await loginRoute.handler(mockEvent);
+
+    const updateCalls = mockUpdateSession.mock.calls;
+    const redirectUpdateFn = updateCalls[1][1];
+    const updated = redirectUpdateFn({
+      state: 'mock-state-uuid',
+      redirectUrl: '/stale-from-earlier-attempt',
+    });
+
+    expect(updated.redirectUrl).toBeUndefined();
+  });
+
   it('should redirect to OAuth provider', async () => {
     const result = await loginRoute.handler(mockEvent);
 

@@ -91,6 +91,27 @@ export function getSession<T extends SessionData = SessionData>(
 }
 
 /**
+ * Re-read current session data directly from storage, bypassing the
+ * per-request context cache populated by `useSession`. Use this when a
+ * concurrent request may have written a newer version of the session (e.g.
+ * after a failed token refresh, to check whether another request already
+ * refreshed successfully) - `getSession` alone can never observe that.
+ */
+export async function refetchSession<T extends SessionData = SessionData>(
+  event: H3Event
+): Promise<T | null> {
+  const sessionId = event.context[SESSION_ID_CONTEXT_KEY] as string;
+  const config = event.context['__session_config__'] as SessionConfig<T>;
+
+  if (!sessionId || !config?.store) {
+    return null;
+  }
+
+  const data = await config.store.getItem(sessionId);
+  return (data as T) ?? null;
+}
+
+/**
  * Update session data immutably
  */
 export async function updateSession<T extends SessionData = SessionData>(

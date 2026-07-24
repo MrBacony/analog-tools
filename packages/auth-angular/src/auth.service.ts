@@ -292,9 +292,8 @@ export class AuthService implements OnDestroy {
   login(targetUrl?: string): void {
     if (isPlatformBrowser(this.platformId)) {
       const redirectUri = targetUrl || this.router.url;
-      const url = this.document.location.origin + redirectUri;
       this.document.location.href = `/api/auth/login?redirect_uri=${encodeURIComponent(
-        url
+        redirectUri
       )}`;
     }
   }
