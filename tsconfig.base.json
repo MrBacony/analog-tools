@@ -21,7 +21,12 @@
       "@analog-tools/inject": ["./packages/inject/src/index.ts"],
       "@analog-tools/logger": ["./packages/logger/src/index.ts"],
       "@analog-tools/session": ["./packages/session/src/index.ts"]
-    }
+    },
+    "strict": false,
+    "noUncheckedSideEffectImports": false,
+    "types": ["*"],
+    "esModuleInterop": false,
+    "ignoreDeprecations": "6.0"
   },
   "exclude": ["node_modules", "tmp"]
 }

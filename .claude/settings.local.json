@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:cloud.nx.app)",
-      "Bash(git status *)"
+      "Bash(git status *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\('targets',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(pnpm exec *)",
+      "WebFetch(domain:storage.googleapis.com)"
     ]
   },
   "sandbox": {

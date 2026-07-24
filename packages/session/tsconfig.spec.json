@@ -8,7 +8,8 @@
       "vite/client",
       "node",
       "vitest"
-    ]
+    ],
+    "ignoreDeprecations": "6.0"
   },
   "include": [
     "vite.config.ts",
