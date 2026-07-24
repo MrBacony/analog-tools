@@ -121,6 +121,21 @@ describe('applySanitizationRules', () => {
     ).toBe('Data: [TOKEN]');
   });
 
+  it('should not redact multi-segment URL paths as base64 tokens', () => {
+    expect(
+      applySanitizationRules(
+        'Processing authentication middleware /api/auth/authenticated',
+        rules
+      )
+    ).toBe('Processing authentication middleware /api/auth/authenticated');
+    expect(
+      applySanitizationRules(
+        'Processing authentication middleware /api/auth/callback',
+        rules
+      )
+    ).toBe('Processing authentication middleware /api/auth/callback');
+  });
+
   it('should fully redact base64 tokens ending in + or / with no trailing alnum', () => {
     expect(applySanitizationRules('Data: AbCdEfGhIjKlMnOp+ end', rules)).toBe(
       'Data: [TOKEN] end'

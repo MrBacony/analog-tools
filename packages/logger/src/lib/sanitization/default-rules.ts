@@ -64,8 +64,16 @@ export const DEFAULT_VALUE_RULES: SanitizationRule[] = [
   // straddling a mandatory pivot char) avoids the ambiguous split-point
   // backtracking of the old two-alternative form, which was O(n^2)-prone
   // on long non-matching input.
+  // A bare '/' alone isn't a reliable signal here - multi-segment URL
+  // paths (e.g. "/api/auth/authenticated") satisfy [A-Za-z0-9+/]{16,}
+  // just as well as real base64, since '/' is both a path separator and
+  // part of the base64 alphabet. '+' has no such ambiguity (URL paths
+  // essentially never contain a literal '+'), so require it unless a
+  // digit is also present alongside the '/' - real tokens mix
+  // letters/digits, plain word-only path segments don't.
   {
-    pattern: /\b(?!(.)\1{10})(?=[A-Za-z0-9+/]*[+/])[A-Za-z0-9+/]{16,}(?!\w)/g,
+    pattern:
+      /\b(?!(.)\1{10})(?=[A-Za-z0-9+/]*[+/])(?=[A-Za-z0-9+/]*(?:\+|[0-9]))[A-Za-z0-9+/]{16,}(?!\w)/g,
     replacement: '[TOKEN]',
   },
 
