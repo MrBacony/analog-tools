@@ -57,10 +57,118 @@ describe('applySanitizationRules', () => {
     );
   });
 
-  it('should redact base64 tokens', () => {
+  it('should redact base64 tokens in token key context', () => {
     expect(applySanitizationRules('Token: abc123def456ghi789jkl', rules)).toBe(
       'Token: [TOKEN]'
     );
+  });
+
+  it('should not redact class names, identifiers, or long words as tokens', () => {
+    expect(
+      applySanitizationRules('Service: OAuthAuthenticationService', rules)
+    ).toBe('Service: OAuthAuthenticationService');
+
+    expect(
+      applySanitizationRules('Error: TransactionExecutionFailedException', rules)
+    ).toBe('Error: TransactionExecutionFailedException');
+
+    expect(
+      applySanitizationRules('Component: ComponentFactoryResolver', rules)
+    ).toBe('Component: ComponentFactoryResolver');
+
+    expect(
+      applySanitizationRules('State: userAuthenticationStateSignal', rules)
+    ).toBe('State: userAuthenticationStateSignal');
+
+    expect(
+      applySanitizationRules('Config: unprotectedRoutesConfig', rules)
+    ).toBe('Config: unprotectedRoutesConfig');
+  });
+
+  it('should redact JWT tokens', () => {
+    const jwt =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+    expect(applySanitizationRules(`JWT: ${jwt}`, rules)).toBe('JWT: [TOKEN]');
+  });
+
+  it('should redact Bearer tokens', () => {
+    expect(
+      applySanitizationRules('Authorization: Bearer secretToken123456789', rules)
+    ).toBe('Authorization: Bearer [TOKEN]');
+  });
+
+  it('should redact API keys with known prefixes', () => {
+    expect(
+      applySanitizationRules(
+        'Key: sk_live_51Nx3a2b4c5d6e7f8g9h0i1j2k3l4',
+        rules
+      )
+    ).toBe('Key: [TOKEN]');
+  });
+
+  it('should redact padded base64 tokens', () => {
+    expect(
+      applySanitizationRules(
+        'Data: QXV0aGVudGljYXRpb25Ub2tlbjEyMw==',
+        rules
+      )
+    ).toBe('Data: [TOKEN]');
+  });
+
+  it('should redact base64 tokens with special characters (+ or /)', () => {
+    expect(
+      applySanitizationRules('Data: abc123def456+ghi789/jkl', rules)
+    ).toBe('Data: [TOKEN]');
+  });
+
+  it('should fully redact base64 tokens ending in + or / with no trailing alnum', () => {
+    expect(applySanitizationRules('Data: AbCdEfGhIjKlMnOp+ end', rules)).toBe(
+      'Data: [TOKEN] end'
+    );
+    expect(applySanitizationRules('Data: AbCdEfGhIjKlMnOp+', rules)).toBe(
+      'Data: [TOKEN]'
+    );
+  });
+
+  it('should not leave a trailing signature character when a JWT ends in -', () => {
+    const jwt =
+      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQss-';
+    expect(applySanitizationRules(`Header: ${jwt}`, rules)).toBe(
+      'Header: [TOKEN]'
+    );
+  });
+
+  it('should not leave trailing padding when a Bearer token ends in ==', () => {
+    expect(
+      applySanitizationRules('Authorization: Bearer abcdefgh==', rules)
+    ).toBe('Authorization: Bearer [TOKEN]');
+    expect(
+      applySanitizationRules('Authorization: Bearer abcdefgh== end', rules)
+    ).toBe('Authorization: Bearer [TOKEN] end');
+  });
+
+  it('should redact camelCase token/secret keys in free-text messages', () => {
+    expect(
+      applySanitizationRules(
+        'refreshToken: c7f3e9d2a1b4568790abcdef1234567890abcdef',
+        rules
+      )
+    ).toBe('refreshToken: [TOKEN]');
+    expect(
+      applySanitizationRules(
+        'Refreshed token for user, new accessToken=aB3dEfGh1IjKlmnOpQrSt2UvWxYz9',
+        rules
+      )
+    ).toBe('Refreshed token for user, new accessToken: [TOKEN]');
+  });
+
+  it('should redact opaque alnum secrets with no context, prefix, or shape marker', () => {
+    expect(
+      applySanitizationRules(
+        'session id 5f4dcc3b5aa765d61d8327deb882cf99e1a2b3c4d5e6f708192a3b4c5d6e7f8',
+        rules
+      )
+    ).toBe('session id [TOKEN]');
   });
 
   it('should handle multiple patterns in one string', () => {

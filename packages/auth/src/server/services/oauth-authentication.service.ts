@@ -14,6 +14,15 @@ import { getSession, updateSession } from '@analog-tools/session';
 @Injectable()
 export class OAuthAuthenticationService {
   private logger: LoggerService;
+  private inflightRefreshes = new Map<
+    string,
+    Promise<{
+      access_token: string;
+      id_token?: string;
+      refresh_token?: string;
+      expires_in: number;
+    }>
+  >();
 
   constructor(config: AnalogAuthConfig) {
     this.logger = inject(LoggerService).forContext(
@@ -270,6 +279,25 @@ export class OAuthAuthenticationService {
         message: 'Failed to refresh authentication token',
       });
     }
+  }
+
+  private async refreshTokensDeduped(refreshToken: string): Promise<{
+    access_token: string;
+    id_token?: string;
+    refresh_token?: string;
+    expires_in: number;
+  }> {
+    const existingRefresh = this.inflightRefreshes.get(refreshToken);
+    if (existingRefresh) {
+      return existingRefresh;
+    }
+
+    const refreshPromise = this.refreshTokens(refreshToken).finally(() => {
+      this.inflightRefreshes.delete(refreshToken);
+    });
+
+    this.inflightRefreshes.set(refreshToken, refreshPromise);
+    return refreshPromise;
   }
 
   /**
@@ -614,8 +642,11 @@ export class OAuthAuthenticationService {
           
           this.logger.debug(`Refreshing token for session ${session.id}`);
           
-          // Refresh the token
-          const tokens = await this.refreshTokens(session.data.auth.refreshToken);
+          // Refresh the token (deduped so this doesn't race a concurrent
+          // request-driven refresh for the same refresh token)
+          const tokens = await this.refreshTokensDeduped(
+            session.data.auth.refreshToken
+          );
           
           // Update session data
           session.update((data) => {
@@ -647,13 +678,29 @@ export class OAuthAuthenticationService {
             error,
             { sessionId: session.id }
           );
-          
-          // Mark session as unauthenticated on refresh failure
+
+          // Mark session as unauthenticated on refresh failure, unless a
+          // concurrent request-driven refresh already updated this same
+          // session (in storage) with a still-valid token in the meantime.
           try {
+            const latestData = await session.refetch();
+            const hasLatestValidAuth =
+              !!latestData?.auth?.isAuthenticated &&
+              typeof latestData.auth.expiresAt === 'number' &&
+              latestData.auth.expiresAt > Date.now();
+
+            if (hasLatestValidAuth) {
+              failed--;
+              this.logger.debug(
+                `Skipping unauthenticated mark for session ${session.id} - already refreshed concurrently`
+              );
+              continue;
+            }
+
             session.update((data) => {
               const currentAuth = data.auth;
               if (!currentAuth) return data;
-              
+
               return {
                 ...data,
                 auth: {
@@ -715,7 +762,9 @@ export class OAuthAuthenticationService {
       if (session.auth.refreshToken) {
         try {
           // Refresh the token
-          const tokens = await this.refreshTokens(session.auth.refreshToken);
+          const tokens = await this.refreshTokensDeduped(
+            session.auth.refreshToken
+          );
 
           // Update session with new tokens
           await updateSession(event, (currentSession: AuthSessionData) => ({
@@ -732,6 +781,17 @@ export class OAuthAuthenticationService {
           return true;
         } catch (error) {
           this.logger.error('Error refreshing token', error);
+
+          const latestSession = getSession(event) as AuthSessionData;
+          const hasLatestValidAuth =
+            !!latestSession?.auth?.isAuthenticated &&
+            typeof latestSession.auth.expiresAt === 'number' &&
+            latestSession.auth.expiresAt > Date.now();
+
+          if (hasLatestValidAuth) {
+            return true;
+          }
+
           // Clear auth data on refresh token failure
           await updateSession(event, (currentSession: AuthSessionData) => ({
             auth: {
@@ -772,7 +832,7 @@ export class OAuthAuthenticationService {
             return; // Session no longer valid
           }
 
-          const tokens = await this.refreshTokens(
+          const tokens = await this.refreshTokensDeduped(
             currentSession.auth.refreshToken
           );
 

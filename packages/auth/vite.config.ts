@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import * as path from 'path';
 
 export default defineConfig(() => ({
@@ -14,6 +15,10 @@ export default defineConfig(() => ({
       tsconfigPath: path.join(__dirname, 'tsconfig.lib.json'),
       aliasesExclude: [/@analog-tools\/.*/],
     }),
+    // Only resolve @analog-tools/* to workspace TS source during tests, so
+    // vitest doesn't depend on sibling packages being pre-built; leave the
+    // production library build resolving via node_modules as before.
+    ...(process.env['VITEST'] ? [tsconfigPaths()] : []),
   ],
   publicDir: false,
   build: {

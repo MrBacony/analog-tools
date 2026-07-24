@@ -31,9 +31,9 @@
     "analog-tools"
   ],
   "dependencies": {
-    "@analog-tools/session": "^0.0.20",
-    "@analog-tools/inject": "^0.0.20",
-    "@analog-tools/logger": "^0.0.20"
+    "@analog-tools/session": "workspace:*",
+    "@analog-tools/inject": "workspace:*",
+    "@analog-tools/logger": "workspace:*"
   },
   "peerDependencies": {
     "h3": "^1.15.2",

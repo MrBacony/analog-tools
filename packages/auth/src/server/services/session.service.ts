@@ -120,6 +120,9 @@ export class SessionService {
             save: async () => {
               await this.store.setItem(key, sessionData);
             },
+            refetch: async () => {
+              return (await this.store.getItem(key)) as AuthSessionData | null;
+            },
           };
         })
       );

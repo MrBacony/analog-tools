@@ -42,4 +42,6 @@ export interface SessionWithSave {
 export interface SessionWithHandler extends SessionWithSave {
   /** Update session data immutably */
   update: (updater: (data: AuthSessionData) => AuthSessionData) => void;
+  /** Re-read this session's current data directly from storage, bypassing the in-memory snapshot */
+  refetch: () => Promise<AuthSessionData | null>;
 }

@@ -49,7 +49,7 @@ describe('login route', () => {
     registerMockService(LoggerService, { forContext: vi.fn() });
     // Mock getQuery to return test values
     (getQuery as unknown as Mock).mockReturnValue({
-      redirect_uri: 'https://app.example.com/dashboard',
+      redirect_uri: '/dashboard',
     });
   });
 
