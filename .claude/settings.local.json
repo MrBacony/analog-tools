@@ -4,7 +4,9 @@
       "WebFetch(domain:cloud.nx.app)",
       "Bash(git status *)",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\('targets',{}\\).keys\\(\\)\\)\\)\")",
-      "Bash(pnpm exec *)",
+      "Bash(pnpm exec vitest *)",
+      "Bash(pnpm exec eslint *)",
+      "Bash(pnpm exec tsc *)",
       "WebFetch(domain:storage.googleapis.com)"
     ]
   },
