@@ -538,13 +538,19 @@ describe('Async Service Destruction Lifecycle', () => {
     });
 
     it('should handle slow cleanup operations', async () => {
-      const startTime = Date.now();
       await registry.registerAsync(SlowCleanupService);
+      const service = await registry.getServiceAsync(SlowCleanupService);
+      if (!service) throw new Error('Service not defined');
+
+      expect(service.destroyed).toBe(false);
 
       await registry.destroyAsync();
 
-      const elapsed = Date.now() - startTime;
-      expect(elapsed).toBeGreaterThanOrEqual(30);
+      // Asserting on the actual awaited side effect instead of measuring
+      // wall-clock time - a raw elapsed-time threshold against a 30ms
+      // setTimeout is flaky under timer/clock jitter (observed failing at
+      // 29ms in CI).
+      expect(service.destroyed).toBe(true);
     });
   });
 
