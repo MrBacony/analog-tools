@@ -1,6 +1,7 @@
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import * as path from 'path';
 
 export default defineConfig(() => ({
@@ -14,6 +15,7 @@ export default defineConfig(() => ({
       entryRoot: 'src',
       tsconfigPath: path.join(__dirname, 'tsconfig.lib.json'),
     }),
+    ...(process.env['VITEST'] ? [tsconfigPaths()] : []),
   ],
   publicDir: false,
   build: {
