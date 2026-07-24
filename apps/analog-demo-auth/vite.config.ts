@@ -3,6 +3,8 @@
 import analog from '@analogjs/platform';
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import tsconfigPaths from 'vite-tsconfig-paths';
+
 
 export default defineConfig(({ mode }) => {
   return {
@@ -36,6 +38,7 @@ export default defineConfig(({ mode }) => {
       analog({
         nitro: {
           alias: {
+            
             '@analog-tools/auth': resolve(
               __dirname,
               '../../packages/auth/src/index.ts'
@@ -64,6 +67,8 @@ export default defineConfig(({ mode }) => {
           },
         },
       }),
+          ...(process.env['VITEST'] ? [tsconfigPaths()] : []),
+
     ],
     test: {
       globals: true,
