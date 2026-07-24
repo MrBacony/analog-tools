@@ -3,11 +3,10 @@ import {
   HttpErrorResponse,
   HttpRequest,
   HttpEvent,
-  HttpHandlerFn,
 } from '@angular/common/http';
 import { authInterceptor } from './auth.interceptor';
 import { of, throwError } from 'rxjs';
-import { expect, vi, describe, it, beforeEach } from 'vitest';
+import { expect, vi, describe, it, beforeEach, Mock } from 'vitest';
 
 let mockServerRequest:
   | { headers: Record<string, string | null | undefined> }
@@ -26,7 +25,7 @@ vi.mock('./functions/login', () => ({
 import { login } from './functions/login';
 
 describe('AuthInterceptor', () => {
-  let nextHandlerFn: HttpHandlerFn;
+  let nextHandlerFn: Mock;
   let req: HttpRequest<unknown>;
   
   beforeEach(() => {
@@ -53,8 +52,7 @@ describe('AuthInterceptor', () => {
     });
 
     expect(nextHandlerFn).toHaveBeenCalled();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const modifiedReq = (nextHandlerFn as any).mock.calls[0][0] as HttpRequest<unknown>;
+    const modifiedReq = nextHandlerFn.mock.calls[0][0] as HttpRequest<unknown>;
 
     expect(modifiedReq.url).toBe(authReq.url);
     expect(modifiedReq.headers.get('fetch')).toBe('true');
@@ -73,8 +71,7 @@ describe('AuthInterceptor', () => {
       authInterceptor(authReq, nextHandlerFn);
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const modifiedReq = (nextHandlerFn as any).mock.calls[0][0] as HttpRequest<unknown>;
+    const modifiedReq = nextHandlerFn.mock.calls[0][0] as HttpRequest<unknown>;
 
     expect(modifiedReq.headers.get('cookie')).toBe(
       'auth.session.demo-auth=signed-session-id'
@@ -89,8 +86,7 @@ describe('AuthInterceptor', () => {
     });
     // Verify the request was modified with the fetch header
     expect(nextHandlerFn).toHaveBeenCalled();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const modifiedReq = (nextHandlerFn as any).mock.calls[0][0] as HttpRequest<unknown>;
+    const modifiedReq = nextHandlerFn.mock.calls[0][0] as HttpRequest<unknown>;
     expect(modifiedReq.headers.has('fetch')).toBe(true);
     expect(modifiedReq.headers.get('fetch')).toBe('true');
   });

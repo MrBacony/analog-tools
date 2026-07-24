@@ -12,10 +12,6 @@ export default defineConfig(() => ({
     angular({ tsconfig: 'tsconfig.lib.json' }),
   ],
   publicDir: false,
-  // Uncomment this if you are using workers.
-  // worker: {
-  //  plugins: [ nxViteTsPaths() ],
-  // },
   test: {
     watch: false,
     globals: true,
