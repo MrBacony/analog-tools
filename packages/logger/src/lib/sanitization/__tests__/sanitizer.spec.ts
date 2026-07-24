@@ -145,6 +145,15 @@ describe('applySanitizationRules', () => {
     );
   });
 
+  it('should not leave a leading punctuation character exposed when a base64 token starts with + or /', () => {
+    expect(
+      applySanitizationRules('Data: +QW3rtyUiop1234asdf end', rules)
+    ).toBe('Data: [TOKEN] end');
+    expect(
+      applySanitizationRules('Data: /QW3rtyUiop1234asdf+ end', rules)
+    ).toBe('Data: [TOKEN] end');
+  });
+
   it('should not leave a trailing signature character when a JWT ends in -', () => {
     const jwt =
       'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQss-';

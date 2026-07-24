@@ -73,7 +73,7 @@ export const DEFAULT_VALUE_RULES: SanitizationRule[] = [
   // letters/digits, plain word-only path segments don't.
   {
     pattern:
-      /\b(?!(.)\1{10})(?=[A-Za-z0-9+/]*[+/])(?=[A-Za-z0-9+/]*(?:\+|[0-9]))[A-Za-z0-9+/]{16,}(?!\w)/g,
+      /(?<![A-Za-z0-9+/])(?!(.)\1{10})(?=[A-Za-z0-9+/]*[+/])(?=[A-Za-z0-9+/]*(?:\+|[0-9]))[A-Za-z0-9+/]{16,}(?!\w)/g,
     replacement: '[TOKEN]',
   },
 

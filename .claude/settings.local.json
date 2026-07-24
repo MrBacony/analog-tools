@@ -7,7 +7,10 @@
       "Bash(pnpm exec vitest *)",
       "Bash(pnpm exec eslint *)",
       "Bash(pnpm exec tsc *)",
-      "WebFetch(domain:storage.googleapis.com)"
+      "Bash(curl -s -D - -o /dev/null \"http://localhost:4201/api/auth/login\")",
+      "Bash(curl -s -b /private/tmp/claude-501/-Users-gspeck-Develop-Private-analog-tools/cf943c59-9eab-4a24-9b70-276a24141816/scratchpad/cj.txt -o /dev/null -w 'HTTP %{http_code}\\\\n' http://localhost:4201/)",
+      "Bash(sed 's/\\\\x1b\\\\[[0-9;]*m//g' /private/tmp/claude-501/-Users-gspeck-Develop-Private-analog-tools/cf943c59-9eab-4a24-9b70-276a24141816/tasks/b6yyvgtkr.output)",
+      "Bash(pnpm nx *)"
     ]
   },
   "sandbox": {

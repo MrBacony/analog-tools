@@ -1,10 +1,41 @@
 /// <reference types="vitest" />
 
 import analog from '@analogjs/platform';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { resolve } from 'path';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
+// Silence noisy vendor sourcemap warnings from @angular/platform-server.
+// Vite emits these per SSR request and inlines entire source files into the
+// terminal. They are vendor-only and not actionable from this app.
+const SOURCEMAP_NOISE =
+  /Sourcemap for .* points to (a source file outside its package|missing source files)/;
+
+function silenceVendorSourcemapWarnings(): Plugin {
+  // The warnings are emitted by several loggers (Vite's SSR dev server, Rollup,
+  // plain console) that a config-level customLogger does not all reach, so we
+  // filter at the process output level. Dev-serve only.
+  return {
+    name: 'silence-vendor-sourcemap-warnings',
+    apply: 'serve',
+    enforce: 'pre',
+    configResolved() {
+      for (const stream of [process.stdout, process.stderr] as const) {
+        const original = stream.write.bind(stream);
+        stream.write = ((chunk: unknown, ...rest: unknown[]) => {
+          if (typeof chunk === 'string' && SOURCEMAP_NOISE.test(chunk)) {
+            const cb = rest.find((a) => typeof a === 'function') as
+              | ((err?: Error) => void)
+              | undefined;
+            cb?.();
+            return true;
+          }
+          return (original as (...a: unknown[]) => boolean)(chunk, ...rest);
+        }) as typeof stream.write;
+      }
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => {
   return {
@@ -35,6 +66,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
+      silenceVendorSourcemapWarnings(),
       analog({
         nitro: {
           alias: {
