@@ -98,6 +98,7 @@ pnpm add @analog-tools/inject
 ```
 
 Recommended:
+
 ```bash
 # pnpm
 pnpm add @analog-tools/inject

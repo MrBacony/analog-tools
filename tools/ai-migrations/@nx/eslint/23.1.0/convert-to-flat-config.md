@@ -52,7 +52,7 @@ In your handoff `summary` (1 to 3 sentences per the system prompt), name the sec
 1. **Confirm the ESLint version is v9**:
 
    ```bash
-   npx eslint --version
+   pnpm exec eslint --version
    ```
 
 2. **Locate all ESLint config files**:
@@ -221,7 +221,7 @@ You cannot make lint pass without either editing source files or disabling a rul
 
 ```bash
 # Example: keep junit output by installing the community formatter package.
-npm install --save-dev eslint-formatter-junit
+pnpm add -Dw eslint-formatter-junit
 ```
 
 ```jsonc
@@ -278,7 +278,7 @@ npm install --save-dev eslint-formatter-junit
 3. Spot-check that a converted project resolves its config:
 
    ```bash
-   npx eslint --print-config <a-file-in-the-project>
+   pnpm exec eslint --print-config <a-file-in-the-project>
    ```
 
 4. Confirm no `.eslintrc.*` files remain unless one was intentionally kept.

@@ -572,6 +572,7 @@ pnpm nx test <project-name>
 ```
 
 ### 2. Build All Projects
+
 ```bash
 # Standard pnpm
 pnpm build
@@ -581,6 +582,7 @@ pnpm nx run-many -t build
 ```
 
 ### 3. Start Development Server
+
 ```bash
 # Verify app runs without errors
 pnpm dev
@@ -589,6 +591,7 @@ pnpm nx serve <app-name>
 ```
 
 ### 4. Final Verification Commands
+
 ```bash
 # Unix/Mac - Should return 0 files
 echo "Remaining files: $(grep -rl "static INJECTABLE" --include="*.ts" . | wc -l)"
