@@ -122,6 +122,11 @@ export async function useSession<T extends SessionData = SessionData>(
       }
     }
   } catch (error) {
+    // Cookie and storage failures already carry a precise code; re-labelling
+    // them as CRYPTO_ERROR would hide why initialization failed from callers.
+    if (isSessionError(error)) {
+      throw error;
+    }
     throw createSessionError('CRYPTO_ERROR', 'An unexpected error occurred during session initialization', { error });
   }
 }
@@ -262,6 +267,27 @@ export async function regenerateSession<T extends SessionData = SessionData>(
   } catch (error) {
     throw createSessionError('STORAGE_ERROR', 'Failed to regenerate session', { error });
   }
+}
+
+const SESSION_ERROR_CODES: ReadonlySet<string> = new Set<SessionError['code']>([
+  'COOKIE_ERROR',
+  'INVALID_SESSION',
+  'CRYPTO_ERROR',
+  'STORAGE_ERROR',
+  'EXPIRED_SESSION',
+]);
+
+/**
+ * Check whether an unknown error was created by `createSessionError`
+ */
+function isSessionError(
+  error: unknown
+): error is Error & { code: SessionError['code'] } {
+  return (
+    error instanceof Error &&
+    typeof (error as { code?: unknown }).code === 'string' &&
+    SESSION_ERROR_CODES.has((error as { code: string }).code)
+  );
 }
 
 /**

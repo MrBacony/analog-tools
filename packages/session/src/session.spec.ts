@@ -335,6 +335,29 @@ describe('Core Session Functions', () => {
       await expect(useSession(mockEvent, faultyConfig)).rejects.toThrow();
     });
 
+    it('should report storage failures as STORAGE_ERROR', async () => {
+      const faultyStore = {
+        ...store,
+        setItem: vi.fn().mockRejectedValue(new Error('Storage error')),
+      };
+
+      const faultyConfig = { ...config, store: faultyStore };
+
+      await expect(useSession(mockEvent, faultyConfig)).rejects.toMatchObject({
+        code: 'STORAGE_ERROR',
+      });
+    });
+
+    it('should report cookie failures as COOKIE_ERROR', async () => {
+      mockSetCookie.mockImplementationOnce(() => {
+        throw new Error('Cookie error');
+      });
+
+      await expect(useSession(mockEvent, config)).rejects.toMatchObject({
+        code: 'COOKIE_ERROR',
+      });
+    });
+
     it('should handle crypto errors gracefully', async () => {
       // Test with invalid secret format
       const invalidConfig = { ...config, secret: '' };
