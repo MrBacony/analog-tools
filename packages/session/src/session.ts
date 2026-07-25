@@ -283,11 +283,12 @@ const SESSION_ERROR_CODES: ReadonlySet<string> = new Set<SessionError['code']>([
 function isSessionError(
   error: unknown
 ): error is Error & { code: SessionError['code'] } {
-  return (
-    error instanceof Error &&
-    typeof (error as { code?: unknown }).code === 'string' &&
-    SESSION_ERROR_CODES.has((error as { code: string }).code)
-  );
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const code = (error as Error & { code?: unknown }).code;
+  return typeof code === 'string' && SESSION_ERROR_CODES.has(code);
 }
 
 /**
