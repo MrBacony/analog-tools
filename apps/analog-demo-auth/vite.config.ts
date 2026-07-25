@@ -154,6 +154,16 @@ export default defineConfig(() => {
       setupFiles: ['src/test-setup.ts'],
       include: ['**/*.spec.ts'],
       reporters: ['default'],
+      // `@analog-tools/auth` only gains its `./angular` subpath export once the
+      // package has been built into node_modules. Tests must not depend on that
+      // build step (CI runs test before build), so resolve the Angular entry
+      // from the workspace source instead.
+      alias: {
+        '@analog-tools/auth/angular': resolve(
+          __dirname,
+          '../../packages/auth-angular/src/index.ts'
+        ),
+      },
     },
   };
 });
