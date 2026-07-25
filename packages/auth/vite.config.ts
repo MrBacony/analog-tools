@@ -3,11 +3,15 @@ import dts from 'vite-plugin-dts';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import * as path from 'path';
 
-export default defineConfig(() => ({
+export default defineConfig(({ mode }) => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/packages/auth',
   resolve: {
-    tsconfigPaths: true,
+    // Resolve @analog-tools/* to workspace TS source for vitest, so tests
+    // don't depend on sibling packages being pre-built. The published
+    // production build must resolve via node_modules instead, so the
+    // workspace path mappings are switched off there.
+    tsconfigPaths: mode !== 'production',
   },
   plugins: [
     dts({
@@ -15,9 +19,6 @@ export default defineConfig(() => ({
       tsconfigPath: path.join(__dirname, 'tsconfig.lib.json'),
       aliasesExclude: [/@analog-tools\/.*/],
     }),
-    // Only resolve @analog-tools/* to workspace TS source during tests, so
-    // vitest doesn't depend on sibling packages being pre-built; leave the
-    // production library build resolving via node_modules as before.
     ...(process.env['VITEST'] ? [tsconfigPaths()] : []),
   ],
   publicDir: false,

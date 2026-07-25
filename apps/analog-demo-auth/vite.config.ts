@@ -3,7 +3,6 @@
 import analog from '@analogjs/platform';
 import { defineConfig, type Plugin } from 'vite';
 import { resolve } from 'path';
-import tsconfigPaths from 'vite-tsconfig-paths';
 
 // Silence noisy vendor sourcemap warnings from @angular/platform-server.
 // Vite emits these per SSR request and inlines entire source files into the
@@ -11,33 +10,82 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 const SOURCEMAP_NOISE =
   /Sourcemap for .* points to (a source file outside its package|missing source files)/;
 
+// Drop only the offending lines so unrelated diagnostics batched into the same
+// chunk still reach the terminal.
+function stripNoise(chunk: string): string {
+  if (!SOURCEMAP_NOISE.test(chunk)) return chunk;
+  return chunk
+    .split(/(?<=\n)/)
+    .filter((line) => !SOURCEMAP_NOISE.test(line))
+    .join('');
+}
+
 function silenceVendorSourcemapWarnings(): Plugin {
   // The warnings are emitted by several loggers (Vite's SSR dev server, Rollup,
   // plain console) that a config-level customLogger does not all reach, so we
-  // filter at the process output level. Dev-serve only.
+  // filter at the process output level. Dev-serve only, and the original
+  // writers are restored when the server shuts down.
+  let restore: (() => void) | null = null;
+
   return {
     name: 'silence-vendor-sourcemap-warnings',
     apply: 'serve',
     enforce: 'pre',
-    configResolved() {
-      for (const stream of [process.stdout, process.stderr] as const) {
-        const original = stream.write.bind(stream);
-        stream.write = ((chunk: unknown, ...rest: unknown[]) => {
-          if (typeof chunk === 'string' && SOURCEMAP_NOISE.test(chunk)) {
-            const cb = rest.find((a) => typeof a === 'function') as
-              | ((err?: Error) => void)
-              | undefined;
-            cb?.();
-            return true;
+    configureServer(server) {
+      // Guard against stacking wrappers if the config is loaded more than once.
+      if (restore) return;
+
+      const originals = [process.stdout, process.stderr].map((stream) => {
+        const original = stream.write;
+        const call = original as unknown as (
+          this: typeof stream,
+          ...a: unknown[]
+        ) => boolean;
+        const patched = function (
+          this: typeof stream,
+          chunk: unknown,
+          ...rest: unknown[]
+        ) {
+          if (typeof chunk === 'string') {
+            const kept = stripNoise(chunk);
+            if (kept === '') {
+              const cb = rest.find((a) => typeof a === 'function') as
+                | ((err?: Error) => void)
+                | undefined;
+              cb?.();
+              return true;
+            }
+            return call.call(this ?? stream, kept, ...rest);
           }
-          return (original as (...a: unknown[]) => boolean)(chunk, ...rest);
-        }) as typeof stream.write;
-      }
+          return call.call(this ?? stream, chunk, ...rest);
+        } as typeof stream.write;
+
+        stream.write = patched;
+        return { stream, original, patched };
+      });
+
+      restore = () => {
+        for (const { stream, original, patched } of originals) {
+          // Only revert if nothing else patched on top of us in the meantime.
+          if (stream.write === patched) {
+            stream.write = original as typeof stream.write;
+          }
+        }
+        restore = null;
+      };
+
+      const onClose = restore;
+      server.httpServer?.once('close', onClose);
+      const previousClose = server.close.bind(server);
+      server.close = async () => {
+        onClose();
+        await previousClose();
+      };
     },
   };
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(() => {
   return {
     root: __dirname,
     cacheDir: `../../node_modules/.vite`,
@@ -99,8 +147,6 @@ export default defineConfig(({ mode }) => {
           },
         },
       }),
-          ...(process.env['VITEST'] ? [tsconfigPaths()] : []),
-
     ],
     test: {
       globals: true,

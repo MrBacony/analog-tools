@@ -4,7 +4,9 @@
   "description": "Tools and utilities for AnalogJS applications",
   "packageManager": "pnpm@10.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "build": "nx run-many -t build"
+  },
   "private": true,
   "author": "Gregor Speck <gregor.speck@gmail.com>",
   "repository": {

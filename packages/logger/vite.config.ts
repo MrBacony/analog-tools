@@ -4,11 +4,15 @@ import dts from 'vite-plugin-dts';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import * as path from 'path';
 
-export default defineConfig(() => ({
+export default defineConfig(({ mode }) => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/packages/logger',
   resolve: {
-    tsconfigPaths: true,
+    // Resolve @analog-tools/* to workspace TS source for vitest, so tests
+    // don't depend on sibling packages being pre-built. The published
+    // production build must resolve via node_modules instead, so the
+    // workspace path mappings are switched off there.
+    tsconfigPaths: mode !== 'production',
   },
   plugins: [
     dts({
