@@ -5,13 +5,13 @@ Initializes authentication setup for an AnalogJS application using `@analog-tool
 ## Usage
 
 ```bash
-npx nx generate @analog-tools/generator:init-auth --project=your-app-name
+pnpm nx generate @analog-tools/generator:init-auth --project=your-app-name
 ```
 
 Or using the Nx Console UI:
 
 ```bash
-npx nx generate @analog-tools/generator:init-auth
+pnpm nx generate @analog-tools/generator:init-auth
 ```
 
 ## What it does
@@ -45,7 +45,7 @@ This generator automates the setup of authentication in your AnalogJS applicatio
 
 ```bash
 # Initialize auth for an application named 'my-app'
-npx nx generate @analog-tools/generator:init-auth --project=my-app
+pnpm nx generate @analog-tools/generator:init-auth --project=my-app
 ```
 
 ## After Generation

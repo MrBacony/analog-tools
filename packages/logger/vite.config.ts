@@ -1,21 +1,27 @@
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import * as path from 'path';
-import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
-import { nxCopyAssetsPlugin } from '@nx/vite/plugins/nx-copy-assets.plugin';
 
-export default defineConfig(() => ({
+export default defineConfig(({ mode }) => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/packages/logger',
+  resolve: {
+    // Resolve @analog-tools/* to workspace TS source for vitest, so tests
+    // don't depend on sibling packages being pre-built. The published
+    // production build must resolve via node_modules instead, so the
+    // workspace path mappings are switched off there.
+    tsconfigPaths: mode !== 'production',
+  },
   plugins: [
-    nxViteTsPaths(),
-    nxCopyAssetsPlugin(['*.md']),
     dts({
       entryRoot: 'src',
       tsconfigPath: path.join(__dirname, 'tsconfig.lib.json'),
     }),
+    ...(process.env['VITEST'] ? [tsconfigPaths()] : []),
   ],
+  publicDir: false,
   build: {
     outDir: '../../node_modules/@analog-tools/logger',
     emptyOutDir: true,
@@ -37,7 +43,7 @@ export default defineConfig(() => ({
       formats: ['es' as const, 'cjs' as const],
     },
     rollupOptions: {
-      external: [],
+      external: ['h3'],
     },
   },
   test: {

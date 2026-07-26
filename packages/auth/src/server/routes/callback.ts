@@ -14,6 +14,27 @@ import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
  * @param event - The H3 event object containing request and response data.
  * @returns A redirect to the application or an error if the state is invalid.
  */
+/**
+ * Reads the sanitized redirectUrl from session and clears it, so a stale
+ * value can't be reused by a later hit to this route.
+ *
+ * `updateSession` merges the updater's return value over the current
+ * session data (`{ ...currentData, ...updates }`), so simply omitting the
+ * key (e.g. via `delete`) does not clear it - the field must be explicitly
+ * set to `undefined` to override the spread.
+ */
+async function resolveAndClearRedirect(event: H3Event): Promise<string> {
+  const currentSessionData = getSession<AuthSessionData>(event);
+  const redirectUrl = sanitizeRedirectUrl(currentSessionData?.redirectUrl);
+
+  await updateSession<AuthSessionData>(event, (data) => ({
+    ...data,
+    redirectUrl: undefined,
+  }));
+
+  return redirectUrl;
+}
+
 const route: AuthRoute = {
   path: 'callback',
   handler: async (event: H3Event) => {
@@ -22,9 +43,9 @@ const route: AuthRoute = {
     // Initialize session
     await authService.initSession(event);
 
-    if(await authService.isAuthenticated(event)) {
-      // If already authenticated, redirect to the home page
-      return sendRedirect(event, '/');
+    if (await authService.isAuthenticated(event)) {
+      const redirectUrl = await resolveAndClearRedirect(event);
+      return sendRedirect(event, redirectUrl);
     }
 
     // Get code and state from query parameters
@@ -46,25 +67,16 @@ const route: AuthRoute = {
     }
 
     // Clear state from session
-    await updateSession<AuthSessionData>(event, (data) => {
-      const updatedData = { ...data };
-      delete updatedData.state;
-      return updatedData;
-    });
+    await updateSession<AuthSessionData>(event, (data) => ({
+      ...data,
+      state: undefined,
+    }));
 
     // Handle callback
     await authService.handleCallback(event, code, state);
 
-    // Get redirect URL from session or use default
-    const currentSessionData = getSession<AuthSessionData>(event);
-    const redirectUrl = sanitizeRedirectUrl(currentSessionData?.redirectUrl);
-
-    // Remove redirectUrl from session
-    await updateSession<AuthSessionData>(event, (data) => {
-      const updatedData = { ...data };
-      delete updatedData.redirectUrl;
-      return updatedData;
-    });
+    // Get redirect URL from session (or default) and clear it
+    const redirectUrl = await resolveAndClearRedirect(event);
 
     // Redirect to application
     return sendRedirect(event, redirectUrl);

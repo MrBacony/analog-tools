@@ -29,7 +29,7 @@ export class SessionService {
     const existingSession = getSession<AuthSessionData>(event);
     
     if (!existingSession) {
-      this.logger.info('Creating new session');
+      this.logger.debug('Initializing request session context');
       
       // Create appropriate store based on config
       if (!this.store) {
@@ -40,7 +40,7 @@ export class SessionService {
         store: this.store,
         secret:
           this.storageConfig.sessionSecret || 'change-me-in-production',
-        name: 'auth.session',
+        name: this.storageConfig.cookieName || 'auth.session',
         maxAge: 60 * 60 * 24, // 24 hours
         cookie: {
           httpOnly: true,
@@ -119,6 +119,9 @@ export class SessionService {
             },
             save: async () => {
               await this.store.setItem(key, sessionData);
+            },
+            refetch: async () => {
+              return (await this.store.getItem(key)) as AuthSessionData | null;
             },
           };
         })

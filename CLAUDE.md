@@ -23,38 +23,38 @@ analog-tools is a collection of utilities and libraries for [AnalogJS](https://a
 
 ```bash
 # Serve the example application
-npx nx serve analog-example
+pnpm nx serve analog-example
 
 # Build a specific package
-npx nx build @analog-tools/auth
-npx nx build @analog-tools/session
+pnpm nx build @analog-tools/auth
+pnpm nx build @analog-tools/session
 
 # Build all packages
-npx nx run-many -t build
+pnpm nx run-many -t build
 ```
 
 ### Testing
 
 ```bash
 # Test a specific package
-npx nx test @analog-tools/auth
-npx nx test @analog-tools/session
+pnpm nx test @analog-tools/auth
+pnpm nx test @analog-tools/session
 
 # Test with coverage
-npx nx test @analog-tools/logger --coverage
+pnpm nx test @analog-tools/logger --coverage
 
 # Run all tests
-npx nx run-many -t test
+pnpm nx run-many -t test
 ```
 
 ### Package Management
 
 ```bash
 # Create a package tarball for local testing
-npx nx pack @analog-tools/auth
+pnpm nx pack @analog-tools/auth
 
 # Release workflow (versions and publishes)
-npx nx release
+pnpm nx release
 ```
 
 ## Architecture
@@ -81,18 +81,24 @@ npx nx release
 
 Location: `/packages/inject/src`
 
-The project uses a custom DI system based on a service registry pattern:
+The project uses a custom DI system based on a service registry pattern with
+symbol-based tokens (minification-safe, unlike string/class-name discovery):
 
-- Services must be marked with `static readonly INJECTABLE = true`
+- Mark services with the `@Injectable()` decorator, which assigns a unique
+  `SERVICE_TOKEN` symbol used for registry lookups
 - Use `registerService(TokenClass, ...constructorArgs)` to register
 - Use `inject(TokenClass)` to retrieve instances
 - Singleton pattern: one instance per token
-- No decorators or metadata reflection
+- The registry requires `SERVICE_TOKEN` to be present on the class; a class
+  without `@Injectable()` cannot be registered/injected
+  (`MissingServiceTokenError`)
 
 ```typescript
+import { Injectable, inject, registerService } from '@analog-tools/inject';
+
 // Mark a service as injectable
+@Injectable()
 class MyService {
-  static readonly INJECTABLE = true;
   constructor(config: Config) {}
 }
 

@@ -338,7 +338,7 @@ When developing features for a library:
 To create a new library with this structure:
 
 ```bash
-npx nx generate @analog-tools/generator:library --name=<library-name> --project=<app-name> --pages=true --api=true
+pnpm nx generate @analog-tools/generator:library --name=<library-name> --project=<app-name> --pages=true --api=true
 ```
 
 Options:

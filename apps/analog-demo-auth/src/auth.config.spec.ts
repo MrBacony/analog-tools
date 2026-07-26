@@ -43,5 +43,6 @@ describe('authConfig', () => {
     expect(authConfig.sessionStorage.sessionSecret).toBe(
       requiredEnv.SESSION_SECRET
     );
+    expect(authConfig.sessionStorage.cookieName).toBe('auth.session.demo-auth');
   });
 });

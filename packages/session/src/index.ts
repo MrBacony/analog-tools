@@ -7,6 +7,7 @@ export * from './types';
 export {
   useSession,
   getSession,
+  refetchSession,
   updateSession,
   destroySession,
   regenerateSession,

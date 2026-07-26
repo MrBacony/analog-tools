@@ -30,13 +30,13 @@ Structured logging for AnalogJS, Nitro, and H3-based server applications. Provid
 ## Installation
 
 ```bash
-npm install @analog-tools/logger
+pnpm add @analog-tools/logger
 ```
 
 Peer dependency (optional -- only required for Nitro integration and DI patterns):
 
 ```bash
-npm install @analog-tools/inject
+pnpm add @analog-tools/inject
 ```
 
 ## Quick Start

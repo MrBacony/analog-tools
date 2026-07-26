@@ -46,19 +46,19 @@ This keeps access tokens, refresh tokens, and ID tokens out of browser storage e
 ## Installation
 
 ```bash
-npm install @analog-tools/auth
+pnpm add @analog-tools/auth
 ```
 
 Peer dependencies:
 
 ```bash
-npm install h3 uncrypto
+pnpm add h3 uncrypto
 ```
 
 For the Angular client integration, you also need:
 
 ```bash
-npm install @analogjs/router @angular/core @angular/common @angular/router rxjs
+pnpm add @analogjs/router @angular/core @angular/common @angular/router rxjs
 ```
 
 ## Quick Start
@@ -81,6 +81,8 @@ const authConfig: AnalogAuthConfig = {
     '/api/public/*',
   ],
   whitelistFileTypes: ['.css', '.js', '.png', '.svg', '.ico', '.woff2'],
+  // Optional: enforce only one active authenticated session per user
+  // singleSessionPerUser: true,
   sessionStorage: {
     sessionSecret: process.env['SESSION_SECRET'] || 'change-me-in-production',
     ttl: 86400,
@@ -117,7 +119,20 @@ The `AnalogAuthConfig` type accepts these options:
 | `whitelistFileTypes` | `string[]` | No | File extensions that bypass authentication (e.g., `['.css', '.js']`) |
 | `tokenRefreshApiKey` | `string` | No | API key for the `/api/auth/refresh-tokens` endpoint |
 | `logoutUrl` | `string` | No | URL to redirect to after OAuth provider logout |
+| `singleSessionPerUser` | `boolean` | No | If `true`, successful login invalidates other authenticated sessions for the same user (default: `false`) |
 | `userHandler` | `UserHandler` | No | Callbacks for user data processing |
+
+### Session Concurrency Policy
+
+By default, users can be signed in on multiple devices and browsers at the same time.
+
+If you want to enforce only one active authenticated session per user, enable:
+
+```typescript
+singleSessionPerUser: true
+```
+
+When enabled, a successful login invalidates other authenticated sessions for the same resolved user identity and keeps the current session active.
 
 ### Session Storage
 
@@ -255,6 +270,8 @@ The middleware automatically registers these routes under `/api/auth/`:
 | `/api/auth/refresh-tokens` | GET | No* | Bulk refresh of expiring tokens. Requires `Authorization: Bearer <tokenRefreshApiKey>` header. |
 
 *The refresh-tokens endpoint uses API key auth rather than session auth.
+
+> `redirect_uri` on `/api/auth/login` is treated as the **post-login app target path** (for example `/dashboard`), not as an OAuth callback override. This keeps the OAuth callback host stable and prevents session/state mismatches across hosts like `[::1]` vs `localhost`.
 
 ## Token Refresh
 

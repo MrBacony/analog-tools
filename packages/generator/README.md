@@ -34,13 +34,13 @@ Nx code generators for scaffolding [AnalogJS](https://analogjs.org) libraries, A
 ## Installation
 
 ```bash
-npm install -D @analog-tools/generator
+pnpm add -D @analog-tools/generator
 ```
 
 Peer dependency:
 
 ```bash
-npm install -D @nx/devkit
+pnpm add -D @nx/devkit
 ```
 
 ## Available Generators
@@ -58,13 +58,13 @@ Scaffolds a new AnalogJS library under `libs/` with build configuration, TypeScr
 ### Usage
 
 ```bash
-npx nx generate @analog-tools/generator:library --name=my-feature --project=analog-example
+pnpm nx generate @analog-tools/generator:library --name=my-feature --project=analog-example
 ```
 
 Interactive mode (prompts for each option):
 
 ```bash
-npx nx generate @analog-tools/generator:library
+pnpm nx generate @analog-tools/generator:library
 ```
 
 ### Options
@@ -86,13 +86,13 @@ npx nx generate @analog-tools/generator:library
 Minimal library (components and services only):
 
 ```bash
-npx nx g @analog-tools/generator:library --name=shared-ui --project=analog-example
+pnpm nx g @analog-tools/generator:library --name=shared-ui --project=analog-example
 ```
 
 Library with file-based routing pages:
 
 ```bash
-npx nx g @analog-tools/generator:library \
+pnpm nx g @analog-tools/generator:library \
   --name=admin-dashboard \
   --project=analog-example \
   --pages=true
@@ -101,7 +101,7 @@ npx nx g @analog-tools/generator:library \
 Library with REST API and tRPC:
 
 ```bash
-npx nx g @analog-tools/generator:library \
+pnpm nx g @analog-tools/generator:library \
   --name=user-management \
   --project=analog-example \
   --api=true \
@@ -111,7 +111,7 @@ npx nx g @analog-tools/generator:library \
 All features enabled, no example files:
 
 ```bash
-npx nx g @analog-tools/generator:library \
+pnpm nx g @analog-tools/generator:library \
   --name=core-lib \
   --project=analog-example \
   --pages=true \
@@ -181,7 +181,7 @@ Creates an H3 `defineEventHandler` file in the correct directory for AnalogJS fi
 ### Usage
 
 ```bash
-npx nx generate @analog-tools/generator:api-route --project=analog-example --route=v1/hello
+pnpm nx generate @analog-tools/generator:api-route --project=analog-example --route=v1/hello
 ```
 
 ### Options
@@ -204,7 +204,7 @@ When `--method` is specified, the filename includes the method suffix (e.g., `us
 Generic handler (responds to all HTTP methods):
 
 ```bash
-npx nx g @analog-tools/generator:api-route \
+pnpm nx g @analog-tools/generator:api-route \
   --project=analog-example \
   --route=v1/hello
 ```
@@ -224,7 +224,7 @@ export default defineEventHandler(async () => {
 Method-specific handler:
 
 ```bash
-npx nx g @analog-tools/generator:api-route \
+pnpm nx g @analog-tools/generator:api-route \
   --project=analog-example \
   --route=v1/users \
   --method=POST
@@ -235,7 +235,7 @@ Creates `src/server/routes/api/v1/users.post.ts`.
 Dynamic route parameter:
 
 ```bash
-npx nx g @analog-tools/generator:api-route \
+pnpm nx g @analog-tools/generator:api-route \
   --project=analog-example \
   --route=v1/users/[id]
 ```
@@ -260,7 +260,7 @@ Configures `@analog-tools/auth` in an existing AnalogJS application. Only works 
 ### Usage
 
 ```bash
-npx nx generate @analog-tools/generator:init-auth --project=my-app
+pnpm nx generate @analog-tools/generator:init-auth --project=my-app
 ```
 
 ### Options
@@ -326,7 +326,7 @@ You can switch from Redis to any other [unstorage driver](https://unstorage.unjs
 ## Testing
 
 ```bash
-npx nx test @analog-tools/generator
+pnpm nx test @analog-tools/generator
 ```
 
 Runs the Vitest suite covering all three generators.

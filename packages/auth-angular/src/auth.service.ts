@@ -6,11 +6,15 @@ import {
   inject,
   Injectable,
   Injector,
+  makeStateKey,
   OnDestroy,
   PLATFORM_ID,
+  runInInjectionContext,
+  signal,
+  TransferState,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { isPlatformBrowser } from '@angular/common';
+import { isPlatformBrowser, isPlatformServer } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import {
   GenericUserInfo,
@@ -37,6 +41,15 @@ export interface AuthUser {
 
 const MAX_USER_RELOAD_ATTEMPTS = 3;
 
+type AuthTransferSnapshot = {
+  authenticated: boolean;
+  user: AuthUser | null;
+};
+
+export const AUTH_TRANSFER_STATE_KEY = makeStateKey<AuthTransferSnapshot | null>(
+  'analog-tools.auth.snapshot'
+);
+
 /**
  * Auth service for BFF (Backend for Frontend) authentication pattern
  * Uses server-side sessions with Auth0 instead of client-side tokens
@@ -47,31 +60,68 @@ export class AuthService implements OnDestroy {
   private platformId = inject(PLATFORM_ID);
   private document = inject(DOCUMENT);
   private injector = inject(Injector);
-  private httpRequest = injectRequest();
+  private transferState = inject(TransferState);
   private checkAuthInterval: ReturnType<typeof setInterval> | null = null;
   private userReloadEffect: EffectRef | null = null;
   private userReloadTimeout: ReturnType<typeof setTimeout> | null = null;
   private userReloadAttempts = 0;
+  private hasRevalidatedBrowserAuth = false;
+  private providedServerRequest = signal<ReturnType<typeof injectRequest>>(null);
+  private transferredSnapshot = this.consumeTransferredSnapshot();
+
+  private isSettledResourceStatus(status: string): boolean {
+    return status === 'resolved' || status === 'local' || status === 'error';
+  }
+
+  private consumeTransferredSnapshot(): AuthTransferSnapshot | null {
+    if (!isPlatformBrowser(this.platformId)) {
+      return null;
+    }
+
+    if (!this.transferState.hasKey(AUTH_TRANSFER_STATE_KEY)) {
+      return null;
+    }
+
+    const snapshot = this.transferState.get(AUTH_TRANSFER_STATE_KEY, null);
+    this.transferState.remove(AUTH_TRANSFER_STATE_KEY);
+
+    return snapshot;
+  }
+
+  setServerRequest(serverRequest: ReturnType<typeof injectRequest>): void {
+    if (serverRequest) {
+      this.providedServerRequest.set(serverRequest);
+    }
+  }
+
+  private resolveRequestHeaders(
+    originalHeaderValues?: { [key: string]: string | null | undefined }
+  ) {
+    const providedServerRequest = this.providedServerRequest();
+
+    if (providedServerRequest) {
+      return getRequestHeaders(providedServerRequest, originalHeaderValues);
+    }
+
+    return runInInjectionContext(this.injector, () => {
+      return getRequestHeaders(injectRequest(), originalHeaderValues);
+    });
+  }
 
   // Auth state - order matters: isAuthenticatedResource and isAuthenticated must be defined first
   readonly isAuthenticatedResource = httpResource<boolean>(
     () => {
-      // Skip on SSR – the server has no session cookie so the request
-      // always returns 401 and poisons the hydrated resource state.
-      if (!isPlatformBrowser(this.platformId)) {
-        return undefined;
-      }
       return {
         url: '/api/auth/authenticated',
         method: 'GET',
-        headers: getRequestHeaders(this.httpRequest, {
+        headers: this.resolveRequestHeaders({
           accept: 'application/json',
         }),
         withCredentials: true,
       };
     },
     {
-      defaultValue: false,
+      defaultValue: this.transferredSnapshot?.authenticated ?? false,
       parse: (value: unknown) => {
         return (value as { authenticated: boolean }).authenticated;
       },
@@ -83,31 +133,31 @@ export class AuthService implements OnDestroy {
   readonly isAuthenticationResolved = computed(() => {
     const status = this.isAuthenticatedResource.status();
 
-    return status === 'resolved' || status === 'local' || status === 'error';
+    return this.isSettledResourceStatus(status);
   });
 
   readonly isAuthenticationLoading = computed(() => {
     const status = this.isAuthenticatedResource.status();
 
-    return status === 'idle' || status === 'loading' || status === 'reloading';
+    return !this.isSettledResourceStatus(status);
   });
 
   readonly userResource = httpResource<AuthUser | null>(
     () => {
-      if (!isPlatformBrowser(this.platformId) || !this.isAuthenticated()) {
+      if (!this.isAuthenticated()) {
         return undefined;
       }
       return {
         url: '/api/auth/user',
         method: 'GET',
-        headers: getRequestHeaders(this.httpRequest, {
+        headers: this.resolveRequestHeaders({
           accept: 'application/json',
         }),
         withCredentials: true,
       };
     },
     {
-      defaultValue: null,
+      defaultValue: this.transferredSnapshot?.user ?? null,
       parse: (raw: unknown) => {
         return transformUserFromProvider(raw as GenericUserInfo);
       },
@@ -117,7 +167,41 @@ export class AuthService implements OnDestroy {
   readonly user = this.userResource.asReadonly().value;
 
   constructor() {
+    if (isPlatformServer(this.platformId)) {
+      effect(
+        () => {
+          if (!this.isAuthenticationResolved()) {
+            return;
+          }
+
+          if (
+            this.isAuthenticated() &&
+            !this.isSettledResourceStatus(this.userResource.status())
+          ) {
+            return;
+          }
+
+          this.transferState.set(AUTH_TRANSFER_STATE_KEY, {
+            authenticated: this.isAuthenticated(),
+            user: this.userResource.value(),
+          });
+        },
+        { injector: this.injector }
+      );
+    }
+
     if (isPlatformBrowser(this.platformId)) {
+      queueMicrotask(() => {
+        if (
+          !this.hasRevalidatedBrowserAuth &&
+          this.isAuthenticationResolved() &&
+          !this.isAuthenticated()
+        ) {
+          this.hasRevalidatedBrowserAuth = true;
+          this.isAuthenticatedResource.reload();
+        }
+      });
+
       this.userReloadEffect = effect(
         () => {
           const isAuthenticated = this.isAuthenticated();
@@ -131,7 +215,7 @@ export class AuthService implements OnDestroy {
 
           if (
             this.userReloadAttempts < MAX_USER_RELOAD_ATTEMPTS &&
-            (status === 'resolved' || status === 'local' || status === 'error')
+            this.isSettledResourceStatus(status)
           ) {
             this.userReloadAttempts += 1;
             this.userResource.reload();
@@ -208,9 +292,8 @@ export class AuthService implements OnDestroy {
   login(targetUrl?: string): void {
     if (isPlatformBrowser(this.platformId)) {
       const redirectUri = targetUrl || this.router.url;
-      const url = this.document.location.origin + redirectUri;
       this.document.location.href = `/api/auth/login?redirect_uri=${encodeURIComponent(
-        url
+        redirectUri
       )}`;
     }
   }

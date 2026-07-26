@@ -145,6 +145,25 @@ describe('callback route', () => {
     expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/');
   });
 
+  it('should redirect to stored redirectUrl when already authenticated', async () => {
+    mockGetSession.mockReturnValue({
+      ...mockSessionData,
+      redirectUrl: '/dashboard',
+    });
+    (mockAuthService.isAuthenticated as Mock).mockResolvedValue(true);
+
+    await callbackRoute.handler(mockEvent);
+
+    expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/dashboard');
+    expect(mockAuthService.handleCallback).not.toHaveBeenCalled();
+    expect(mockUpdateSession).toHaveBeenCalledTimes(1);
+
+    const updater = mockUpdateSession.mock.calls[0][1];
+    const updatedData = updater(mockGetSession());
+    expect(updatedData.redirectUrl).toBeUndefined();
+    expect('redirectUrl' in updatedData).toBe(true);
+  });
+
   it('should use default redirect URL when session redirect URL is scheme-relative', async () => {
     mockGetSession.mockReturnValue({
       ...mockSessionData,

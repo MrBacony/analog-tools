@@ -6,12 +6,9 @@
 
 import {
   isValidLogLevel,
-  LoggerConfig,
   LogLevelEnum,
-  LogMessage,
-  LogStyling,
-  LogContext,
 } from './logger.types';
+import type { LoggerConfig, LogMessage, LogStyling, LogContext } from './logger.types';
 import {
   ErrorParam,
   ErrorSerializer,

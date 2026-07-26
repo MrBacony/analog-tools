@@ -1,6 +1,12 @@
-import { Component, effect, inject } from '@angular/core';
-import { AuthService } from '@analog-tools/auth/angular';
 import { JsonPipe } from '@angular/common';
+import { Component, effect, inject } from '@angular/core';
+import { AuthService, authGuard } from '@analog-tools/auth/angular';
+import { RouteMeta } from '@analogjs/router';
+
+export const routeMeta: RouteMeta = {
+  title: 'Dashboard',
+  canActivate: [authGuard],
+};
 
 @Component({
   selector: 'app-dashboard',
@@ -25,31 +31,10 @@ import { JsonPipe } from '@angular/common';
 })
 export default class DashboardPageComponent {
   readonly authService = inject(AuthService);
-  private loginRedirectTimeout: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
-    effect((onCleanup) => {
+    effect(() => {
       console.log('Auth state changed: ', this.authService.isAuthenticated());
-      this.clearLoginRedirectTimeout();
-
-      if (
-        !this.authService.isAuthenticationLoading() &&
-        !this.authService.isAuthenticated()
-      ) {
-        this.loginRedirectTimeout = setTimeout(() => {
-          this.loginRedirectTimeout = undefined;
-          this.authService.login();
-        }, 3000);
-      }
-
-      onCleanup(() => this.clearLoginRedirectTimeout());
     });
-  }
-
-  private clearLoginRedirectTimeout() {
-    if (this.loginRedirectTimeout !== undefined) {
-      clearTimeout(this.loginRedirectTimeout);
-      this.loginRedirectTimeout = undefined;
-    }
   }
 }

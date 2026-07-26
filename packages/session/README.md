@@ -36,13 +36,13 @@ Session management for H3-based applications (AnalogJS, Nitro, Nuxt). Uses a fun
 ## Installation
 
 ```bash
-npm install @analog-tools/session
+pnpm add @analog-tools/session
 ```
 
 Peer dependency:
 
 ```bash
-npm install h3
+pnpm add h3
 ```
 
 ## Quick Start

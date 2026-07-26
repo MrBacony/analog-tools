@@ -6,10 +6,35 @@ import {
 import { nanoid } from 'nanoid';
 import type { SessionConfig, SessionData, SessionError } from './types';
 import { signCookie, unsignCookie } from './crypto';
+import type { Storage } from 'unstorage';
 
 // Session storage key for H3 event context
 const SESSION_CONTEXT_KEY = '__session_data__';
 const SESSION_ID_CONTEXT_KEY = '__session_id__';
+
+// Non-atomic stores (e.g. the unstorage `fs` driver) briefly expose a
+// half-written/empty value while another request writes the same key. A short,
+// bounded retry rides out that window before we conclude the session is gone.
+const SESSION_READ_RETRIES = 3;
+const SESSION_READ_RETRY_DELAY_MS = 15;
+
+async function loadSessionWithRetry<T extends SessionData = SessionData>(
+  store: Storage<T>,
+  sessionId: string
+): Promise<T | null> {
+  for (let attempt = 0; attempt <= SESSION_READ_RETRIES; attempt++) {
+    const data = (await store.getItem(sessionId)) as T | null;
+    if (data) {
+      return data;
+    }
+    if (attempt < SESSION_READ_RETRIES) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, SESSION_READ_RETRY_DELAY_MS)
+      );
+    }
+  }
+  return null;
+}
 
 /**
  * Initialize session middleware for an H3 event
@@ -34,21 +59,38 @@ export async function useSession<T extends SessionData = SessionData>(
     }
     
     let sessionData: T;
-    
+    // Only persist during init when we create a fresh session. Re-writing
+    // unchanged, already-loaded data on every request causes a write storm:
+    // with non-atomic stores (e.g. the unstorage `fs` driver) a concurrent
+    // reader can observe a half-written/empty file, treat the session as
+    // missing, and silently fork a new empty session - surfacing as spurious
+    // 401s when several requests (e.g. SSR sub-requests) share one session.
+    let isNewSession = false;
+
     if (sessionId) {
-      // Try to load existing session
-      const existingData = await config.store.getItem(sessionId);
+      // Try to load existing session. A valid signed cookie references a real
+      // session, so an empty read is far more likely a concurrent writer's
+      // truncation window (non-atomic stores) than a genuinely missing
+      // session. Retry briefly before forking a new session, otherwise a
+      // transient read would silently discard the user's authenticated
+      // session and surface as a spurious 401.
+      const existingData = await loadSessionWithRetry<T>(
+        config.store,
+        sessionId
+      );
       if (existingData) {
-        sessionData = existingData as T;
+        sessionData = existingData;
       } else {
         // Session ID exists but no data - generate new session
         sessionId = nanoid();
         sessionData = config.generate ? config.generate() : ({} as T);
+        isNewSession = true;
       }
     } else {
       // No session - generate new one
       sessionId = nanoid();
       sessionData = config.generate ? config.generate() : ({} as T);
+      isNewSession = true;
     }
     
     // Store session data and ID in event context
@@ -70,13 +112,21 @@ export async function useSession<T extends SessionData = SessionData>(
       throw createSessionError('COOKIE_ERROR', 'Failed to sign or set session cookie', { error });
     }
     
-    try {
-      // Save initial session data
-      await config.store.setItem(sessionId, sessionData);
-    } catch (error) {
-      throw createSessionError('STORAGE_ERROR', 'Failed to save session data to store', { error });
+    if (isNewSession) {
+      try {
+        // Persist only freshly generated sessions; existing sessions are
+        // written by updateSession/regenerateSession when they actually change.
+        await config.store.setItem(sessionId, sessionData);
+      } catch (error) {
+        throw createSessionError('STORAGE_ERROR', 'Failed to save session data to store', { error });
+      }
     }
   } catch (error) {
+    // Cookie and storage failures already carry a precise code; re-labelling
+    // them as CRYPTO_ERROR would hide why initialization failed from callers.
+    if (isSessionError(error)) {
+      throw error;
+    }
     throw createSessionError('CRYPTO_ERROR', 'An unexpected error occurred during session initialization', { error });
   }
 }
@@ -88,6 +138,27 @@ export function getSession<T extends SessionData = SessionData>(
   event: H3Event
 ): T | null {
   return event.context[SESSION_CONTEXT_KEY] as T || null;
+}
+
+/**
+ * Re-read current session data directly from storage, bypassing the
+ * per-request context cache populated by `useSession`. Use this when a
+ * concurrent request may have written a newer version of the session (e.g.
+ * after a failed token refresh, to check whether another request already
+ * refreshed successfully) - `getSession` alone can never observe that.
+ */
+export async function refetchSession<T extends SessionData = SessionData>(
+  event: H3Event
+): Promise<T | null> {
+  const sessionId = event.context[SESSION_ID_CONTEXT_KEY] as string;
+  const config = event.context['__session_config__'] as SessionConfig<T>;
+
+  if (!sessionId || !config?.store) {
+    return null;
+  }
+
+  const data = await config.store.getItem(sessionId);
+  return (data as T) ?? null;
 }
 
 /**
@@ -196,6 +267,28 @@ export async function regenerateSession<T extends SessionData = SessionData>(
   } catch (error) {
     throw createSessionError('STORAGE_ERROR', 'Failed to regenerate session', { error });
   }
+}
+
+const SESSION_ERROR_CODES: ReadonlySet<string> = new Set<SessionError['code']>([
+  'COOKIE_ERROR',
+  'INVALID_SESSION',
+  'CRYPTO_ERROR',
+  'STORAGE_ERROR',
+  'EXPIRED_SESSION',
+]);
+
+/**
+ * Check whether an unknown error was created by `createSessionError`
+ */
+function isSessionError(
+  error: unknown
+): error is Error & { code: SessionError['code'] } {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const code = (error as Error & { code?: unknown }).code;
+  return typeof code === 'string' && SESSION_ERROR_CODES.has(code);
 }
 
 /**

@@ -3,15 +3,15 @@
   "version": "0.0.20",
   "peerDependencies": {
     "@analogjs/router": "^2.5.0",
-    "@angular/common": "^19.0.0 || ^20.0.0 || ^21.0.0",
-    "@angular/core": "^19.0.0 || ^20.0.0 || ^21.0.0",
-    "@angular/router": "^19.0.0 || ^20.0.0 || ^21.0.0",
+    "@angular/common": "^19.0.0 || ^20.0.0 || ^21.0.0 || ^22.0.0",
+    "@angular/core": "^19.0.0 || ^20.0.0 || ^21.0.0 || ^22.0.0",
+    "@angular/router": "^19.0.0 || ^20.0.0 || ^21.0.0 || ^22.0.0",
     "@trpc/client": "^10.25.0",
     "@trpc/server": "^10.25.0",
     "rxjs": "~7.8.0"
   },
   "devDependencies": {
-    "@nx/vite": "^21.0.0"
+    "@nx/vite": "^23.0.0"
   },
   "sideEffects": false
 }

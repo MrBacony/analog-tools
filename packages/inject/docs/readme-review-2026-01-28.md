@@ -94,13 +94,14 @@ Add Error Types section:
 
 Current:
 ```bash
-npm install @analog-tools/inject
+pnpm add @analog-tools/inject
 ```
 
 Recommended:
+
 ```bash
-# npm
-npm install @analog-tools/inject
+# pnpm
+pnpm add @analog-tools/inject
 
 # yarn
 yarn add @analog-tools/inject

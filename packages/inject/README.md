@@ -29,7 +29,7 @@ A dependency injection system for AnalogJS and H3/Nitro server-side applications
 ## Installation
 
 ```bash
-npm install @analog-tools/inject
+pnpm add @analog-tools/inject
 ```
 
 ## Quick Start

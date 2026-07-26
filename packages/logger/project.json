@@ -34,17 +34,15 @@
       ]
     },
     "build": {
-      "executor": "nx:run-commands",
-      "options": {
-        "commands": [
-          "nx run @analog-tools/logger:vite:build --configuration=production"
-        ],
-        "parallel": false
-      },
+      "executor": "nx:noop",
       "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
       "dependsOn": [
         {
-          "target": "@analog-tools/inject:build"
+          "target": "vite:build"
+        },
+        {
+          "target": "build",
+          "projects": ["@analog-tools/inject"]
         }
       ]
     },

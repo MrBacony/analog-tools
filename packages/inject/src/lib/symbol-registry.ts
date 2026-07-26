@@ -3,7 +3,7 @@
  */
 
 // Service token symbol for unique identification
-export const SERVICE_TOKEN = Symbol('SERVICE_TOKEN');
+export const SERVICE_TOKEN = Symbol.for('@analog-tools/inject:SERVICE_TOKEN');
 
 /**
  * Enhanced injectable service interface with symbol-based tokens

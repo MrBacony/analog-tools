@@ -2,7 +2,6 @@
 
 import analog from '@analogjs/platform';
 import { defineConfig } from 'vite';
-import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path';
@@ -12,6 +11,9 @@ export default defineConfig(({ mode }) => {
   return {
     root: __dirname,
     cacheDir: `../../node_modules/.vite`,
+    resolve: {
+      tsconfigPaths: true,
+    },
 
     ssr: {
       noExternal: [
@@ -73,8 +75,6 @@ export default defineConfig(({ mode }) => {
           },
         },
       }),
-
-      nxViteTsPaths(),
     ],
     test: {
       globals: true,

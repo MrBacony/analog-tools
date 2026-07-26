@@ -14,10 +14,7 @@ import { mergeRequest } from './functions/utils/merge-request';
  * This handles cases where a session has expired on the server-side.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  // Skip interception for auth endpoints to avoid circular issues
-  if (req.url.includes('/api/auth/')) {
-    return next(req);
-  }
+  const isAuthEndpoint = req.url.includes('/api/auth/');
 
   const platformId = inject(PLATFORM_ID);
 
@@ -25,6 +22,13 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const request = injectRequest();
 
   const modifiedReq = mergeRequest(req, request);
+
+  // Auth endpoints still need the current SSR request context (cookies/headers),
+  // but should not trigger the interceptor's 401 redirect handling.
+  if (isAuthEndpoint) {
+    return next(modifiedReq);
+  }
+
   // Use the modified request with the added header
   return next(modifiedReq).pipe(
     catchError((error: unknown) => {

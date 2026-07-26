@@ -289,6 +289,41 @@ describe('SessionService', () => {
         })
       );
     });
+
+    it('should use configured cookieName when provided', async () => {
+      vi.mocked(getSession).mockReturnValue(null);
+
+      const configWithCookieName: SessionStorageConfig = {
+        driver: {
+          type: 'memory',
+        },
+        cookieName: 'auth.session.demo-auth',
+      };
+
+      const serviceWithCookieName = new SessionService(configWithCookieName);
+
+      await serviceWithCookieName.initSession(mockEvent);
+
+      expect(useSession).toHaveBeenCalledWith(
+        mockEvent,
+        expect.objectContaining({
+          name: 'auth.session.demo-auth',
+        })
+      );
+    });
+
+    it('should use default cookieName if storageConfig.cookieName is not provided', async () => {
+      vi.mocked(getSession).mockReturnValue(null);
+
+      await service.initSession(mockEvent);
+
+      expect(useSession).toHaveBeenCalledWith(
+        mockEvent,
+        expect.objectContaining({
+          name: 'auth.session',
+        })
+      );
+    });
   });
 
   describe('getSession', () => {
@@ -348,12 +383,14 @@ describe('SessionService', () => {
         data: { auth: { isAuthenticated: true } },
         save: expect.any(Function),
         update: expect.any(Function),
+        refetch: expect.any(Function),
       });
       expect(result[1]).toEqual({
         id: 'session-2',
         data: { auth: { isAuthenticated: false } },
         save: expect.any(Function),
         update: expect.any(Function),
+        refetch: expect.any(Function),
       });
     });
 
@@ -407,6 +444,28 @@ describe('SessionService', () => {
 
       // Check that the data was updated
       expect(sessions?.[0].data.auth?.isAuthenticated).toBe(false);
+    });
+
+    it('should provide a working refetch method that reads current storage state', async () => {
+      const getItemMock = mockStore.getItem as ReturnType<typeof vi.fn>;
+      getItemMock.mockImplementationOnce((key) =>
+        key === 'session-1'
+          ? Promise.resolve({ auth: { isAuthenticated: true } } as AuthSessionData)
+          : Promise.resolve(null)
+      );
+
+      const sessions = await service.getActiveSessions();
+
+      // Storage changes after the initial snapshot was taken (e.g. a
+      // concurrent request updated the session)
+      getItemMock.mockResolvedValueOnce({
+        auth: { isAuthenticated: true, expiresAt: Date.now() + 60_000 },
+      } as AuthSessionData);
+
+      const refetched = await sessions[0].refetch();
+
+      expect(mockStore.getItem).toHaveBeenLastCalledWith('session-1');
+      expect(refetched?.auth?.expiresAt).toBeDefined();
     });
   });
 

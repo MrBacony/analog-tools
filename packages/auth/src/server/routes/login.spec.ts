@@ -49,7 +49,7 @@ describe('login route', () => {
     registerMockService(LoggerService, { forContext: vi.fn() });
     // Mock getQuery to return test values
     (getQuery as unknown as Mock).mockReturnValue({
-      redirect_uri: 'https://app.example.com/dashboard',
+      redirect_uri: '/dashboard',
     });
   });
 
@@ -82,9 +82,38 @@ describe('login route', () => {
     await loginRoute.handler(mockEvent);
 
     expect(mockAuthService.getAuthorizationUrl).toHaveBeenCalledWith(
-      'mock-state-uuid',
-      'https://app.example.com/dashboard'
+      'mock-state-uuid'
     );
+  });
+
+  it('should store sanitized post-login redirect target in session', async () => {
+    await loginRoute.handler(mockEvent);
+
+    expect(mockUpdateSession).toHaveBeenCalledWith(
+      mockEvent,
+      expect.any(Function)
+    );
+
+    const updateCalls = mockUpdateSession.mock.calls;
+    const redirectUpdateFn = updateCalls[1][1];
+    const updated = redirectUpdateFn({ state: 'mock-state-uuid' });
+
+    expect(updated.redirectUrl).toBe('/dashboard');
+  });
+
+  it('should clear a stale redirectUrl when no valid redirect_uri is provided', async () => {
+    (getQuery as unknown as Mock).mockReturnValue({});
+
+    await loginRoute.handler(mockEvent);
+
+    const updateCalls = mockUpdateSession.mock.calls;
+    const redirectUpdateFn = updateCalls[1][1];
+    const updated = redirectUpdateFn({
+      state: 'mock-state-uuid',
+      redirectUrl: '/stale-from-earlier-attempt',
+    });
+
+    expect(updated.redirectUrl).toBeUndefined();
   });
 
   it('should redirect to OAuth provider', async () => {

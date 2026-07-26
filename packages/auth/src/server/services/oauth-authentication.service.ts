@@ -2,10 +2,10 @@ import { extname } from 'path';
 import { createError, H3Event } from 'h3';
 import { SessionService } from './session.service';
 import { AuthSessionData } from '../types/auth-session.types';
-import { AnalogAuthConfig } from '../types/auth.types';
+import type { AnalogAuthConfig } from '../types/auth.types';
 import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
-import { getSession, updateSession } from '@analog-tools/session';
+import { getSession, refetchSession, updateSession } from '@analog-tools/session';
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
@@ -14,6 +14,15 @@ import { getSession, updateSession } from '@analog-tools/session';
 @Injectable()
 export class OAuthAuthenticationService {
   private logger: LoggerService;
+  private inflightRefreshes = new Map<
+    string,
+    Promise<{
+      access_token: string;
+      id_token?: string;
+      refresh_token?: string;
+      expires_in: number;
+    }>
+  >();
 
   constructor(config: AnalogAuthConfig) {
     this.logger = inject(LoggerService).forContext(
@@ -272,6 +281,25 @@ export class OAuthAuthenticationService {
     }
   }
 
+  private async refreshTokensDeduped(refreshToken: string): Promise<{
+    access_token: string;
+    id_token?: string;
+    refresh_token?: string;
+    expires_in: number;
+  }> {
+    const existingRefresh = this.inflightRefreshes.get(refreshToken);
+    if (existingRefresh) {
+      return existingRefresh;
+    }
+
+    const refreshPromise = this.refreshTokens(refreshToken).finally(() => {
+      this.inflightRefreshes.delete(refreshToken);
+    });
+
+    this.inflightRefreshes.set(refreshToken, refreshPromise);
+    return refreshPromise;
+  }
+
   /**
    * Get user info from OAuth provider with improved error handling and retry logic
    */
@@ -432,10 +460,136 @@ export class OAuthAuthenticationService {
     // Update session with user and auth data
     await updateSession(event, () => ({ user, auth }));
 
+    if (this.getConfigValue('singleSessionPerUser', false)) {
+      // Optional policy: keep current request session and invalidate
+      // other authenticated sessions for the same resolved user identity.
+      // Guarded so a storage error in this optional cleanup can't fail an
+      // otherwise-successful login (tokens are already saved above).
+      try {
+        await this.invalidateOtherUserSessions(event, user, userData);
+      } catch (error) {
+        this.logger.error('Failed to invalidate other user sessions', error);
+      }
+    }
+
     // Log successful session save
     this.logger.debug('Authentication session data saved successfully');
 
     return { user, tokens };
+  }
+
+  private resolveUserIdentity(
+    user: Record<string, unknown> | null | undefined,
+    userData: Record<string, unknown> | null | undefined
+  ): string | null {
+    const candidates = [
+      user?.['id'],
+      user?.['sub'],
+      userData?.['id'],
+      userData?.['sub'],
+      userData?.['email'],
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.length > 0) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private resolveSessionIdentity(session: AuthSessionData): string | null {
+    const sessionUser =
+      session.user && typeof session.user === 'object'
+        ? (session.user as Record<string, unknown>)
+        : null;
+    const sessionUserInfo =
+      session.auth?.userInfo && typeof session.auth.userInfo === 'object'
+        ? (session.auth.userInfo as Record<string, unknown>)
+        : null;
+
+    const candidates = [
+      sessionUser?.['id'],
+      sessionUser?.['sub'],
+      sessionUserInfo?.['id'],
+      sessionUserInfo?.['sub'],
+      sessionUserInfo?.['email'],
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.length > 0) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private async invalidateOtherUserSessions(
+    event: H3Event,
+    user: Record<string, unknown> | null | undefined,
+    userData: Record<string, unknown> | null | undefined
+  ): Promise<void> {
+    const targetIdentity = this.resolveUserIdentity(user, userData);
+    if (!targetIdentity) {
+      this.logger.debug(
+        'Skipping session invalidation because user identity could not be resolved'
+      );
+      return;
+    }
+
+    const currentSessionId =
+      typeof event.context['__session_id__'] === 'string'
+        ? (event.context['__session_id__'] as string)
+        : null;
+
+    if (!currentSessionId) {
+      this.logger.debug(
+        'Skipping session invalidation because current session id is unavailable'
+      );
+      return;
+    }
+
+    const sessionService = inject(SessionService);
+    const activeSessions = await sessionService.getActiveSessions();
+
+    for (const activeSession of activeSessions) {
+      if (activeSession.id === currentSessionId) {
+        continue;
+      }
+
+      if (!activeSession.data.auth?.isAuthenticated) {
+        continue;
+      }
+
+      const sessionIdentity = this.resolveSessionIdentity(activeSession.data);
+      if (!sessionIdentity || sessionIdentity !== targetIdentity) {
+        continue;
+      }
+
+      activeSession.update((data) => {
+        const currentAuth = data.auth;
+        return {
+          ...data,
+          auth: {
+            ...(currentAuth ?? { isAuthenticated: false }),
+            isAuthenticated: false,
+            accessToken: undefined,
+            idToken: undefined,
+            refreshToken: undefined,
+            expiresAt: undefined,
+            userInfo: undefined,
+          },
+          user: null,
+        };
+      });
+
+      await activeSession.save();
+      this.logger.debug('Invalidated stale authenticated session', {
+        sessionId: activeSession.id,
+      });
+    }
   }
 
   /**
@@ -493,8 +647,11 @@ export class OAuthAuthenticationService {
           
           this.logger.debug(`Refreshing token for session ${session.id}`);
           
-          // Refresh the token
-          const tokens = await this.refreshTokens(session.data.auth.refreshToken);
+          // Refresh the token (deduped so this doesn't race a concurrent
+          // request-driven refresh for the same refresh token)
+          const tokens = await this.refreshTokensDeduped(
+            session.data.auth.refreshToken
+          );
           
           // Update session data
           session.update((data) => {
@@ -526,13 +683,29 @@ export class OAuthAuthenticationService {
             error,
             { sessionId: session.id }
           );
-          
-          // Mark session as unauthenticated on refresh failure
+
+          // Mark session as unauthenticated on refresh failure, unless a
+          // concurrent request-driven refresh already updated this same
+          // session (in storage) with a still-valid token in the meantime.
           try {
+            const latestData = await session.refetch();
+            const hasLatestValidAuth =
+              !!latestData?.auth?.isAuthenticated &&
+              typeof latestData.auth.expiresAt === 'number' &&
+              latestData.auth.expiresAt > Date.now();
+
+            if (hasLatestValidAuth) {
+              failed--;
+              this.logger.debug(
+                `Skipping unauthenticated mark for session ${session.id} - already refreshed concurrently`
+              );
+              continue;
+            }
+
             session.update((data) => {
               const currentAuth = data.auth;
               if (!currentAuth) return data;
-              
+
               return {
                 ...data,
                 auth: {
@@ -594,7 +767,9 @@ export class OAuthAuthenticationService {
       if (session.auth.refreshToken) {
         try {
           // Refresh the token
-          const tokens = await this.refreshTokens(session.auth.refreshToken);
+          const tokens = await this.refreshTokensDeduped(
+            session.auth.refreshToken
+          );
 
           // Update session with new tokens
           await updateSession(event, (currentSession: AuthSessionData) => ({
@@ -611,6 +786,20 @@ export class OAuthAuthenticationService {
           return true;
         } catch (error) {
           this.logger.error('Error refreshing token', error);
+
+          // Re-read from storage, not the request-scoped context copy: a
+          // concurrent request may have already refreshed this session
+          // successfully, and getSession(event) can never observe that.
+          const latestSession = await refetchSession<AuthSessionData>(event);
+          const hasLatestValidAuth =
+            !!latestSession?.auth?.isAuthenticated &&
+            typeof latestSession.auth.expiresAt === 'number' &&
+            latestSession.auth.expiresAt > Date.now();
+
+          if (hasLatestValidAuth) {
+            return true;
+          }
+
           // Clear auth data on refresh token failure
           await updateSession(event, (currentSession: AuthSessionData) => ({
             auth: {
@@ -651,7 +840,7 @@ export class OAuthAuthenticationService {
             return; // Session no longer valid
           }
 
-          const tokens = await this.refreshTokens(
+          const tokens = await this.refreshTokensDeduped(
             currentSession.auth.refreshToken
           );
 

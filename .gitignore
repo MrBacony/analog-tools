@@ -33,9 +33,12 @@ node_modules
 /coverage
 /libpeerconnection.log
 npm-debug.log
+pnpm-debug.log
 yarn-error.log
 testem.log
 /typings
+
+.pnpm-store
 
 # System Files
 .DS_Store

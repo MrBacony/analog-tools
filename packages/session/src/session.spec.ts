@@ -4,12 +4,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { 
-  useSession, 
-  getSession, 
-  updateSession, 
-  destroySession, 
-  regenerateSession 
+import {
+  useSession,
+  getSession,
+  refetchSession,
+  updateSession,
+  destroySession,
+  regenerateSession
 } from './session';
 import { createUnstorageStore } from './storage';
 import type { SessionData, SessionConfig } from './types';
@@ -181,6 +182,31 @@ describe('Core Session Functions', () => {
     });
   });
 
+  describe('refetchSession', () => {
+    it('should read the latest data from storage, not the cached context copy', async () => {
+      await useSession(mockEvent, config);
+
+      const sessionId = mockEvent.context['__session_id__'];
+      // Simulate a concurrent request writing a newer version directly to
+      // storage, without going through this event's context.
+      await store.setItem(sessionId, {
+        userId: 'new-user',
+        username: 'updated-by-another-request',
+      });
+
+      // The cached context copy is unaware of the concurrent write.
+      expect(getSession<TestSessionData>(mockEvent)?.username).toBeUndefined();
+
+      const refetched = await refetchSession<TestSessionData>(mockEvent);
+      expect(refetched?.username).toBe('updated-by-another-request');
+    });
+
+    it('should return null when no session exists', async () => {
+      const refetched = await refetchSession<TestSessionData>(mockEvent);
+      expect(refetched).toBeNull();
+    });
+  });
+
   describe('updateSession', () => {
     it('should update session data immutably', async () => {
       await useSession(mockEvent, config);
@@ -307,6 +333,29 @@ describe('Core Session Functions', () => {
       const faultyConfig = { ...config, store: faultyStore };
 
       await expect(useSession(mockEvent, faultyConfig)).rejects.toThrow();
+    });
+
+    it('should report storage failures as STORAGE_ERROR', async () => {
+      const faultyStore = {
+        ...store,
+        setItem: vi.fn().mockRejectedValue(new Error('Storage error')),
+      };
+
+      const faultyConfig = { ...config, store: faultyStore };
+
+      await expect(useSession(mockEvent, faultyConfig)).rejects.toMatchObject({
+        code: 'STORAGE_ERROR',
+      });
+    });
+
+    it('should report cookie failures as COOKIE_ERROR', async () => {
+      mockSetCookie.mockImplementationOnce(() => {
+        throw new Error('Cookie error');
+      });
+
+      await expect(useSession(mockEvent, config)).rejects.toMatchObject({
+        code: 'COOKIE_ERROR',
+      });
     });
 
     it('should handle crypto errors gracefully', async () => {

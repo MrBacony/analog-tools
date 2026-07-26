@@ -21,6 +21,7 @@ type StorageBasicConfig = {
   ttl?: number; // Time to live in seconds
   prefix?: string; // Prefix for session keys
   sessionSecret?: string; // Secret key for session encryption
+  cookieName?: string; // Session cookie name (defaults to 'auth.session')
 };
 
 type RedisBasicConfig = {
@@ -92,6 +93,12 @@ export type AnalogAuthConfig = {
   whitelistFileTypes?: string[];
   unprotectedRoutes?: string[];
   logoutUrl?: string;
+  /**
+   * Optional security policy: if true, a successful login invalidates
+   * other authenticated sessions for the same user identity.
+   * Default: false (allow multiple device/browser sessions).
+   */
+  singleSessionPerUser?: boolean;
 
   /**
    * Session storage configuration with type-safe mapping between

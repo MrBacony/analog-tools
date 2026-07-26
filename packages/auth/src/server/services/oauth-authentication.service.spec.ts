@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OAuthAuthenticationService } from './oauth-authentication.service';
 import { LoggerService } from '@analog-tools/logger';
 import { SessionService } from './session.service';
-import { AnalogAuthConfig } from '../types/auth.types';
+import type { AnalogAuthConfig } from '../types/auth.types';
 import {
   AuthSessionData,
   SessionWithHandler,
@@ -18,11 +18,12 @@ import {
 // Mock the @analog-tools/session functions
 vi.mock('@analog-tools/session', () => ({
   getSession: vi.fn(),
+  refetchSession: vi.fn(),
   updateSession: vi.fn(),
 }));
 
 // Import the mocked functions for use in tests
-import { getSession, updateSession } from '@analog-tools/session';
+import { getSession, refetchSession, updateSession } from '@analog-tools/session';
 
 // Mock the fetch function
 vi.stubGlobal('fetch', vi.fn());
@@ -790,6 +791,128 @@ describe('OAuthAuthenticationService', () => {
       expect(result).toBe(true);
       expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 0);
     });
+
+    it('should dedupe concurrent refresh requests for same expired session token', async () => {
+      // Reset fetch mock
+      vi.mocked(global.fetch).mockReset();
+
+      const expiredAuth = {
+        ...(mockSessionData.auth as NonNullable<AuthSessionData['auth']>),
+        isAuthenticated: true,
+        expiresAt: Date.now() - 1000,
+        refreshToken: 'shared-refresh-token',
+      };
+
+      let resolveRefresh: (value: unknown) => void;
+      const refreshPromise = new Promise((resolve) => {
+        resolveRefresh = resolve;
+      });
+
+      // Signals when the token-endpoint fetch actually starts waiting, so
+      // the test can release it deterministically instead of relying on
+      // both isAuthenticated() calls having reached that point by the time
+      // this synchronous test body continues.
+      let signalTokenFetchStarted: () => void;
+      const tokenFetchStarted = new Promise<void>((resolve) => {
+        signalTokenFetchStarted = resolve;
+      });
+
+      vi.mocked(global.fetch)
+        .mockResolvedValue({
+          ok: true,
+          json: async () => mockOpenIDConfig,
+        } as Response)
+        .mockImplementation(async (url) => {
+          if (url === mockOpenIDConfig.token_endpoint) {
+            signalTokenFetchStarted();
+            await refreshPromise;
+            return {
+              ok: true,
+              json: async () => ({
+                access_token: 'new-access-token',
+                id_token: 'new-id-token',
+                refresh_token: 'new-refresh-token',
+                expires_in: 3600,
+              }),
+            } as Response;
+          }
+
+          return {
+            ok: true,
+            json: async () => mockOpenIDConfig,
+          } as Response;
+        });
+
+      const currentSession = {
+        ...mockSessionData,
+        auth: expiredAuth,
+      } as AuthSessionData;
+      vi.mocked(getSession).mockReturnValue(currentSession);
+
+      const first = service.isAuthenticated(mockEvent as H3Event);
+      const second = service.isAuthenticated(mockEvent as H3Event);
+
+      await tokenFetchStarted;
+      resolveRefresh(undefined);
+
+      const [firstResult, secondResult] = await Promise.all([first, second]);
+
+      expect(firstResult).toBe(true);
+      expect(secondResult).toBe(true);
+
+      const tokenCalls = vi
+        .mocked(global.fetch)
+        .mock.calls.filter(([url]) => url === mockOpenIDConfig.token_endpoint);
+      expect(tokenCalls).toHaveLength(1);
+    });
+
+    it('should not mark session unauthenticated if latest session already has valid token after refresh error', async () => {
+      vi.mocked(global.fetch).mockReset();
+
+      const now = Date.now();
+      const staleExpiredSession = {
+        ...mockSessionData,
+        auth: {
+          ...(mockSessionData.auth as NonNullable<AuthSessionData['auth']>),
+          isAuthenticated: true,
+          refreshToken: 'stale-refresh-token',
+          expiresAt: now - 1000,
+        },
+      } as AuthSessionData;
+
+      const latestValidSession = {
+        ...mockSessionData,
+        auth: {
+          ...(mockSessionData.auth as NonNullable<AuthSessionData['auth']>),
+          isAuthenticated: true,
+          refreshToken: 'fresh-refresh-token',
+          expiresAt: now + 60_000,
+        },
+      } as AuthSessionData;
+
+      vi.mocked(getSession).mockReturnValue(staleExpiredSession);
+      // Simulates a concurrent request having already refreshed the token
+      // and written it to storage - only a real storage read (refetchSession)
+      // can see this, not the request-scoped getSession(event).
+      vi.mocked(refetchSession).mockResolvedValue(latestValidSession);
+
+      vi.mocked(global.fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockOpenIDConfig,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({ error: 'invalid_grant' }),
+        } as Response);
+
+      const result = await service.isAuthenticated(mockEvent as H3Event);
+
+      expect(refetchSession).toHaveBeenCalledWith(mockEvent);
+      expect(result).toBe(true);
+      expect(mockSessionData.auth?.isAuthenticated).toBe(true);
+    });
   });
 
   describe('getAuthenticatedUser', () => {
@@ -840,6 +963,128 @@ describe('OAuthAuthenticationService', () => {
   describe('handleCallback', () => {
     const mockCode = 'auth-code-123';
     const mockState = 'state-456';
+
+    it('should not invalidate other authenticated sessions by default', async () => {
+      const currentSessionId = 'current-session-id';
+      mockEvent.context = {
+        ...(mockEvent.context ?? {}),
+        __session_id__: currentSessionId,
+      };
+
+      const otherSessionForSameUser = {
+        id: 'other-session-id',
+        data: {
+          auth: {
+            isAuthenticated: true,
+            userInfo: { sub: 'user123' },
+          },
+          user: { id: 'user123' },
+        },
+        update: vi.fn(),
+        save: vi.fn().mockResolvedValue(undefined),
+      } as unknown as SessionWithHandler;
+
+      const unrelatedSession = {
+        id: 'unrelated-session-id',
+        data: {
+          auth: {
+            isAuthenticated: true,
+            userInfo: { sub: 'another-user' },
+          },
+          user: { id: 'another-user' },
+        },
+        update: vi.fn(),
+        save: vi.fn().mockResolvedValue(undefined),
+      } as unknown as SessionWithHandler;
+
+      mockSessionService.getActiveSessions = vi
+        .fn()
+        .mockResolvedValue([otherSessionForSameUser, unrelatedSession]);
+
+      await service.handleCallback(mockEvent as H3Event, mockCode, mockState);
+
+      expect(mockSessionService.getActiveSessions).not.toHaveBeenCalled();
+      expect(otherSessionForSameUser.update).not.toHaveBeenCalled();
+      expect(otherSessionForSameUser.save).not.toHaveBeenCalled();
+      expect(unrelatedSession.update).not.toHaveBeenCalled();
+      expect(unrelatedSession.save).not.toHaveBeenCalled();
+    });
+
+    it('should invalidate other authenticated sessions for the same user when singleSessionPerUser is enabled', async () => {
+      const currentSessionId = 'current-session-id';
+      mockEvent.context = {
+        ...(mockEvent.context ?? {}),
+        __session_id__: currentSessionId,
+      };
+
+      Object.defineProperty(service, 'config', {
+        value: { ...mockConfig, singleSessionPerUser: true },
+        writable: true,
+      });
+
+      const otherSessionForSameUser = {
+        id: 'other-session-id',
+        data: {
+          auth: {
+            isAuthenticated: true,
+            userInfo: { sub: 'user123' },
+          },
+          user: { id: 'user123' },
+        },
+        update: vi.fn(),
+        save: vi.fn().mockResolvedValue(undefined),
+      } as unknown as SessionWithHandler;
+
+      const unrelatedSession = {
+        id: 'unrelated-session-id',
+        data: {
+          auth: {
+            isAuthenticated: true,
+            userInfo: { sub: 'another-user' },
+          },
+          user: { id: 'another-user' },
+        },
+        update: vi.fn(),
+        save: vi.fn().mockResolvedValue(undefined),
+      } as unknown as SessionWithHandler;
+
+      mockSessionService.getActiveSessions = vi
+        .fn()
+        .mockResolvedValue([otherSessionForSameUser, unrelatedSession]);
+
+      await service.handleCallback(mockEvent as H3Event, mockCode, mockState);
+
+      expect(otherSessionForSameUser.update).toHaveBeenCalledTimes(1);
+      expect(otherSessionForSameUser.save).toHaveBeenCalledTimes(1);
+      expect(unrelatedSession.update).not.toHaveBeenCalled();
+      expect(unrelatedSession.save).not.toHaveBeenCalled();
+    });
+
+    it('should not fail login when invalidating other user sessions throws', async () => {
+      const currentSessionId = 'current-session-id';
+      mockEvent.context = {
+        ...(mockEvent.context ?? {}),
+        __session_id__: currentSessionId,
+      };
+
+      Object.defineProperty(service, 'config', {
+        value: { ...mockConfig, singleSessionPerUser: true },
+        writable: true,
+      });
+
+      mockSessionService.getActiveSessions = vi
+        .fn()
+        .mockRejectedValue(new Error('storage unavailable'));
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).resolves.not.toThrow();
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to invalidate other user sessions',
+        expect.any(Error)
+      );
+    });
 
     it('should exchange code for tokens and store in session', async () => {
       // Mock successful responses
@@ -1130,6 +1375,7 @@ describe('OAuthAuthenticationService', () => {
           },
           update: vi.fn(),
           save: vi.fn().mockResolvedValue(undefined),
+          refetch: vi.fn().mockResolvedValue(null),
         },
         {
           id: 'session-2',
@@ -1143,6 +1389,7 @@ describe('OAuthAuthenticationService', () => {
           },
           update: vi.fn(),
           save: vi.fn().mockResolvedValue(undefined),
+          refetch: vi.fn().mockResolvedValue(null),
         },
       ];
 
@@ -1201,6 +1448,7 @@ describe('OAuthAuthenticationService', () => {
           },
           update: vi.fn(),
           save: vi.fn().mockResolvedValue(undefined),
+          refetch: vi.fn().mockResolvedValue(null),
         },
         {
           id: 'session-2',
@@ -1214,6 +1462,15 @@ describe('OAuthAuthenticationService', () => {
           },
           update: vi.fn(),
           save: vi.fn().mockResolvedValue(undefined),
+          // No concurrent refresh happened - refetch reflects the same stale/expired auth
+          refetch: vi.fn().mockResolvedValue({
+            auth: {
+              isAuthenticated: true,
+              accessToken: 'access-2',
+              refreshToken: 'invalid-refresh',
+              expiresAt: Date.now() - 1000,
+            },
+          }),
         },
       ];
 
@@ -1288,6 +1545,61 @@ describe('OAuthAuthenticationService', () => {
       });
 
       // Verify no sessions were updated
+      expect(mockSessions[0].update).not.toHaveBeenCalled();
+      expect(mockSessions[0].save).not.toHaveBeenCalled();
+    });
+
+    it('should not mark a session unauthenticated if a concurrent refresh already succeeded', async () => {
+      const mockSessions = [
+        {
+          id: 'session-1',
+          data: {
+            auth: {
+              isAuthenticated: true,
+              accessToken: 'access-1',
+              refreshToken: 'stale-refresh-token',
+              expiresAt: Date.now() + 30 * 1000,
+            },
+          },
+          update: vi.fn(),
+          save: vi.fn().mockResolvedValue(undefined),
+          // A concurrent request-driven refresh already rotated this
+          // session's tokens and wrote a still-valid expiresAt to storage
+          refetch: vi.fn().mockResolvedValue({
+            auth: {
+              isAuthenticated: true,
+              accessToken: 'fresh-access-token',
+              refreshToken: 'fresh-refresh-token',
+              expiresAt: Date.now() + 60 * 60 * 1000,
+            },
+          }),
+        },
+      ];
+
+      mockSessionService.getActiveSessions = vi
+        .fn()
+        .mockResolvedValue(mockSessions);
+
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockOpenIDConfig,
+      } as Response);
+
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'invalid_grant' }),
+      } as Response);
+
+      const result = await service.refreshExpiringTokens();
+
+      expect(result).toEqual({
+        refreshed: 0,
+        failed: 0,
+        total: 1,
+      });
+
+      expect(mockSessions[0].refetch).toHaveBeenCalled();
       expect(mockSessions[0].update).not.toHaveBeenCalled();
       expect(mockSessions[0].save).not.toHaveBeenCalled();
     });
