@@ -78,10 +78,18 @@ function updateVersions(targetVersion) {
     ['dependencies', 'peerDependencies'].forEach((depType) => {
       if (pkg[depType]) {
         Object.keys(pkg[depType]).forEach((dep) => {
-          if (packageNames.includes(dep)) {
-            pkg[depType][dep] = `^${targetVersion}`;
-            updated = true;
-          }
+          if (!packageNames.includes(dep)) return;
+
+          // `workspace:` ranges must survive the bump. pnpm needs them to link
+          // the local packages, and rewriting them here would both break
+          // `pnpm install --frozen-lockfile` (the lockfile still records the
+          // workspace specifier) and point the source tree at versions that
+          // are not on npm yet. packages/auth/tools/update-package-json.js
+          // resolves them to concrete versions when building for publish.
+          if (String(pkg[depType][dep]).startsWith('workspace:')) return;
+
+          pkg[depType][dep] = `^${targetVersion}`;
+          updated = true;
         });
       }
     });

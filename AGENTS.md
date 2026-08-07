@@ -110,11 +110,13 @@ Location: `/packages/auth/src/server`
 Implements Backend-for-Frontend OAuth 2.0/OIDC authentication:
 
 **Key Components:**
+
 - `useAnalogAuth()` - Initializes auth system and returns route handler
 - `OAuthAuthenticationService` - Core OAuth logic (token exchange, refresh, validation)
 - `SessionService` - Manages auth sessions via `@analog-tools/session`
 
 **Routes** (exposed via middleware):
+
 - `POST /login` - Initiates OAuth flow
 - `GET /callback` - OAuth provider callback handler
 - `POST /logout` - Revokes tokens and clears session
@@ -122,6 +124,7 @@ Implements Backend-for-Frontend OAuth 2.0/OIDC authentication:
 - `GET /user` - Returns current user
 
 **Security:**
+
 - Tokens stored server-side only (never exposed to client)
 - HMAC-SHA256 signed session cookies
 - Token refresh with 5-minute safety margin
@@ -129,6 +132,7 @@ Implements Backend-for-Frontend OAuth 2.0/OIDC authentication:
 - Configurable unprotected routes with wildcard support
 
 **Configuration** (`AnalogAuthConfig`):
+
 ```typescript
 {
   issuer: string;              // OAuth provider URL
@@ -168,6 +172,7 @@ regenerateSession(event)
 ```
 
 **Storage:**
+
 - Direct unstorage integration (no wrapper abstractions)
 - Use `createUnstorageStore(driver)` factory
 - Supports: Redis, Cloudflare KV, file system, MongoDB, etc.
@@ -209,6 +214,7 @@ Structured logging with deduplication:
 - **Type declarations:** Generated via `vite-plugin-dts`
 
 **Special build process for auth package:**
+
 1. Build `@analog-tools/auth-angular` (client components)
 2. Build `@analog-tools/auth` (server functions)
 3. Copy auth-angular output to `auth/angular/` subdirectory
@@ -234,22 +240,25 @@ Structured logging with deduplication:
 ### Route Protection
 
 Unprotected routes support exact matches and wildcards:
+
 ```typescript
 unprotectedRoutes: [
-  '/',                    // Exact: / and /
-  '/login',              // Exact: /login and /login/
-  '/api/public/*',       // Wildcard: /api/public/anything
-]
+  '/', // Exact: / and /
+  '/login', // Exact: /login and /login/
+  '/api/public/*', // Wildcard: /api/public/anything
+];
 ```
 
 File type whitelist for static assets:
+
 ```typescript
-whitelistFileTypes: ['.css', '.js', '.png', '.svg', '.ico']
+whitelistFileTypes: ['.css', '.js', '.png', '.svg', '.ico'];
 ```
 
 ### Token Refresh
 
 Token refresh strategies:
+
 1. **Lazy refresh:** On access if expired
 2. **Proactive refresh:** Background refresh 5 minutes before expiry
 3. **Scheduled refresh:** CRON job via `refreshExpiringTokens()`
@@ -265,12 +274,13 @@ Safety margin: `TOKEN_REFRESH_SAFETY_MARGIN = 300` (5 minutes)
 ### Error Handling
 
 Session errors:
+
 ```typescript
 type SessionError = {
   code: 'COOKIE_ERROR' | 'INVALID_SESSION' | 'CRYPTO_ERROR' | 'STORAGE_ERROR' | 'EXPIRED_SESSION';
   message: string;
   details?: Record<string, unknown>;
-}
+};
 ```
 
 Auth errors use H3 `createError()` with automatic retry logic for network failures.
@@ -299,6 +309,7 @@ Per `.github/copilot-instructions.md`, this project follows:
 Location: `/apps/analog-example`
 
 Demonstrates full integration of all packages:
+
 - Auth configuration in `src/auth.config.ts`
 - Middleware setup in `src/server/middleware/auth.ts`
 - Protected and unprotected routes
@@ -307,10 +318,36 @@ Demonstrates full integration of all packages:
 ## Recent Changes
 
 **Current branch (`whitelist_filetypes`):**
+
 - Added `whitelistFileTypes` configuration
 - File extension-based unprotected route matching
 
 **Session redesign (v0.0.6):**
+
 - Simplified to functional API
 - Removed overengineered abstractions
 - Direct unstorage integration
+
+<!-- nx configuration start-->
+<!-- Leave the start & end comments to automatically receive updates. -->
+
+## General Guidelines for working with Nx
+
+- For navigating/exploring the workspace, invoke the `nx-workspace` skill first - it has patterns for querying projects, targets, and dependencies
+- When running tasks (for example build, lint, test, e2e, etc.), always prefer running the task through `nx` (i.e. `nx run`, `nx run-many`, `nx affected`) instead of using the underlying tooling directly
+- Prefix nx commands with the workspace's package manager (e.g., `pnpm nx build`, `npm exec nx test`) - avoids using globally installed CLI
+- You have access to the Nx MCP server and its tools, use them to help the user
+- For Nx plugin best practices, check `node_modules/@nx/<plugin>/PLUGIN.md`. Not all plugins have this file - proceed without it if unavailable.
+- NEVER guess CLI flags - always check nx_docs or `--help` first when unsure
+
+## Scaffolding & Generators
+
+- For scaffolding tasks (creating apps, libs, project structure, setup), ALWAYS invoke the `nx-generate` skill FIRST before exploring or calling MCP tools
+
+## When to use nx_docs
+
+- USE for: advanced config options, unfamiliar flags, migration guides, plugin configuration, edge cases
+- DON'T USE for: basic generator syntax (`nx g @nx/react:app`), standard commands, things you already know
+- The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
+
+<!-- nx configuration end-->
