@@ -278,13 +278,13 @@ importers:
   packages/auth:
     dependencies:
       '@analog-tools/inject':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../inject
       '@analog-tools/logger':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../logger
       '@analog-tools/session':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../session
       '@analogjs/router':
         specifier: ^1.16.1 || ^2.0.0
@@ -353,7 +353,7 @@ importers:
   packages/logger:
     dependencies:
       '@analog-tools/inject':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../inject
       h3:
         specifier: ^1.10.1
