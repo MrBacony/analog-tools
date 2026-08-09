@@ -10,8 +10,9 @@
     "build": {
       "executor": "@nx/js:tsc",
       "outputs": [
-        "{workspaceRoot}/node_modules/{projectRoot}"
+        "{workspaceRoot}/node_modules/{projectName}"
       ],
+      "cache": false,
       "options": {
         "outputPath": "{workspaceRoot}/node_modules/@analog-tools/generator/",
         "main": "packages/generator/src/index.ts",

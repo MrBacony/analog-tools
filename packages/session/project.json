@@ -31,9 +31,19 @@
         }
       ]
     },
+    "vite:build": {
+      "cache": false
+    },
     "build": {
-      "executor": "nx:noop",
-      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "node tools/scripts/prepare-package-manifest.js session"
+        ],
+        "parallel": false
+      },
+      "outputs": ["{workspaceRoot}/node_modules/{projectName}"],
+      "cache": false,
       "dependsOn": [
         {
           "target": "vite:build"

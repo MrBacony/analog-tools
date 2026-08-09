@@ -32,18 +32,22 @@
         }
       ]
     },
+    "vite:build": {
+      "cache": false
+    },
     "build": {
       "executor": "nx:run-commands",
+      "cache": false,
       "options": {
         "commands": [
-          "cp packages/auth/package.json node_modules/@analog-tools/auth/package.json",
+          "node tools/scripts/prepare-package-manifest.js auth",
           "mkdir -p node_modules/@analog-tools/auth/angular",
           "cp -R node_modules/@analog-tools/auth-angular/* node_modules/@analog-tools/auth/angular/",
           "node packages/auth/tools/update-package-json.js"
         ],
         "parallel": false
       },
-      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
+      "outputs": ["{workspaceRoot}/node_modules/{projectName}"],
       "dependsOn": [
         {
           "target": "build",

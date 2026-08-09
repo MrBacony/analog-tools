@@ -33,14 +33,24 @@
         }
       ]
     },
+    "vite:build": {
+      "cache": false
+    },
     "build": {
-      "executor": "nx:noop",
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "node tools/scripts/prepare-package-manifest.js inject"
+        ],
+        "parallel": false
+      },
       "dependsOn": [
         {
           "target": "vite:build"
         }
       ],
-      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"]
+      "outputs": ["{workspaceRoot}/node_modules/{projectName}"],
+      "cache": false
     },
     "pack": {
       "executor": "nx:run-commands",
