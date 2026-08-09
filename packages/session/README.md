@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
 Initializes a session for an H3 event. Must be called before any other session operation on that event.
 
 - Reads the session cookie, verifies its HMAC-SHA256 signature, and loads session data from the store
-- If no valid session exists, generates a new session ID (using `nanoid`), sets a signed cookie, and persists initial data
+- If no valid session exists, generates a new session ID (using `crypto.randomUUID()`), sets a signed cookie, and persists initial data
 - Stores the session config in the event context so subsequent calls (`updateSession`, `destroySession`, `regenerateSession`) can access it
 
 ```typescript
@@ -448,7 +448,7 @@ const configAfterRotation = {
 
 - HMAC-SHA256 cookie signatures using the Web Crypto API (`crypto.subtle`)
 - Timing-safe signature comparison to prevent timing attacks
-- Session IDs generated with `nanoid` (URL-safe, 21 characters, 126 bits of entropy)
+- Session IDs generated with the Web Crypto API (`crypto.randomUUID()`, 122 bits of entropy) -- no external dependency
 - `httpOnly: true` by default -- cookies are not accessible from client-side JavaScript
 - Secret rotation support for zero-downtime key changes
 - `regenerateSession` prevents session fixation after privilege escalation
@@ -464,7 +464,7 @@ const configAfterRotation = {
 - **No built-in session expiry cleanup** -- expired sessions remain in the store until explicitly removed or the storage driver handles TTL natively (Redis `EX`, Cloudflare KV `expirationTtl`). The `maxAge` config only controls the cookie lifetime.
 - **Memory driver has known issues** -- use Redis, file system, or another persistent driver for development and production.
 - **No per-request locking** -- concurrent requests modifying the same session can produce race conditions. The last write wins.
-- **Web Crypto API required** -- the signing functions use `crypto.subtle`, which is available in Node.js 15+, Deno, Cloudflare Workers, and modern browsers. Environments without Web Crypto will throw at runtime.
+- **Web Crypto API required** -- cookie signing uses `crypto.subtle` and session IDs use `crypto.randomUUID()`, both read off the `crypto` global. That global is unflagged from Node.js 19+ (available in 16.15+/17.6+ behind `--experimental-global-webcrypto`), and present in Deno, Bun, and Cloudflare Workers. Server runtimes without it will throw at runtime.
 
 ## Related Packages
 
