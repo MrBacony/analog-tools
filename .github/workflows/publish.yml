@@ -50,6 +50,8 @@ jobs:
 
       - name: Publish to npm
         run: |
+          # Dependencies must reach npm before the packages that depend on them,
+          # otherwise a dependent lands referencing versions that do not exist yet.
           publishable_packages=$(node <<'NODE'
           const fs = require('node:fs');
           const path = require('node:path');
@@ -57,15 +59,59 @@ jobs:
           const packagesDir = path.join(process.cwd(), 'packages');
           const internalPackages = new Set(['@analog-tools/auth-angular']);
 
-          const packageNames = fs
+          const manifests = fs
             .readdirSync(packagesDir, { withFileTypes: true })
             .filter((entry) => entry.isDirectory())
             .map((entry) => path.join(packagesDir, entry.name, 'package.json'))
             .filter((filePath) => fs.existsSync(filePath))
-            .map((filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8')).name)
-            .filter((name) => Boolean(name) && !internalPackages.has(name));
+            .map((filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8')))
+            .filter((manifest) => Boolean(manifest.name));
 
-          console.log(packageNames.join(' '));
+          const workspaceNames = new Set(manifests.map((m) => m.name));
+
+          // Edges point from a package to the workspace packages it needs first.
+          const dependencies = new Map(
+            manifests.map((manifest) => [
+              manifest.name,
+              new Set(
+                [
+                  'dependencies',
+                  'peerDependencies',
+                  'optionalDependencies',
+                ].flatMap((section) => Object.keys(manifest[section] ?? {}))
+                  .filter((name) => workspaceNames.has(name))
+              ),
+            ])
+          );
+
+          // Kahn's algorithm, alphabetical tie-break so the order is stable
+          // regardless of how the filesystem returns directory entries.
+          const ordered = [];
+          const remaining = new Set(workspaceNames);
+
+          while (remaining.size > 0) {
+            const ready = [...remaining]
+              .filter((name) =>
+                [...dependencies.get(name)].every((dep) => !remaining.has(dep))
+              )
+              .sort();
+
+            if (ready.length === 0) {
+              console.error(
+                `Cycle among workspace packages: ${[...remaining].sort().join(', ')}`
+              );
+              process.exit(1);
+            }
+
+            for (const name of ready) {
+              ordered.push(name);
+              remaining.delete(name);
+            }
+          }
+
+          console.log(
+            ordered.filter((name) => !internalPackages.has(name)).join(' ')
+          );
           NODE
           )
 
@@ -74,15 +120,27 @@ jobs:
             exit 1
           fi
 
+          echo "Publish order: $publishable_packages"
+
           for package_name in $publishable_packages; do
             build_dir="node_modules/$package_name"
-            if [ -f "$build_dir/package.json" ]; then
-              echo "Publishing $build_dir"
-              (cd "$build_dir" && pnpm publish --provenance --access public)
-            else
+
+            if [ ! -f "$build_dir/package.json" ]; then
               echo "Expected build output missing for $package_name at $build_dir"
               exit 1
             fi
+
+            version=$(node -p "require('./$build_dir/package.json').version")
+
+            # Republishing an existing version is a hard npm error. Skipping lets
+            # a partially completed release be finished by re-running this job.
+            if npm view "$package_name@$version" version >/dev/null 2>&1; then
+              echo "Skipping $package_name@$version - already on npm"
+              continue
+            fi
+
+            echo "Publishing $package_name@$version from $build_dir"
+            (cd "$build_dir" && pnpm publish --provenance --access public)
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

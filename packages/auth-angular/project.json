@@ -17,7 +17,8 @@
   "targets": {
     "build": {
       "executor": "@nx/angular:package",
-      "outputs": ["{workspaceRoot}/node_modules/{projectRoot}"],
+      "outputs": ["{workspaceRoot}/node_modules/{projectName}"],
+      "cache": false,
       "options": {
         "project": "packages/auth-angular/ng-package.json",
         "tsConfig": "packages/auth-angular/tsconfig.lib.json"
