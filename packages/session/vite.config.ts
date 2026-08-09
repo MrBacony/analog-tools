@@ -51,7 +51,6 @@ export default defineConfig(() => ({
         'node:buffer',
         'h3',
         'defu',
-        'nanoid',
         'uncrypto',
         'unstorage',
         'ioredis',

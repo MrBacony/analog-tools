@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
 Initializes a session for an H3 event. Must be called before any other session operation on that event.
 
 - Reads the session cookie, verifies its HMAC-SHA256 signature, and loads session data from the store
-- If no valid session exists, generates a new session ID (using `nanoid`), sets a signed cookie, and persists initial data
+- If no valid session exists, generates a new session ID (using `crypto.randomUUID()`), sets a signed cookie, and persists initial data
 - Stores the session config in the event context so subsequent calls (`updateSession`, `destroySession`, `regenerateSession`) can access it
 
 ```typescript
@@ -448,7 +448,7 @@ const configAfterRotation = {
 
 - HMAC-SHA256 cookie signatures using the Web Crypto API (`crypto.subtle`)
 - Timing-safe signature comparison to prevent timing attacks
-- Session IDs generated with `nanoid` (URL-safe, 21 characters, 126 bits of entropy)
+- Session IDs generated with the Web Crypto API (`crypto.randomUUID()`, 122 bits of entropy) -- no external dependency
 - `httpOnly: true` by default -- cookies are not accessible from client-side JavaScript
 - Secret rotation support for zero-downtime key changes
 - `regenerateSession` prevents session fixation after privilege escalation

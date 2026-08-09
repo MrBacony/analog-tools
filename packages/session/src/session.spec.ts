@@ -21,10 +21,25 @@ vi.mock('h3', () => ({
   setCookie: vi.fn(),
 }));
 
-// Mock nanoid
-vi.mock('nanoid', () => ({
-  nanoid: vi.fn(() => 'test-session-id-' + Math.random().toString(36).substr(2, 9)),
-}));
+// Make generated session IDs predictable while leaving the rest of the Web
+// Crypto API intact - `crypto.subtle` is a branded getter, so a spread or
+// Object.create copy of `globalThis.crypto` would break cookie signing.
+// Plain function, not vi.fn: the global `resetAllMocks` in test-setup would
+// otherwise strip the implementation and hand back `undefined` IDs.
+const realCrypto = globalThis.crypto;
+vi.stubGlobal(
+  'crypto',
+  new Proxy(realCrypto, {
+    get(target, prop) {
+      if (prop === 'randomUUID') {
+        return () =>
+          'test-session-id-' + Math.random().toString(36).slice(2, 11);
+      }
+      const value = Reflect.get(target, prop, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  })
+);
 
 import { getCookie, setCookie } from 'h3';
 const mockGetCookie = vi.mocked(getCookie);

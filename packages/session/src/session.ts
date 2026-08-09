@@ -3,7 +3,6 @@ import {
   setCookie,
   type H3Event,
 } from 'h3';
-import { nanoid } from 'nanoid';
 import type { SessionConfig, SessionData, SessionError } from './types';
 import { signCookie, unsignCookie } from './crypto';
 import type { Storage } from 'unstorage';
@@ -11,6 +10,13 @@ import type { Storage } from 'unstorage';
 // Session storage key for H3 event context
 const SESSION_CONTEXT_KEY = '__session_data__';
 const SESSION_ID_CONTEXT_KEY = '__session_id__';
+
+// Session IDs come from the Web Crypto API, which this package already
+// requires for cookie signing. Keeping ID generation dependency-free avoids
+// shipping an ESM-only dependency that CJS consumers cannot `require`.
+function generateSessionId(): string {
+  return globalThis.crypto.randomUUID();
+}
 
 // Non-atomic stores (e.g. the unstorage `fs` driver) briefly expose a
 // half-written/empty value while another request writes the same key. A short,
@@ -82,13 +88,13 @@ export async function useSession<T extends SessionData = SessionData>(
         sessionData = existingData;
       } else {
         // Session ID exists but no data - generate new session
-        sessionId = nanoid();
+        sessionId = generateSessionId();
         sessionData = config.generate ? config.generate() : ({} as T);
         isNewSession = true;
       }
     } else {
       // No session - generate new one
-      sessionId = nanoid();
+      sessionId = generateSessionId();
       sessionData = config.generate ? config.generate() : ({} as T);
       isNewSession = true;
     }
@@ -239,7 +245,7 @@ export async function regenerateSession<T extends SessionData = SessionData>(
   
   try {
     // Generate new session ID
-    const newSessionId = nanoid();
+    const newSessionId = generateSessionId();
     
     // Update context with new ID
     event.context[SESSION_ID_CONTEXT_KEY] = newSessionId;
