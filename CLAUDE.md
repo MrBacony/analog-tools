@@ -301,6 +301,33 @@ Per `.github/copilot-instructions.md`, this project follows:
 - **Tailwind CSS:** Primary styling approach
 - **Type safety:** Strict TypeScript, no `any` types
 
+## Code Comments
+
+Keep comments to a minimum. Write one only when it is genuinely necessary --
+default to no comment.
+
+**Write a comment when:**
+
+- The *why* is not derivable from the code: a workaround for an upstream bug, a
+  non-obvious ordering constraint, a deliberate deviation from the obvious
+  approach
+- A value or condition looks arbitrary and needs justification (e.g. why the
+  token refresh safety margin is 300 seconds)
+- Public API surface: TSDoc on exported functions, types, and services
+
+**Do not write a comment when:**
+
+- It restates the code (`// increment counter` above `counter++`)
+- It labels a block that a well-named function or variable would describe better
+  -- extract instead of annotate
+- It narrates the change rather than the code (`// added in v0.0.21`,
+  `// fixed the bug`) -- that belongs in the commit message
+- It is a section divider or scaffolding left over from drafting
+
+Prefer better names, smaller functions, and precise types over prose. If a
+comment explains *what* the code does, the code needs fixing, not a comment.
+Delete stale comments on sight -- a wrong comment is worse than none.
+
 ## Security Considerations
 
 1. Never expose OAuth tokens to client

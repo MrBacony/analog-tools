@@ -15,17 +15,15 @@ import {
 import { createUnstorageStore } from './storage';
 import type { SessionData, SessionConfig } from './types';
 
-// Mock H3 functions
 vi.mock('h3', () => ({
   getCookie: vi.fn(),
   setCookie: vi.fn(),
 }));
 
-// Make generated session IDs predictable while leaving the rest of the Web
-// Crypto API intact - `crypto.subtle` is a branded getter, so a spread or
-// Object.create copy of `globalThis.crypto` would break cookie signing.
-// Plain function, not vi.fn: the global `resetAllMocks` in test-setup would
-// otherwise strip the implementation and hand back `undefined` IDs.
+// A Proxy rather than a copy: `crypto.subtle` is a branded getter, so spreading
+// `globalThis.crypto` would break cookie signing. A plain function rather than
+// `vi.fn`: the global `resetAllMocks` in test-setup would strip the
+// implementation and hand back `undefined` IDs.
 const realCrypto = globalThis.crypto;
 vi.stubGlobal(
   'crypto',
@@ -58,10 +56,8 @@ describe('Core Session Functions', () => {
   let config: SessionConfig<TestSessionData>;
 
   beforeEach(async () => {
-    // Reset mocks
     vi.clearAllMocks();
     
-    // Create mock H3Event
     mockEvent = {
       node: { 
         req: {}, 
@@ -70,10 +66,8 @@ describe('Core Session Functions', () => {
       context: {},
     };
 
-    // Create test storage
     store = await createUnstorageStore<TestSessionData>({ type: 'memory' });
     
-    // Create test configuration
     config = {
       store,
       secret: 'test-secret-key',
@@ -94,14 +88,12 @@ describe('Core Session Functions', () => {
 
       await useSession(mockEvent, config);
 
-      // Should have session data in context
       const sessionData = getSession<TestSessionData>(mockEvent);
       expect(sessionData).toEqual({
         userId: 'new-user',
         lastAccess: expect.any(Number),
       });
 
-      // Should set cookie
       expect(mockSetCookie).toHaveBeenCalledWith(
         mockEvent,
         'test-session',
@@ -117,11 +109,9 @@ describe('Core Session Functions', () => {
     });
 
     it('should load existing session when valid cookie exists', async () => {
-      // Set up existing session in store
       const existingData = { userId: 'existing-user', username: 'testuser' };
       await store.setItem('existing-session-id', existingData);
 
-      // Mock signed cookie
       const { signCookie } = await import('./crypto');
       const signedCookie = await signCookie('existing-session-id', 'test-secret-key');
       mockGetCookie.mockReturnValue(signedCookie);
@@ -133,7 +123,6 @@ describe('Core Session Functions', () => {
     });
 
     it('should create new session when cookie exists but no data in store', async () => {
-      // Mock signed cookie for non-existent session
       const { signCookie } = await import('./crypto');
       const signedCookie = await signCookie('non-existent-session', 'test-secret-key');
       mockGetCookie.mockReturnValue(signedCookie);
@@ -152,7 +141,6 @@ describe('Core Session Functions', () => {
 
       await useSession(mockEvent, config);
 
-      // Should create new session
       const sessionData = getSession<TestSessionData>(mockEvent);
       expect(sessionData).toEqual({
         userId: 'new-user',
@@ -166,12 +154,10 @@ describe('Core Session Functions', () => {
         secret: ['new-secret', 'old-secret'],
       };
 
-      // Create cookie signed with old secret
       const { signCookie } = await import('./crypto');
       const signedWithOld = await signCookie('test-session', 'old-secret');
       mockGetCookie.mockReturnValue(signedWithOld);
 
-      // Set up session data
       const sessionData = { userId: 'test-user' };
       await store.setItem('test-session', sessionData);
 
@@ -247,7 +233,6 @@ describe('Core Session Functions', () => {
         username: 'persistent-user',
       }));
 
-      // Verify data is in storage
       const storedData = await store.getItem(sessionId);
       expect(storedData).toEqual(expect.objectContaining({
         username: 'persistent-user',
@@ -268,15 +253,12 @@ describe('Core Session Functions', () => {
       
       await destroySession(mockEvent);
 
-      // Context should be cleared
       expect(getSession(mockEvent)).toBeNull();
       expect(mockEvent.context.__session_id__).toBeUndefined();
 
-      // Storage should be cleared
       const storedData = await store.getItem(sessionId);
       expect(storedData).toBeNull();
 
-      // Cookie should be cleared
       expect(mockSetCookie).toHaveBeenCalledWith(
         mockEvent,
         'test-session',
@@ -290,7 +272,6 @@ describe('Core Session Functions', () => {
     });
 
     it('should handle destroying non-existent session gracefully', async () => {
-      // Should not throw error
       await expect(destroySession(mockEvent)).resolves.toBeUndefined();
     });
   });
@@ -306,21 +287,16 @@ describe('Core Session Functions', () => {
       const newId = mockEvent.context.__session_id__;
       const newData = getSession<TestSessionData>(mockEvent);
 
-      // ID should be different
       expect(newId).not.toBe(originalId);
       
-      // Data should be preserved
       expect(newData).toEqual(originalData);
 
-      // Old session should be removed from storage
       const oldStoredData = await store.getItem(originalId);
       expect(oldStoredData).toBeNull();
 
-      // New session should be in storage
       const newStoredData = await store.getItem(newId);
       expect(newStoredData).toEqual(originalData);
 
-      // New cookie should be set
       expect(mockSetCookie).toHaveBeenCalledWith(
         mockEvent,
         'test-session',
@@ -374,7 +350,6 @@ describe('Core Session Functions', () => {
     });
 
     it('should handle crypto errors gracefully', async () => {
-      // Test with invalid secret format
       const invalidConfig = { ...config, secret: '' };
 
       await expect(useSession(mockEvent, invalidConfig)).rejects.toThrow();
@@ -383,21 +358,17 @@ describe('Core Session Functions', () => {
 
   describe('Integration Scenarios', () => {
     it('should handle complete session lifecycle', async () => {
-      // Initialize session
       await useSession(mockEvent, config);
       expect(getSession(mockEvent)).toBeDefined();
 
-      // Update session
       await updateSession<TestSessionData>(mockEvent, () => ({ username: 'lifecycle-test' }));
       expect(getSession(mockEvent)?.username).toBe('lifecycle-test');
 
-      // Regenerate session
       const originalId = mockEvent.context.__session_id__;
       await regenerateSession<TestSessionData>(mockEvent);
       expect(mockEvent.context.__session_id__).not.toBe(originalId);
       expect(getSession(mockEvent)?.username).toBe('lifecycle-test');
 
-      // Destroy session
       await destroySession(mockEvent);
       expect(getSession(mockEvent)).toBeNull();
     });
@@ -405,7 +376,6 @@ describe('Core Session Functions', () => {
     it('should handle concurrent session operations', async () => {
       await useSession(mockEvent, config);
 
-      // Simulate concurrent updates
       const updates = [
         updateSession<TestSessionData>(mockEvent, () => ({ username: 'user1' })),
         updateSession<TestSessionData>(mockEvent, () => ({ userId: 'updated-id' })),

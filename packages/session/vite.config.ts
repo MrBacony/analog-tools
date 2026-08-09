@@ -15,10 +15,6 @@ export default defineConfig(() => ({
     }),
   ],
   publicDir: false,
-  // Uncomment this if you are using workers.
-  // worker: {
-  //  plugins: [ nxViteTsPaths() ],
-  // },
   build: {
     outDir: '../../node_modules/@analog-tools/session',
     emptyOutDir: true,
@@ -27,7 +23,6 @@ export default defineConfig(() => ({
       transformMixedEsModules: true,
     },
     lib: {
-      // Could also be a dictionary or array of multiple entry points.
       entry: 'src/index.ts',
       name: 'session',
       fileName: (format) => {
@@ -41,12 +36,12 @@ export default defineConfig(() => ({
 
         return `index.${prefix}`;
       },
-      // Change this to the formats you want to support.
-      // Don't forget to update your package.json as well.
       formats: ['es' as const, 'cjs' as const],
     },
     rollupOptions: {
-      // External packages that should not be bundled into your library.
+      // Anything listed here becomes a bare `require()` in index.cjs, so it
+      // must ship a CommonJS build - an ESM-only package breaks every CJS
+      // consumer of this library.
       external: [
         'node:buffer',
         'h3',

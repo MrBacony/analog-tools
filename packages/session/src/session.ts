@@ -7,13 +7,9 @@ import type { SessionConfig, SessionData, SessionError } from './types';
 import { signCookie, unsignCookie } from './crypto';
 import type { Storage } from 'unstorage';
 
-// Session storage key for H3 event context
 const SESSION_CONTEXT_KEY = '__session_data__';
 const SESSION_ID_CONTEXT_KEY = '__session_id__';
 
-// Session IDs come from the Web Crypto API, which this package already
-// requires for cookie signing. Keeping ID generation dependency-free avoids
-// shipping an ESM-only dependency that CJS consumers cannot `require`.
 function generateSessionId(): string {
   return globalThis.crypto.randomUUID();
 }
@@ -51,19 +47,17 @@ export async function useSession<T extends SessionData = SessionData>(
 ): Promise<void> {
   const cookieName = config.name || 'connect.sid';
   const secrets = Array.isArray(config.secret) ? config.secret : [config.secret];
-  
-  // Store config in context for other functions to access
+
   event.context['__session_config__'] = config;
-  
+
   try {
-    // Get signed session ID from cookie
     const signedSessionId = getCookie(event, cookieName);
     let sessionId: string | null = null;
-    
+
     if (signedSessionId) {
       sessionId = await unsignCookie(signedSessionId, secrets);
     }
-    
+
     let sessionData: T;
     // Only persist during init when we create a fresh session. Re-writing
     // unchanged, already-loaded data on every request causes a write storm:
@@ -74,12 +68,11 @@ export async function useSession<T extends SessionData = SessionData>(
     let isNewSession = false;
 
     if (sessionId) {
-      // Try to load existing session. A valid signed cookie references a real
-      // session, so an empty read is far more likely a concurrent writer's
-      // truncation window (non-atomic stores) than a genuinely missing
-      // session. Retry briefly before forking a new session, otherwise a
-      // transient read would silently discard the user's authenticated
-      // session and surface as a spurious 401.
+      // A valid signed cookie references a real session, so an empty read is
+      // far more likely a concurrent writer's truncation window (non-atomic
+      // stores) than a genuinely missing session. Retry briefly before forking
+      // a new session, otherwise a transient read would silently discard the
+      // user's authenticated session and surface as a spurious 401.
       const existingData = await loadSessionWithRetry<T>(
         config.store,
         sessionId
@@ -87,24 +80,20 @@ export async function useSession<T extends SessionData = SessionData>(
       if (existingData) {
         sessionData = existingData;
       } else {
-        // Session ID exists but no data - generate new session
         sessionId = generateSessionId();
         sessionData = config.generate ? config.generate() : ({} as T);
         isNewSession = true;
       }
     } else {
-      // No session - generate new one
       sessionId = generateSessionId();
       sessionData = config.generate ? config.generate() : ({} as T);
       isNewSession = true;
     }
-    
-    // Store session data and ID in event context
+
     event.context[SESSION_CONTEXT_KEY] = sessionData;
     event.context[SESSION_ID_CONTEXT_KEY] = sessionId;
-    
-     try {
-      // Set signed cookie
+
+    try {
       const signedId = await signCookie(sessionId, secrets[0]);
       setCookie(event, cookieName, signedId, {
         maxAge: config.maxAge || 86400,
@@ -117,11 +106,11 @@ export async function useSession<T extends SessionData = SessionData>(
     } catch (error) {
       throw createSessionError('COOKIE_ERROR', 'Failed to sign or set session cookie', { error });
     }
-    
+
     if (isNewSession) {
+      // Existing sessions are written by updateSession/regenerateSession when
+      // they actually change.
       try {
-        // Persist only freshly generated sessions; existing sessions are
-        // written by updateSession/regenerateSession when they actually change.
         await config.store.setItem(sessionId, sessionData);
       } catch (error) {
         throw createSessionError('STORAGE_ERROR', 'Failed to save session data to store', { error });
@@ -176,19 +165,16 @@ export async function updateSession<T extends SessionData = SessionData>(
 ): Promise<void> {
   const currentData = getSession<T>(event);
   const sessionId = event.context[SESSION_ID_CONTEXT_KEY] as string;
-  
+
   if (!currentData || !sessionId) {
     throw createSessionError('INVALID_SESSION', 'No active session found');
   }
-  
-  // Apply updates immutably
+
   const updates = updater(currentData);
   const newData = { ...currentData, ...updates } as T;
-  
-  // Update context
+
   event.context[SESSION_CONTEXT_KEY] = newData;
-  
-  // Get storage config from event context (set during useSession)
+
   const config = event.context['__session_config__'] as SessionConfig<T>;
   if (config?.store) {
     await config.store.setItem(sessionId, newData);
@@ -201,29 +187,25 @@ export async function updateSession<T extends SessionData = SessionData>(
 export async function destroySession(event: H3Event): Promise<void> {
   const sessionId = event.context[SESSION_ID_CONTEXT_KEY] as string;
   const config = event.context['__session_config__'] as SessionConfig;
-  
+
   if (!sessionId) {
-    return; // No session to destroy
+    return;
   }
-  
+
   try {
-    // Remove from storage
     if (config?.store) {
       await config.store.removeItem(sessionId);
     }
-    
-    // Clear context
+
     delete event.context[SESSION_CONTEXT_KEY];
     delete event.context[SESSION_ID_CONTEXT_KEY];
-    
-    // Clear cookie
+
     const cookieName = config?.name || 'connect.sid';
     setCookie(event, cookieName, '', {
       maxAge: 0,
       httpOnly: true,
       path: '/',
     });
-    
   } catch (error) {
     throw createSessionError('STORAGE_ERROR', 'Failed to destroy session', { error });
   }
@@ -238,29 +220,23 @@ export async function regenerateSession<T extends SessionData = SessionData>(
   const currentData = getSession<T>(event);
   const oldSessionId = event.context[SESSION_ID_CONTEXT_KEY] as string;
   const config = event.context['__session_config__'] as SessionConfig<T>;
-  
+
   if (!currentData || !oldSessionId || !config) {
     throw createSessionError('INVALID_SESSION', 'No active session to regenerate');
   }
-  
+
   try {
-    // Generate new session ID
     const newSessionId = generateSessionId();
-    
-    // Update context with new ID
+
     event.context[SESSION_ID_CONTEXT_KEY] = newSessionId;
-    
-    // Save data under new ID
+
     await config.store.setItem(newSessionId, currentData);
-    
-    // Remove old session data
     await config.store.removeItem(oldSessionId);
-    
-    // Update cookie with new signed ID
+
     const secrets = Array.isArray(config.secret) ? config.secret : [config.secret];
     const signedId = await signCookie(newSessionId, secrets[0]);
     const cookieName = config.name || 'connect.sid';
-    
+
     setCookie(event, cookieName, signedId, {
       maxAge: config.maxAge || 86400,
       httpOnly: config.cookie?.httpOnly ?? true,
@@ -269,7 +245,6 @@ export async function regenerateSession<T extends SessionData = SessionData>(
       domain: config.cookie?.domain,
       path: config.cookie?.path || '/',
     });
-    
   } catch (error) {
     throw createSessionError('STORAGE_ERROR', 'Failed to regenerate session', { error });
   }
