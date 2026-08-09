@@ -45,18 +45,30 @@ function readWorkspaceVersions() {
   return versions;
 }
 
+/** A plain semver range: optional comparators, then a digit. */
+const SEMVER_RANGE = /^[v=><~^\s]*\d/;
+
 /**
  * Translate a single `workspace:` range into a publishable one.
  * `workspace:*` becomes the exact version, `workspace:^`/`workspace:~` keep
  * their range prefix, and an explicit range (`workspace:^1.2.3`) is passed
  * through with the protocol stripped.
+ *
+ * Every other form is rejected rather than passed along. An empty specifier
+ * would publish as "any version", and path or alias forms would publish a
+ * specifier npm cannot install - both silently, which is worse than failing
+ * the build here.
  */
-function resolveWorkspaceRange(range, version) {
+function resolveWorkspaceRange(range, version, name) {
   const specifier = range.slice('workspace:'.length);
 
   if (specifier === '*') return version;
   if (specifier === '^' || specifier === '~') return `${specifier}${version}`;
-  return specifier;
+  if (SEMVER_RANGE.test(specifier)) return specifier;
+
+  throw new Error(
+    `Unsupported workspace range "${range}" for "${name}": expected workspace:*, workspace:^, workspace:~ or an explicit semver range.`
+  );
 }
 
 /**
@@ -83,7 +95,7 @@ function resolveWorkspaceDependencies(manifest, versions) {
         );
       }
 
-      deps[name] = resolveWorkspaceRange(range, version);
+      deps[name] = resolveWorkspaceRange(range, version, name);
       console.log(`Resolved ${section} "${name}": ${range} -> ${deps[name]}`);
     }
   }
