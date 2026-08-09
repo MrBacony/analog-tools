@@ -1,6 +1,6 @@
 {
   "name": "@analog-tools/auth",
-  "version": "0.0.21",
+  "version": "0.0.22",
   "description": "Authentication module for AnalogJS applications",
   "type": "module",
   "main": "./index.cjs",
