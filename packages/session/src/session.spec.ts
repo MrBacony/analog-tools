@@ -25,13 +25,13 @@ vi.mock('h3', () => ({
 // `vi.fn`: the global `resetAllMocks` in test-setup would strip the
 // implementation and hand back `undefined` IDs.
 const realCrypto = globalThis.crypto;
+let generatedIdCount = 0;
 vi.stubGlobal(
   'crypto',
   new Proxy(realCrypto, {
     get(target, prop) {
       if (prop === 'randomUUID') {
-        return () =>
-          'test-session-id-' + Math.random().toString(36).slice(2, 11);
+        return () => `test-session-id-${++generatedIdCount}`;
       }
       const value = Reflect.get(target, prop, target);
       return typeof value === 'function' ? value.bind(target) : value;

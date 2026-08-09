@@ -464,7 +464,7 @@ const configAfterRotation = {
 - **No built-in session expiry cleanup** -- expired sessions remain in the store until explicitly removed or the storage driver handles TTL natively (Redis `EX`, Cloudflare KV `expirationTtl`). The `maxAge` config only controls the cookie lifetime.
 - **Memory driver has known issues** -- use Redis, file system, or another persistent driver for development and production.
 - **No per-request locking** -- concurrent requests modifying the same session can produce race conditions. The last write wins.
-- **Web Crypto API required** -- the signing functions use `crypto.subtle`, which is available in Node.js 15+, Deno, Cloudflare Workers, and modern browsers. Environments without Web Crypto will throw at runtime.
+- **Web Crypto API required** -- cookie signing uses `crypto.subtle` and session IDs use `crypto.randomUUID()`, both read off the `crypto` global. That global is unflagged from Node.js 19+ (available in 16.15+/17.6+ behind `--experimental-global-webcrypto`), and present in Deno, Bun, Cloudflare Workers, and modern browsers. Environments without it will throw at runtime.
 
 ## Related Packages
 
