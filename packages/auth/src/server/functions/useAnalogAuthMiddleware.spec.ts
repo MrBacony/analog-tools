@@ -232,46 +232,8 @@ describe('useAnalogAuthMiddleware', () => {
     expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/api/auth/login');
   });
 
-  const loopbackEvent = (remoteAddress = '127.0.0.1') =>
-    ({ node: { req: { socket: { remoteAddress } } } }) as unknown as H3Event;
-
-  it('should return NOT_IMPLEMENTED error for fetch requests with SSR', async () => {
-    mockGetRequestURL.mockReturnValue({ pathname: '/api/protected' });
-    // @ts-expect-error any type
-    mockGetHeader.mockImplementation((event, headerName) => {
-      if (headerName === 'ssr') return 'true';
-      if (headerName === 'fetch') return 'true';
-      return null;
-    });
-
-    const result = await useAnalogAuthMiddleware(loopbackEvent());
-
-    expect(result).toEqual({
-      name: 'TrpcError',
-      code: 'NOT_IMPLEMENTED',
-      message: 'SSR is not supported for this route',
-    });
-  });
-
-  it('should skip authentication for SSR requests from loopback', async () => {
-    mockGetRequestURL.mockReturnValue({ pathname: '/api/protected' });
-    // @ts-expect-error any type
-    mockGetHeader.mockImplementation((event, headerName) => {
-      if (headerName === 'ssr') return 'true';
-      return null;
-    });
-
-    await useAnalogAuthMiddleware(loopbackEvent('::1'));
-
-    expect(mockAuthService.initSession).not.toHaveBeenCalled();
-    expect(mockCheckAuthentication).not.toHaveBeenCalled();
-  });
-
-  it('should ENFORCE auth when ssr header is set from a non-loopback client', async () => {
-    mockGetRequestURL.mockReturnValue({
-      pathname: '/api/protected',
-      search: '',
-    });
+  it('ignores the ssr header and still enforces authentication', async () => {
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/protected', search: '' });
     // @ts-expect-error any type
     mockGetHeader.mockImplementation((event, headerName) => {
       if (headerName === 'ssr') return 'true';
@@ -280,28 +242,28 @@ describe('useAnalogAuthMiddleware', () => {
     });
     mockCheckAuthentication.mockResolvedValue(false);
 
-    // Spoofed ssr header from a remote peer must not bypass authentication.
-    await expect(
-      useAnalogAuthMiddleware(loopbackEvent('203.0.113.7'))
-    ).rejects.toBeInstanceOf(TRPCError);
+    // A client-supplied ssr header must not skip authentication.
+    await expect(useAnalogAuthMiddleware(mockEvent)).rejects.toBeInstanceOf(
+      TRPCError
+    );
 
     expect(mockAuthService.initSession).toHaveBeenCalled();
     expect(mockCheckAuthentication).toHaveBeenCalled();
   });
 
-  it('should fail closed and enforce auth when peer address is unknown', async () => {
-    mockGetRequestURL.mockReturnValue({ pathname: '/api/protected', search: '' });
+  it('lets authenticated fetch requests pass through', async () => {
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/protected' });
     // @ts-expect-error any type
     mockGetHeader.mockImplementation((event, headerName) => {
-      if (headerName === 'ssr') return 'true';
+      if (headerName === 'fetch') return 'true';
       return null;
     });
+    mockCheckAuthentication.mockResolvedValue(true);
 
-    // Event without a resolvable socket address (e.g. non-node runtime).
-    await useAnalogAuthMiddleware({} as H3Event);
+    const result = await useAnalogAuthMiddleware(mockEvent);
 
-    expect(mockAuthService.initSession).toHaveBeenCalled();
-    expect(mockCheckAuthentication).toHaveBeenCalled();
+    expect(result).toBeUndefined();
+    expect(sendRedirect).not.toHaveBeenCalled();
   });
 
   it('should log debug message when redirecting to login page', async () => {
