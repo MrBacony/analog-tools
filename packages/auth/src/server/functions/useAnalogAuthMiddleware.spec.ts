@@ -157,6 +157,27 @@ describe('useAnalogAuthMiddleware', () => {
     expect(mockCheckAuthentication).not.toHaveBeenCalled();
   });
 
+  it('should bypass authentication for trpc procedure paths', async () => {
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/trpc/notes.list' });
+
+    await useAnalogAuthMiddleware(mockEvent);
+
+    expect(mockAuthService.initSession).not.toHaveBeenCalled();
+    expect(mockCheckAuthentication).not.toHaveBeenCalled();
+  });
+
+  it('should NOT bypass auth for routes that merely start with /api/trpc', async () => {
+    for (const pathname of ['/api/trpcXYZ/admin', '/api/trpc-admin', '/api/trpcbackup']) {
+      vi.clearAllMocks();
+      mockGetRequestURL.mockReturnValue({ pathname });
+
+      await useAnalogAuthMiddleware(mockEvent);
+
+      expect(mockAuthService.initSession).toHaveBeenCalledWith(mockEvent);
+      expect(mockCheckAuthentication).toHaveBeenCalledWith(mockEvent);
+    }
+  });
+
   it('should bypass authentication for routes marked as unprotected', async () => {
     mockGetRequestURL.mockReturnValue({ pathname: '/api/public' });
     mockAuthService.isUnprotectedRoute.mockReturnValue(true);
