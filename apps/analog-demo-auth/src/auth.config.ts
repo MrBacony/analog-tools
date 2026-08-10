@@ -25,7 +25,6 @@ export const authConfig: AnalogAuthConfig = {
     process.env['AUTH_CALLBACK_URL'] ||
     'http://localhost:4201/api/auth/callback',
   unprotectedRoutes: ['/', '/info', '/api/v1/health'],
-  whitelistFileTypes: ['.css', '.js', '.png', '.svg', '.ico', '.woff2'],
 
   sessionStorage: {
     sessionSecret,

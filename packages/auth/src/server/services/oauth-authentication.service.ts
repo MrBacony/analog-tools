@@ -1,4 +1,3 @@
-import { extname } from 'path';
 import { createError, H3Event } from 'h3';
 import { SessionService } from './session.service';
 import { AuthSessionData } from '../types/auth-session.types';
@@ -30,22 +29,6 @@ export class OAuthAuthenticationService {
     );
     registerService(SessionService, config.sessionStorage);
     this.config = config;
-    this.initializeWhitelistExtensions();
-  }
-
-  /**
-   * Initialize and cache normalized whitelist extensions
-   * Normalizes extensions once during initialization for efficient lookups
-   */
-  private initializeWhitelistExtensions(): void {
-    const whitelistFileTypes = this.config.whitelistFileTypes;
-    if (Array.isArray(whitelistFileTypes) && whitelistFileTypes.length > 0) {
-      whitelistFileTypes.forEach(ext => {
-        // Normalize extension to always have a leading dot and lowercase
-        const normalizedExt = (ext.startsWith('.') ? ext : `.${ext}`).toLowerCase();
-        this.normalizedWhitelistExtensions.add(normalizedExt);
-      });
-    }
   }
 
   // Config object with default values
@@ -58,9 +41,6 @@ export class OAuthAuthenticationService {
 
   // Add these properties for token refresh configuration
   private TOKEN_REFRESH_SAFETY_MARGIN = 60 * 5; // 5 minutes in seconds
-
-  // Cached normalized whitelist extensions for efficient lookups
-  private normalizedWhitelistExtensions: Set<string> = new Set();
 
   /**
    * Validate that the service has been properly initialized
@@ -131,16 +111,6 @@ export class OAuthAuthenticationService {
    * @returns True if the route is unprotected, false otherwise
    */
   isUnprotectedRoute(path: string): boolean {
-
-    // Check cached whitelist extensions for efficiency
-    if (this.normalizedWhitelistExtensions.size > 0) {
-      // Use extname() to get the exact file extension (only the final extension)
-      const fileExtension = extname(path).toLowerCase();
-      if (this.normalizedWhitelistExtensions.has(fileExtension)) {
-        return true;
-      }
-    }
-
     const unprotectedRoutes = this.getConfigValue(
       'unprotectedRoutes',
       [] as string[]
