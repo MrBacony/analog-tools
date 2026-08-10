@@ -7,6 +7,34 @@ import { checkAuthentication } from './checkAuthentication';
 import { updateSession } from '@analog-tools/session';
 import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
 
+const LOOPBACK_ADDRESSES = new Set([
+  '127.0.0.1',
+  '::1',
+  '::ffff:127.0.0.1',
+]);
+
+/**
+ * Whether the request may skip authentication because it originates from the
+ * in-process SSR renderer.
+ *
+ * The `ssr` header alone is not trusted: a remote client can set it and would
+ * otherwise bypass all authentication. We additionally require the raw TCP peer
+ * address to be loopback, which an external client cannot forge (unlike headers
+ * or `X-Forwarded-For`). Missing/unknown address fails closed (auth enforced).
+ *
+ * Caveat: behind a reverse proxy co-located on the same host, every request
+ * reaches the app from loopback. In that topology the proxy MUST strip any
+ * inbound `ssr` header so external requests cannot re-enable this skip.
+ */
+function isInternalSsrRequest(event: H3Event): boolean {
+  if (getHeader(event, 'ssr') !== 'true') {
+    return false;
+  }
+
+  const remoteAddress = event.node?.req?.socket?.remoteAddress;
+  return remoteAddress !== undefined && LOOPBACK_ADDRESSES.has(remoteAddress);
+}
+
 export async function useAnalogAuthMiddleware(event: H3Event) {
   // Skip authentication for public auth routes
   const requestUrl = getRequestURL(event);
@@ -30,7 +58,7 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
   }
 
   const fetchHeader = getHeader(event, 'fetch');
-  if (getHeader(event, 'ssr') !== 'true') {
+  if (!isInternalSsrRequest(event)) {
     // Initialize session
     await authService.initSession(event);
     // Check authentication with token refresh capability
