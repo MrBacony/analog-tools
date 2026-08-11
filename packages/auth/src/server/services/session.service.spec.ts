@@ -88,6 +88,7 @@ describe('SessionService', () => {
       driver: {
         type: 'memory',
       },
+      sessionSecret: 'test-session-secret-at-least-32-chars-long',
     };
 
     // Register services
@@ -211,6 +212,7 @@ describe('SessionService', () => {
         driver: {
           type: 'memory',
         },
+        sessionSecret: 'test-session-secret-at-least-32-chars-long',
       };
 
       const memoryService = new SessionService(memoryConfig);
@@ -237,6 +239,7 @@ describe('SessionService', () => {
         },
         prefix: 'auth',
         ttl: 3600,
+        sessionSecret: 'test-session-secret-at-least-32-chars-long',
       };
 
       const redisService = new SessionService(redisConfig);
@@ -276,18 +279,50 @@ describe('SessionService', () => {
       );
     });
 
-    it('should use default sessionSecret if not provided in storageConfig', async () => {
-      // Mock no existing session
+    it('should throw when sessionSecret is not provided (no shared default)', () => {
+      expect(
+        () =>
+          new SessionService({
+            driver: { type: 'memory' },
+          } as SessionStorageConfig)
+      ).toThrow(/sessionSecret is required/);
+    });
+
+    it('should throw when sessionSecret is empty', () => {
+      expect(
+        () =>
+          new SessionService({
+            driver: { type: 'memory' },
+            sessionSecret: '   ',
+          })
+      ).toThrow(/sessionSecret is required/);
+    });
+
+    it('should accept an array of secrets for rotation and pass it through', async () => {
       vi.mocked(getSession).mockReturnValue(null);
 
-      await service.initSession(mockEvent);
+      const secrets = ['new-secret-at-least-32-chars-long-xxxx', 'old-secret'];
+      const rotationService = new SessionService({
+        driver: { type: 'memory' },
+        sessionSecret: secrets,
+      });
+
+      await rotationService.initSession(mockEvent);
 
       expect(useSession).toHaveBeenCalledWith(
         mockEvent,
-        expect.objectContaining({
-          secret: 'change-me-in-production',
-        })
+        expect.objectContaining({ secret: secrets })
       );
+    });
+
+    it('should throw when the secret array is empty', () => {
+      expect(
+        () =>
+          new SessionService({
+            driver: { type: 'memory' },
+            sessionSecret: [],
+          })
+      ).toThrow(/sessionSecret is required/);
     });
 
     it('should use configured cookieName when provided', async () => {
@@ -298,6 +333,7 @@ describe('SessionService', () => {
           type: 'memory',
         },
         cookieName: 'auth.session.demo-auth',
+        sessionSecret: 'test-session-secret-at-least-32-chars-long',
       };
 
       const serviceWithCookieName = new SessionService(configWithCookieName);
