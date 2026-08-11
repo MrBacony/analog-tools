@@ -1182,8 +1182,8 @@ describe('OAuthAuthenticationService', () => {
     it('should reject when the ID token nonce does not match the session', async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: { sub: 'user123', nonce: 'attacker-nonce' },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof jwtVerify>>);
 
       await expect(
         service.handleCallback(mockEvent as H3Event, mockCode, mockState)
@@ -1195,14 +1195,40 @@ describe('OAuthAuthenticationService', () => {
     it('should reject when the ID token subject does not match userinfo', async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: { sub: 'someone-else', nonce: 'test-nonce' },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof jwtVerify>>);
 
       await expect(
         service.handleCallback(mockEvent as H3Event, mockCode, mockState)
       ).rejects.toEqual(
         expect.objectContaining({ statusCode: 401 })
       );
+    });
+
+    it('should reject when the ID token has no subject', async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { nonce: 'test-nonce' },
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof jwtVerify>>);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).rejects.toEqual(expect.objectContaining({ statusCode: 401 }));
+    });
+
+    it('should reject an http jwks_uri when the issuer is https', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ...mockOpenIDConfig,
+          jwks_uri: 'http://localhost:9999/jwks',
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).rejects.toEqual(expect.objectContaining({ statusCode: 500 }));
     });
 
     it('should reject when PKCE verifier / nonce are missing from the session', async () => {

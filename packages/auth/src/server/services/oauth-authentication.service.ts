@@ -460,19 +460,35 @@ export class OAuthAuthenticationService {
       });
     }
 
+    // Only a localhost issuer (development) may use cleartext http; a production
+    // (https) issuer must never fetch signing keys over http, even for localhost.
+    const configuredIssuer = this.getConfigValue('issuer');
+    let issuerUrl: URL;
+    try {
+      issuerUrl = new URL(configuredIssuer);
+    } catch {
+      throw createError({ statusCode: 500, message: 'Invalid OAuth issuer' });
+    }
+    const allowInsecureLocalhost =
+      issuerUrl.protocol === 'http:' &&
+      JWKS_LOCAL_DEV_HOSTS.has(issuerUrl.hostname);
+
     let jwksUrl: URL;
     try {
       jwksUrl = new URL(config.jwks_uri);
     } catch {
       throw createError({ statusCode: 500, message: 'Invalid jwks_uri' });
     }
-    if (
-      jwksUrl.protocol !== 'https:' &&
-      !JWKS_LOCAL_DEV_HOSTS.has(jwksUrl.hostname)
-    ) {
+    const jwksIsSecure =
+      jwksUrl.protocol === 'https:' ||
+      (allowInsecureLocalhost &&
+        jwksUrl.protocol === 'http:' &&
+        JWKS_LOCAL_DEV_HOSTS.has(jwksUrl.hostname));
+    if (!jwksIsSecure) {
       throw createError({
         statusCode: 500,
-        message: 'jwks_uri must use https (http is only permitted for localhost)',
+        message:
+          'jwks_uri must use https (http is only permitted for a localhost issuer)',
       });
     }
 
@@ -484,7 +500,8 @@ export class OAuthAuthenticationService {
     let payload: JWTPayload;
     try {
       ({ payload } = await jwtVerify(idToken, this.jwks, {
-        issuer: config.issuer ?? this.getConfigValue('issuer'),
+        // Trust anchor is the configured issuer, never the fetched metadata.
+        issuer: configuredIssuer,
         audience: this.getConfigValue('clientId'),
       }));
     } catch (error) {
@@ -531,18 +548,23 @@ export class OAuthAuthenticationService {
     let idTokenSub: string | undefined;
     if (id_token) {
       const claims = await this.validateIdToken(id_token, nonce);
-      idTokenSub = typeof claims.sub === 'string' ? claims.sub : undefined;
+      if (typeof claims.sub !== 'string' || claims.sub.length === 0) {
+        throw createError({
+          statusCode: 401,
+          message: 'ID token is missing a subject',
+        });
+      }
+      idTokenSub = claims.sub;
     }
 
     // Get user info from OAuth provider (profile enrichment)
     const userData = await this.getUserInfo(access_token);
 
-    // Anchor identity in the verified ID token: userinfo must describe the
-    // same subject, otherwise the tokens have been mixed/substituted.
+    // Anchor identity in the verified ID token: userinfo must describe the same
+    // subject, otherwise the tokens have been mixed/substituted.
     if (
       idTokenSub &&
-      typeof userData?.sub === 'string' &&
-      userData.sub !== idTokenSub
+      (typeof userData?.sub !== 'string' || userData.sub !== idTokenSub)
     ) {
       this.logger.error('ID token subject does not match userinfo subject');
       throw createError({
