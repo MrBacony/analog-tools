@@ -22,8 +22,16 @@ vi.mock('@analog-tools/session', () => ({
   updateSession: vi.fn(),
 }));
 
+vi.mock('jose', () => ({
+  createRemoteJWKSet: vi.fn(() => 'mock-jwks'),
+  jwtVerify: vi
+    .fn()
+    .mockResolvedValue({ payload: { sub: 'user123', nonce: 'test-nonce' } }),
+}));
+
 // Import the mocked functions for use in tests
 import { getSession, refetchSession, updateSession } from '@analog-tools/session';
+import { jwtVerify } from 'jose';
 
 // Mock the fetch function
 vi.stubGlobal('fetch', vi.fn());
@@ -55,11 +63,13 @@ describe('OAuthAuthenticationService', () => {
 
   // Mock OpenID Configuration response
   const mockOpenIDConfig = {
+    issuer: 'https://auth.example.com',
     authorization_endpoint: 'https://auth.example.com/authorize',
     token_endpoint: 'https://auth.example.com/token',
     userinfo_endpoint: 'https://auth.example.com/userinfo',
     end_session_endpoint: 'https://auth.example.com/logout',
     revocation_endpoint: 'https://auth.example.com/revoke',
+    jwks_uri: 'https://auth.example.com/jwks',
   };
 
   beforeEach(() => {
@@ -128,6 +138,8 @@ describe('OAuthAuthenticationService', () => {
         name: 'Test User',
         email: 'test@example.com',
       },
+      codeVerifier: 'test-code-verifier',
+      nonce: 'test-nonce',
     };
 
     // Set up mock session handler
@@ -613,10 +625,12 @@ describe('OAuthAuthenticationService', () => {
 
   describe('getAuthorizationUrl', () => {
     it('should generate OAuth authorization URL with correct parameters', async () => {
-      const url = await service.getAuthorizationUrl(
-        'test-state',
-        'https://custom-redirect.com'
-      );
+      const url = await service.getAuthorizationUrl({
+        state: 'test-state',
+        codeChallenge: 'test-challenge',
+        nonce: 'test-nonce',
+        redirectUri: 'https://custom-redirect.com',
+      });
 
       expect(url).toContain(mockOpenIDConfig.authorization_endpoint);
       expect(url).toContain('client_id=test-client');
@@ -625,10 +639,17 @@ describe('OAuthAuthenticationService', () => {
       expect(url).toContain('audience=test-audience');
       expect(url).toContain('state=test-state');
       expect(url).toContain('response_type=code');
+      expect(url).toContain('nonce=test-nonce');
+      expect(url).toContain('code_challenge=test-challenge');
+      expect(url).toContain('code_challenge_method=S256');
     });
 
     it('should use default callbackUri when redirect is not provided', async () => {
-      const url = await service.getAuthorizationUrl('test-state');
+      const url = await service.getAuthorizationUrl({
+        state: 'test-state',
+        codeChallenge: 'c',
+        nonce: 'n',
+      });
 
       expect(url).toContain(
         `redirect_uri=${encodeURIComponent(mockConfig.callbackUri)}`
@@ -636,7 +657,11 @@ describe('OAuthAuthenticationService', () => {
     });
 
     it('should fetch and cache OpenID configuration', async () => {
-      await service.getAuthorizationUrl('test-state');
+      await service.getAuthorizationUrl({
+        state: 'test-state',
+        codeChallenge: 'c',
+        nonce: 'n',
+      });
 
       // First call should fetch the config
       expect(global.fetch).toHaveBeenCalledWith(
@@ -646,7 +671,11 @@ describe('OAuthAuthenticationService', () => {
       // Reset fetch mock to verify caching
       vi.mocked(global.fetch).mockClear();
 
-      await service.getAuthorizationUrl('another-state');
+      await service.getAuthorizationUrl({
+        state: 'another-state',
+        codeChallenge: 'c',
+        nonce: 'n',
+      });
 
       // Second call should use cached config
       expect(global.fetch).not.toHaveBeenCalled();
@@ -1147,6 +1176,46 @@ describe('OAuthAuthenticationService', () => {
           idToken: 'new-id-token',
           refreshToken: 'new-refresh-token',
         })
+      );
+    });
+
+    it('should reject when the ID token nonce does not match the session', async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { sub: 'user123', nonce: 'attacker-nonce' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).rejects.toEqual(
+        expect.objectContaining({ statusCode: 401 })
+      );
+    });
+
+    it('should reject when the ID token subject does not match userinfo', async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { sub: 'someone-else', nonce: 'test-nonce' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).rejects.toEqual(
+        expect.objectContaining({ statusCode: 401 })
+      );
+    });
+
+    it('should reject when PKCE verifier / nonce are missing from the session', async () => {
+      vi.mocked(getSession).mockReturnValue({
+        ...mockSessionData,
+        codeVerifier: undefined,
+        nonce: undefined,
+      } as AuthSessionData);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).rejects.toEqual(
+        expect.objectContaining({ statusCode: 400 })
       );
     });
 

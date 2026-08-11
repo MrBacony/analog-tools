@@ -82,7 +82,11 @@ describe('login route', () => {
     await loginRoute.handler(mockEvent);
 
     expect(mockAuthService.getAuthorizationUrl).toHaveBeenCalledWith(
-      'mock-state-uuid'
+      expect.objectContaining({
+        state: 'mock-state-uuid',
+        nonce: 'mock-state-uuid',
+        codeChallenge: expect.any(String),
+      })
     );
   });
 

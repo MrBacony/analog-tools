@@ -21,6 +21,10 @@ export interface AuthSessionData {
   user?: Record<string, unknown> | null;
   /** State parameter for CSRF protection */
   state?: string;
+  /** PKCE code verifier (transient, cleared after the callback) */
+  codeVerifier?: string;
+  /** OIDC nonce for ID-token replay protection (transient) */
+  nonce?: string;
   /** Redirect URL after authentication */
   redirectUrl?: string;
   /** Any additional session data */

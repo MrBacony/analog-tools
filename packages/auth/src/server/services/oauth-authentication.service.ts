@@ -6,6 +6,14 @@ import type { AnalogAuthConfig } from '../types/auth.types';
 import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 import { getSession, refetchSession, updateSession } from '@analog-tools/session';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+
+const JWKS_LOCAL_DEV_HOSTS = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  '[::1]',
+]);
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
@@ -61,6 +69,10 @@ export class OAuthAuthenticationService {
 
   // Cached normalized whitelist extensions for efficient lookups
   private normalizedWhitelistExtensions: Set<string> = new Set();
+
+  // Cached remote JWKS for ID-token verification (keyed by jwks_uri)
+  private jwks?: ReturnType<typeof createRemoteJWKSet>;
+  private jwksUri?: string;
 
   /**
    * Validate that the service has been properly initialized
@@ -180,10 +192,12 @@ export class OAuthAuthenticationService {
   /**
    * Get OAuth authorization URL for login
    */
-  async getAuthorizationUrl(
-    state: string,
-    redirectUri?: string
-  ): Promise<string> {
+  async getAuthorizationUrl(params: {
+    state: string;
+    codeChallenge: string;
+    nonce: string;
+    redirectUri?: string;
+  }): Promise<string> {
     this.validateConfiguration();
 
     const config = await this.getOpenIDConfiguration();
@@ -193,21 +207,28 @@ export class OAuthAuthenticationService {
     const searchparams = {
       response_type: 'code',
       client_id: this.getConfigValue('clientId'),
-      redirect_uri: redirectUri || this.getConfigValue('callbackUri'),
+      redirect_uri: params.redirectUri || this.getConfigValue('callbackUri'),
       scope: this.getConfigValue('scope'),
-      state,
+      state: params.state,
+      nonce: params.nonce,
+      code_challenge: params.codeChallenge,
+      code_challenge_method: 'S256',
       ...(audience ? { audience } : {}),
     };
 
-    const params = new URLSearchParams(searchparams);
+    const urlParams = new URLSearchParams(searchparams);
 
-    return `${config.authorization_endpoint}?${params.toString()}`;
+    return `${config.authorization_endpoint}?${urlParams.toString()}`;
   }
 
   /**
    * Exchange authorization code for tokens
    */
-  private async exchangeCodeForTokens(code: string, redirectUri?: string) {
+  private async exchangeCodeForTokens(
+    code: string,
+    codeVerifier: string,
+    redirectUri?: string
+  ) {
     const config = await this.getOpenIDConfiguration();
 
     const response = await fetch(config.token_endpoint, {
@@ -220,6 +241,7 @@ export class OAuthAuthenticationService {
         client_id: this.getConfigValue('clientId'),
         client_secret: this.getConfigValue('clientSecret'),
         code,
+        code_verifier: codeVerifier,
         redirect_uri: redirectUri || this.getConfigValue('callbackUri'),
       }).toString(),
     });
@@ -421,6 +443,64 @@ export class OAuthAuthenticationService {
   }
 
   /**
+   * Verify an OIDC ID token: signature (via the provider's JWKS), `iss`, `aud`,
+   * `exp`/`nbf`, and the per-login `nonce`. Returns the verified claims so the
+   * caller can anchor identity in the cryptographically validated token.
+   */
+  private async validateIdToken(
+    idToken: string,
+    nonce: string
+  ): Promise<JWTPayload> {
+    const config = await this.getOpenIDConfiguration();
+
+    if (!config.jwks_uri) {
+      throw createError({
+        statusCode: 500,
+        message: 'OpenID configuration is missing jwks_uri; cannot verify ID token',
+      });
+    }
+
+    let jwksUrl: URL;
+    try {
+      jwksUrl = new URL(config.jwks_uri);
+    } catch {
+      throw createError({ statusCode: 500, message: 'Invalid jwks_uri' });
+    }
+    if (
+      jwksUrl.protocol !== 'https:' &&
+      !JWKS_LOCAL_DEV_HOSTS.has(jwksUrl.hostname)
+    ) {
+      throw createError({
+        statusCode: 500,
+        message: 'jwks_uri must use https (http is only permitted for localhost)',
+      });
+    }
+
+    if (!this.jwks || this.jwksUri !== config.jwks_uri) {
+      this.jwks = createRemoteJWKSet(jwksUrl);
+      this.jwksUri = config.jwks_uri;
+    }
+
+    let payload: JWTPayload;
+    try {
+      ({ payload } = await jwtVerify(idToken, this.jwks, {
+        issuer: config.issuer ?? this.getConfigValue('issuer'),
+        audience: this.getConfigValue('clientId'),
+      }));
+    } catch (error) {
+      this.logger.error('ID token validation failed', error);
+      throw createError({ statusCode: 401, message: 'Invalid ID token' });
+    }
+
+    if (payload.nonce !== nonce) {
+      this.logger.error('ID token nonce mismatch');
+      throw createError({ statusCode: 401, message: 'Invalid ID token nonce' });
+    }
+
+    return payload;
+  }
+
+  /**
    * Handle OAuth callback
    */
   async handleCallback(event: H3Event, code: string, state: string) {
@@ -432,12 +512,44 @@ export class OAuthAuthenticationService {
       });
     }
 
-    // Exchange code for tokens
-    const tokens = await this.exchangeCodeForTokens(code);
+    // PKCE verifier and nonce were stored on the session by the login route.
+    const session = getSession<AuthSessionData>(event);
+    const codeVerifier = session?.codeVerifier;
+    const nonce = session?.nonce;
+    if (!codeVerifier || !nonce) {
+      throw createError({
+        statusCode: 400,
+        message: 'Missing PKCE verifier or nonce; restart the login flow',
+      });
+    }
+
+    // Exchange code for tokens (PKCE)
+    const tokens = await this.exchangeCodeForTokens(code, codeVerifier);
     const { access_token, id_token, refresh_token, expires_in } = tokens;
 
-    // Get user info from OAuth provider
+    // Verify the ID token (authenticity + nonce replay protection) when present.
+    let idTokenSub: string | undefined;
+    if (id_token) {
+      const claims = await this.validateIdToken(id_token, nonce);
+      idTokenSub = typeof claims.sub === 'string' ? claims.sub : undefined;
+    }
+
+    // Get user info from OAuth provider (profile enrichment)
     const userData = await this.getUserInfo(access_token);
+
+    // Anchor identity in the verified ID token: userinfo must describe the
+    // same subject, otherwise the tokens have been mixed/substituted.
+    if (
+      idTokenSub &&
+      typeof userData?.sub === 'string' &&
+      userData.sub !== idTokenSub
+    ) {
+      this.logger.error('ID token subject does not match userinfo subject');
+      throw createError({
+        statusCode: 401,
+        message: 'Authenticated subject mismatch',
+      });
+    }
 
     // Store user in database
     const userHandler = this.getConfigValue('userHandler', undefined);
@@ -457,8 +569,13 @@ export class OAuthAuthenticationService {
       userInfo: userData,
     };
 
-    // Update session with user and auth data
-    await updateSession(event, () => ({ user, auth }));
+    // Update session with user and auth data; clear transient PKCE/nonce.
+    await updateSession(event, () => ({
+      user,
+      auth,
+      codeVerifier: undefined,
+      nonce: undefined,
+    }));
 
     if (this.getConfigValue('singleSessionPerUser', false)) {
       // Optional policy: keep current request session and invalidate
@@ -998,9 +1115,11 @@ export class OAuthAuthenticationService {
 
 // OpenID Configuration interface
 interface OpenIDConfiguration {
+  issuer?: string;
   authorization_endpoint: string;
   token_endpoint: string;
   userinfo_endpoint: string;
   end_session_endpoint: string;
   revocation_endpoint: string;
+  jwks_uri?: string;
 }

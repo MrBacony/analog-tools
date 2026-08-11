@@ -451,6 +451,8 @@ export const protectedProcedure = t.procedure.use(isAuthenticated);
 - Tokens stored server-side only (BFF pattern)
 - HMAC-SHA256 signed session cookies via `uncrypto`
 - CSRF protection via OAuth `state` parameter (UUID generated per login, validated on callback)
+- PKCE (S256) on the authorization-code flow
+- ID token verification when present: signature via the provider JWKS, plus `iss`/`aud`/`exp` and the per-login `nonce`; the verified subject is cross-checked against userinfo
 - `httpOnly`, `secure`, `sameSite: 'lax'` cookies (secure flags enabled when `NODE_ENV=production`)
 - Token revocation on logout (both access and refresh tokens)
 - Retry logic with exponential backoff for provider communication failures
