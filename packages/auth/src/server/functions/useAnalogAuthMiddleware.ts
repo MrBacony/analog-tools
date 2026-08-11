@@ -8,7 +8,6 @@ import { updateSession } from '@analog-tools/session';
 import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
 
 export async function useAnalogAuthMiddleware(event: H3Event) {
-  // Skip authentication for public auth routes
   const requestUrl = getRequestURL(event);
   const pathname = requestUrl.pathname;
   const authService = inject(OAuthAuthenticationService);
@@ -16,8 +15,7 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
 
   logger.info('Processing authentication middleware', pathname);
 
-  // Public routes that should bypass authentication
-  // All /api/auth/* routes are handled by handleAuthRoute
+  // All /api/auth/* routes are handled by handleAuthRoute.
   if (pathname.startsWith('/api/auth/')) {
     return;
   }
@@ -29,39 +27,24 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
     return;
   }
 
-  const fetchHeader = getHeader(event, 'fetch');
-  if (getHeader(event, 'ssr') !== 'true') {
-    // Initialize session
-    await authService.initSession(event);
-    // Check authentication with token refresh capability
-    if (!(await checkAuthentication(event))) {
-      // Check if this is an API fetch request (from our HTTP interceptor)
-      if (fetchHeader === 'true') {
-        // API request with fetch header - respond with 401 status
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'User is not authenticated',
-        });
-      } else {
-        logger.debug('Redirecting to login page', { path: pathname });
-        // Browser request - store the original URL and redirect to login page
-        await updateSession(event, (currentSession: Record<string, unknown>) => ({
-          ...currentSession,
-          redirectUrl: sanitizeRedirectUrl(
-            `${requestUrl.pathname}${requestUrl.search}`
-          ),
-        }));
-        await sendRedirect(event, '/api/auth/login');
-      }
-    }
+  await authService.initSession(event);
+  if (await checkAuthentication(event)) {
+    return;
   }
 
-  if (fetchHeader === 'true') {
-    return {
-      name: 'TrpcError',
-      code: 'NOT_IMPLEMENTED',
-      message: 'SSR is not supported for this route',
-    };
+  // Not authenticated: API calls (fetch=true from the HTTP interceptor) receive
+  // a 401 they can handle; browser navigations are sent to the login page.
+  if (getHeader(event, 'fetch') === 'true') {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'User is not authenticated',
+    });
   }
-  return;
+
+  logger.debug('Redirecting to login page', { path: pathname });
+  await updateSession(event, (currentSession: Record<string, unknown>) => ({
+    ...currentSession,
+    redirectUrl: sanitizeRedirectUrl(`${requestUrl.pathname}${requestUrl.search}`),
+  }));
+  await sendRedirect(event, '/api/auth/login');
 }
