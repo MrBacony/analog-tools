@@ -20,9 +20,13 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
     return;
   }
 
+  // tRPC procedures enforce their own auth per-procedure, so the HTTP gate lets
+  // the tRPC endpoint through. Match it on a path boundary — a bare `startsWith`
+  // would also exempt unrelated routes like `/api/trpc-admin`.
   if (
     authService.isUnprotectedRoute(pathname) ||
-    pathname.startsWith('/api/trpc')
+    pathname === '/api/trpc' ||
+    pathname.startsWith('/api/trpc/')
   ) {
     return;
   }
