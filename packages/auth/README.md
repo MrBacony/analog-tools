@@ -84,7 +84,7 @@ const authConfig: AnalogAuthConfig = {
   // Optional: enforce only one active authenticated session per user
   // singleSessionPerUser: true,
   sessionStorage: {
-    sessionSecret: process.env['SESSION_SECRET'] || 'change-me-in-production',
+    sessionSecret: process.env['SESSION_SECRET'], // required — no default; init throws if unset
     ttl: 86400,
     driver: {
       type: 'redis',

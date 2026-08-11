@@ -15,6 +15,7 @@ import { type SessionStorageConfig } from '../types/auth.types';
 @Injectable()
 export class SessionService {
   private readonly storageConfig: SessionStorageConfig;
+  private readonly sessionSecret: string;
   private store!: Storage<AuthSessionData>;
   private logger: LoggerService;
 
@@ -22,6 +23,30 @@ export class SessionService {
     this.storageConfig = config;
 
     this.logger = inject(LoggerService).forContext('SessionService');
+    this.sessionSecret = this.resolveSessionSecret();
+  }
+
+  /**
+   * Resolve and validate the session signing secret. A missing secret is a
+   * fatal misconfiguration: the library used to silently fall back to a shared,
+   * source-visible default, which let anyone forge session cookies.
+   */
+  private resolveSessionSecret(): string {
+    const secret = this.storageConfig.sessionSecret;
+    if (typeof secret !== 'string' || secret.trim().length === 0) {
+      throw new Error(
+        'sessionStorage.sessionSecret is required. Provide a strong, unique ' +
+          'value (e.g. from a SESSION_SECRET environment variable) — the ' +
+          'library no longer falls back to a shared default secret.'
+      );
+    }
+    if (secret.length < 32) {
+      this.logger.warn(
+        'sessionStorage.sessionSecret is shorter than 32 characters; use a ' +
+          'longer, high-entropy value for HMAC-SHA256 cookie signing.'
+      );
+    }
+    return secret;
   }
 
   async initSession(event: H3Event): Promise<void> {
@@ -38,8 +63,7 @@ export class SessionService {
       
       await useSession<AuthSessionData>(event, {
         store: this.store,
-        secret:
-          this.storageConfig.sessionSecret || 'change-me-in-production',
+        secret: this.sessionSecret,
         name: this.storageConfig.cookieName || 'auth.session',
         maxAge: 60 * 60 * 24, // 24 hours
         cookie: {
