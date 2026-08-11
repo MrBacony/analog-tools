@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { timingSafeEqual } from './timingSafeEqual';
+import { timingSafeEqual } from './timing-safe-equal';
 
 describe('timingSafeEqual', () => {
   it('returns true for equal strings', async () => {
