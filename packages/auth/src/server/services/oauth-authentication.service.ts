@@ -4,7 +4,7 @@ import { AuthSessionData } from '../types/auth-session.types';
 import type { AnalogAuthConfig } from '../types/auth.types';
 import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
-import { getSession, refetchSession, updateSession } from '@analog-tools/session';
+import { getSession, refetchSession, regenerateSession, updateSession } from '@analog-tools/session';
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
@@ -426,6 +426,11 @@ export class OAuthAuthenticationService {
       expiresAt: Date.now() + expires_in * 1000,
       userInfo: userData,
     };
+
+    // Regenerate the session id on privilege elevation (anonymous ->
+    // authenticated) so any pre-auth id a fixation attacker may have planted is
+    // discarded before the authenticated tokens are stored under a fresh id.
+    await regenerateSession(event);
 
     // Update session with user and auth data
     await updateSession(event, () => ({ user, auth }));

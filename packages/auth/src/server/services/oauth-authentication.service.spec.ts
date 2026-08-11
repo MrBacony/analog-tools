@@ -19,11 +19,16 @@ import {
 vi.mock('@analog-tools/session', () => ({
   getSession: vi.fn(),
   refetchSession: vi.fn(),
+  regenerateSession: vi.fn(),
   updateSession: vi.fn(),
 }));
 
-// Import the mocked functions for use in tests
-import { getSession, refetchSession, updateSession } from '@analog-tools/session';
+import {
+  getSession,
+  refetchSession,
+  regenerateSession,
+  updateSession,
+} from '@analog-tools/session';
 
 // Mock the fetch function
 vi.stubGlobal('fetch', vi.fn());
@@ -926,6 +931,15 @@ describe('OAuthAuthenticationService', () => {
           idToken: 'new-id-token',
           refreshToken: 'new-refresh-token',
         })
+      );
+
+      // Session fixation: the id is regenerated on login, before the
+      // authenticated tokens are written.
+      expect(regenerateSession).toHaveBeenCalledWith(mockEvent);
+      expect(
+        vi.mocked(regenerateSession).mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        vi.mocked(updateSession).mock.invocationCallOrder.at(-1) as number
       );
     });
 
