@@ -98,7 +98,7 @@ export async function useSession<T extends SessionData = SessionData>(
       setCookie(event, cookieName, signedId, {
         maxAge: config.maxAge || 86400,
         httpOnly: config.cookie?.httpOnly ?? true,
-        secure: config.cookie?.secure ?? false,
+        secure: config.cookie?.secure ?? true,
         sameSite: config.cookie?.sameSite ?? 'lax',
         domain: config.cookie?.domain,
         path: config.cookie?.path || '/',
@@ -240,7 +240,7 @@ export async function regenerateSession<T extends SessionData = SessionData>(
     setCookie(event, cookieName, signedId, {
       maxAge: config.maxAge || 86400,
       httpOnly: config.cookie?.httpOnly ?? true,
-      secure: config.cookie?.secure ?? false,
+      secure: config.cookie?.secure ?? true,
       sameSite: config.cookie?.sameSite ?? 'lax',
       domain: config.cookie?.domain,
       path: config.cookie?.path || '/',

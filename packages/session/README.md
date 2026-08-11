@@ -242,7 +242,7 @@ When `secret` is an array, the first secret is used for signing new cookies. All
 interface CookieOptions {
   domain?: string;
   path?: string;       // default: '/'
-  secure?: boolean;    // default: false
+  secure?: boolean;    // default: true (set false for local http development)
   httpOnly?: boolean;  // default: true
   sameSite?: boolean | 'lax' | 'strict' | 'none'; // default: 'lax'
 }
