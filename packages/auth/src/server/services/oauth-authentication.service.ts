@@ -15,17 +15,26 @@ const LOCAL_DEV_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
  * against tokens/secrets being sent over cleartext or to a non-https endpoint
  * advertised by a tampered discovery document.
  */
-function assertSecureUrl(rawUrl: string, label: string): URL {
+function assertSecureUrl(
+  rawUrl: string,
+  label: string,
+  allowInsecureLocalhost: boolean
+): URL {
   let url: URL;
   try {
     url = new URL(rawUrl);
   } catch {
     throw createError({ statusCode: 500, message: `Invalid ${label} URL` });
   }
-  if (url.protocol !== 'https:' && !LOCAL_DEV_HOSTS.has(url.hostname)) {
+  const isSecure =
+    url.protocol === 'https:' ||
+    (allowInsecureLocalhost &&
+      url.protocol === 'http:' &&
+      LOCAL_DEV_HOSTS.has(url.hostname));
+  if (!isSecure) {
     throw createError({
       statusCode: 500,
-      message: `${label} must use https (http is only permitted for localhost during development)`,
+      message: `${label} must use https (http is only permitted for a localhost issuer during development)`,
     });
   }
   return url;
@@ -1001,8 +1010,12 @@ export class OAuthAuthenticationService {
     const issuer = this.getConfigValue('issuer');
     // Enforce https on the issuer itself: over TLS the discovery document and
     // every subsequent token/userinfo call are authenticated, so a network
-    // attacker cannot forge the endpoints the client trusts.
-    assertSecureUrl(issuer, 'OAuth issuer');
+    // attacker cannot forge the endpoints the client trusts. Only a localhost
+    // dev issuer may use http; a production https issuer then forces https on
+    // every advertised endpoint too.
+    const issuerUrl = assertSecureUrl(issuer, 'OAuth issuer', true);
+    const allowInsecureLocalhost =
+      issuerUrl.protocol === 'http:' && LOCAL_DEV_HOSTS.has(issuerUrl.hostname);
 
     let config: OpenIDConfiguration;
     try {
@@ -1025,7 +1038,11 @@ export class OAuthAuthenticationService {
       });
     }
 
-    this.assertTrustedOpenIDConfiguration(config, issuer);
+    this.assertTrustedOpenIDConfiguration(
+      config,
+      issuer,
+      allowInsecureLocalhost
+    );
 
     this.openIDConfigCache = config;
     this.configLastFetched = now;
@@ -1040,7 +1057,8 @@ export class OAuthAuthenticationService {
    */
   private assertTrustedOpenIDConfiguration(
     config: OpenIDConfiguration,
-    issuer: string
+    issuer: string,
+    allowInsecureLocalhost: boolean
   ): void {
     if (
       typeof config.issuer !== 'string' ||
@@ -1068,7 +1086,7 @@ export class OAuthAuthenticationService {
     for (const key of endpointKeys) {
       const endpoint = config[key];
       if (typeof endpoint === 'string' && endpoint.length > 0) {
-        assertSecureUrl(endpoint, `OpenID ${key}`);
+        assertSecureUrl(endpoint, `OpenID ${key}`, allowInsecureLocalhost);
       }
     }
   }

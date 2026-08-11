@@ -717,6 +717,22 @@ describe('OAuthAuthenticationService', () => {
         /token_endpoint must use https/
       );
     });
+
+    it('should reject an http localhost endpoint when the issuer is https', async () => {
+      // The localhost exception must be tied to a localhost issuer, not applied
+      // per-endpoint: a production https issuer must not fetch/POST over http.
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...mockOpenIDConfig,
+          token_endpoint: 'http://localhost:9999/token',
+        }),
+      });
+
+      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+        /token_endpoint must use https/
+      );
+    });
   });
 
   describe('isAuthenticated', () => {
