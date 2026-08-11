@@ -23,7 +23,6 @@ vi.mock('@analog-tools/session', () => ({
   updateSession: vi.fn(),
 }));
 
-// Import the mocked functions for use in tests
 import {
   getSession,
   refetchSession,
