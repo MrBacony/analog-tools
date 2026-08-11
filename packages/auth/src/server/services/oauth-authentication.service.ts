@@ -492,7 +492,7 @@ export class OAuthAuthenticationService {
       throw createError({ statusCode: 401, message: 'Invalid ID token' });
     }
 
-    if (payload.nonce !== nonce) {
+    if (payload['nonce'] !== nonce) {
       this.logger.error('ID token nonce mismatch');
       throw createError({ statusCode: 401, message: 'Invalid ID token nonce' });
     }
