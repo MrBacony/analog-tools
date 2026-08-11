@@ -298,6 +298,33 @@ describe('SessionService', () => {
       ).toThrow(/sessionSecret is required/);
     });
 
+    it('should accept an array of secrets for rotation and pass it through', async () => {
+      vi.mocked(getSession).mockReturnValue(null);
+
+      const secrets = ['new-secret-at-least-32-chars-long-xxxx', 'old-secret'];
+      const rotationService = new SessionService({
+        driver: { type: 'memory' },
+        sessionSecret: secrets,
+      });
+
+      await rotationService.initSession(mockEvent);
+
+      expect(useSession).toHaveBeenCalledWith(
+        mockEvent,
+        expect.objectContaining({ secret: secrets })
+      );
+    });
+
+    it('should throw when the secret array is empty', () => {
+      expect(
+        () =>
+          new SessionService({
+            driver: { type: 'memory' },
+            sessionSecret: [],
+          })
+      ).toThrow(/sessionSecret is required/);
+    });
+
     it('should use configured cookieName when provided', async () => {
       vi.mocked(getSession).mockReturnValue(null);
 

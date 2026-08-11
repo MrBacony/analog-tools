@@ -15,7 +15,7 @@ import { type SessionStorageConfig } from '../types/auth.types';
 @Injectable()
 export class SessionService {
   private readonly storageConfig: SessionStorageConfig;
-  private readonly sessionSecret: string;
+  private readonly sessionSecret: string | string[];
   private store!: Storage<AuthSessionData>;
   private logger: LoggerService;
 
@@ -29,24 +29,31 @@ export class SessionService {
   /**
    * Resolve and validate the session signing secret. A missing secret is a
    * fatal misconfiguration: the library used to silently fall back to a shared,
-   * source-visible default, which let anyone forge session cookies.
+   * source-visible default, which let anyone forge session cookies. A non-empty
+   * array of secrets is accepted to support key rotation (first entry signs,
+   * the rest still verify).
    */
-  private resolveSessionSecret(): string {
+  private resolveSessionSecret(): string | string[] {
     const secret = this.storageConfig.sessionSecret;
-    if (typeof secret !== 'string' || secret.trim().length === 0) {
+    const secrets = Array.isArray(secret) ? secret : [secret];
+    const allValid =
+      secrets.length > 0 &&
+      secrets.every((s) => typeof s === 'string' && s.trim().length > 0);
+    if (!allValid) {
       throw new Error(
         'sessionStorage.sessionSecret is required. Provide a strong, unique ' +
-          'value (e.g. from a SESSION_SECRET environment variable) — the ' +
-          'library no longer falls back to a shared default secret.'
+          'value or a non-empty array of values (e.g. from a SESSION_SECRET ' +
+          'environment variable) — the library no longer falls back to a ' +
+          'shared default secret.'
       );
     }
-    if (secret.length < 32) {
+    if ((secrets as string[]).some((s) => s.length < 32)) {
       this.logger.warn(
         'sessionStorage.sessionSecret is shorter than 32 characters; use a ' +
           'longer, high-entropy value for HMAC-SHA256 cookie signing.'
       );
     }
-    return secret;
+    return secret as string | string[];
   }
 
   async initSession(event: H3Event): Promise<void> {
