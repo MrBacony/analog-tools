@@ -55,6 +55,7 @@ describe('OAuthAuthenticationService', () => {
 
   // Mock OpenID Configuration response
   const mockOpenIDConfig = {
+    issuer: 'https://auth.example.com',
     authorization_endpoint: 'https://auth.example.com/authorize',
     token_endpoint: 'https://auth.example.com/token',
     userinfo_endpoint: 'https://auth.example.com/userinfo',
@@ -650,6 +651,71 @@ describe('OAuthAuthenticationService', () => {
 
       // Second call should use cached config
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('OpenID configuration validation', () => {
+    it('should reject a non-https issuer (except localhost)', async () => {
+      Object.defineProperty(service, 'config', {
+        value: { ...mockConfig, issuer: 'http://insecure.example.com' },
+        writable: true,
+      });
+
+      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+        /issuer must use https/
+      );
+      // Never even contacts the provider.
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should allow an http issuer on localhost (development)', async () => {
+      Object.defineProperty(service, 'config', {
+        value: { ...mockConfig, issuer: 'http://localhost:8080/realms/dev' },
+        writable: true,
+      });
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          issuer: 'http://localhost:8080/realms/dev',
+          authorization_endpoint: 'http://localhost:8080/authorize',
+          token_endpoint: 'http://localhost:8080/token',
+          userinfo_endpoint: 'http://localhost:8080/userinfo',
+          end_session_endpoint: 'http://localhost:8080/logout',
+          revocation_endpoint: 'http://localhost:8080/revoke',
+        }),
+      });
+
+      await expect(service.getAuthorizationUrl('state')).resolves.toContain(
+        'http://localhost:8080/authorize'
+      );
+    });
+
+    it('should reject a discovery document whose issuer does not match', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...mockOpenIDConfig,
+          issuer: 'https://evil.example.com',
+        }),
+      });
+
+      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+        /issuer does not match/
+      );
+    });
+
+    it('should reject a discovery document advertising a non-https endpoint', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...mockOpenIDConfig,
+          token_endpoint: 'http://evil.example.com/token',
+        }),
+      });
+
+      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+        /token_endpoint must use https/
+      );
     });
   });
 

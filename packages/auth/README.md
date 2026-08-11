@@ -461,6 +461,7 @@ export const protectedProcedure = t.procedure.use(isAuthenticated);
 - Use persistent storage (Redis, Cloudflare KV) -- not memory or filesystem
 - Configure `tokenRefreshApiKey` and set up a CRON job for scheduled token refresh
 - Set up HTTPS (required for `secure` cookies)
+- Use an `https` issuer (http is accepted only for `localhost`); the discovery document's `issuer` and advertised endpoints are validated before any token/userinfo call
 - Add rate limiting to auth endpoints in your infrastructure
 
 ## Vite Configuration
