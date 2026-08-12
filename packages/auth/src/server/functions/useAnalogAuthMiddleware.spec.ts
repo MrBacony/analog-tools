@@ -157,6 +157,27 @@ describe('useAnalogAuthMiddleware', () => {
     expect(mockCheckAuthentication).not.toHaveBeenCalled();
   });
 
+  it('should bypass authentication for trpc procedure paths', async () => {
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/trpc/notes.list' });
+
+    await useAnalogAuthMiddleware(mockEvent);
+
+    expect(mockAuthService.initSession).not.toHaveBeenCalled();
+    expect(mockCheckAuthentication).not.toHaveBeenCalled();
+  });
+
+  it('should NOT bypass auth for routes that merely start with /api/trpc', async () => {
+    for (const pathname of ['/api/trpcXYZ/admin', '/api/trpc-admin', '/api/trpcbackup']) {
+      vi.clearAllMocks();
+      mockGetRequestURL.mockReturnValue({ pathname });
+
+      await useAnalogAuthMiddleware(mockEvent);
+
+      expect(mockAuthService.initSession).toHaveBeenCalledWith(mockEvent);
+      expect(mockCheckAuthentication).toHaveBeenCalledWith(mockEvent);
+    }
+  });
+
   it('should bypass authentication for routes marked as unprotected', async () => {
     mockGetRequestURL.mockReturnValue({ pathname: '/api/public' });
     mockAuthService.isUnprotectedRoute.mockReturnValue(true);
@@ -232,36 +253,38 @@ describe('useAnalogAuthMiddleware', () => {
     expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/api/auth/login');
   });
 
-  it('should return NOT_IMPLEMENTED error for fetch requests with SSR', async () => {
-    mockGetRequestURL.mockReturnValue({ pathname: '/api/protected' });
+  it('ignores the ssr header and still enforces authentication', async () => {
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/protected', search: '' });
     // @ts-expect-error any type
     mockGetHeader.mockImplementation((event, headerName) => {
       if (headerName === 'ssr') return 'true';
       if (headerName === 'fetch') return 'true';
       return null;
     });
+    mockCheckAuthentication.mockResolvedValue(false);
 
-    const result = await useAnalogAuthMiddleware(mockEvent);
+    // A client-supplied ssr header must not skip authentication.
+    await expect(useAnalogAuthMiddleware(mockEvent)).rejects.toBeInstanceOf(
+      TRPCError
+    );
 
-    expect(result).toEqual({
-      name: 'TrpcError',
-      code: 'NOT_IMPLEMENTED',
-      message: 'SSR is not supported for this route',
-    });
+    expect(mockAuthService.initSession).toHaveBeenCalled();
+    expect(mockCheckAuthentication).toHaveBeenCalled();
   });
 
-  it('should skip authentication check for SSR requests', async () => {
+  it('lets authenticated fetch requests pass through', async () => {
     mockGetRequestURL.mockReturnValue({ pathname: '/api/protected' });
     // @ts-expect-error any type
     mockGetHeader.mockImplementation((event, headerName) => {
-      if (headerName === 'ssr') return 'true';
+      if (headerName === 'fetch') return 'true';
       return null;
     });
+    mockCheckAuthentication.mockResolvedValue(true);
 
-    await useAnalogAuthMiddleware(mockEvent);
+    const result = await useAnalogAuthMiddleware(mockEvent);
 
-    expect(mockAuthService.initSession).not.toHaveBeenCalled();
-    expect(mockCheckAuthentication).not.toHaveBeenCalled();
+    expect(result).toBeUndefined();
+    expect(sendRedirect).not.toHaveBeenCalled();
   });
 
   it('should log debug message when redirecting to login page', async () => {

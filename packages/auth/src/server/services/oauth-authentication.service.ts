@@ -1,19 +1,55 @@
-import { extname } from 'path';
 import { createError, H3Event } from 'h3';
 import { SessionService } from './session.service';
 import { AuthSessionData } from '../types/auth-session.types';
 import type { AnalogAuthConfig } from '../types/auth.types';
 import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
-import { getSession, refetchSession, updateSession } from '@analog-tools/session';
+import { getSession, refetchSession, regenerateSession, updateSession } from '@analog-tools/session';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 
-const JWKS_LOCAL_DEV_HOSTS = new Set([
-  'localhost',
-  '127.0.0.1',
-  '::1',
-  '[::1]',
-]);
+// http is only acceptable for these hosts (local development).
+function isLocalDevHost(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '::1' ||
+    hostname === '[::1]' ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)
+  );
+}
+
+/**
+ * Parse a URL and require https, except for local-development hosts. Guards
+ * against tokens/secrets being sent over cleartext or to a non-https endpoint
+ * advertised by a tampered discovery document.
+ */
+function assertSecureUrl(
+  rawUrl: string,
+  label: string,
+  allowInsecureLocalhost: boolean
+): URL {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw createError({ statusCode: 500, message: `Invalid ${label} URL` });
+  }
+  const isSecure =
+    url.protocol === 'https:' ||
+    (allowInsecureLocalhost &&
+      url.protocol === 'http:' &&
+      isLocalDevHost(url.hostname));
+  if (!isSecure) {
+    throw createError({
+      statusCode: 500,
+      message: `${label} must use https (http is only permitted for a localhost issuer during development)`,
+    });
+  }
+  return url;
+}
+
+function normalizeIssuer(issuer: string): string {
+  return issuer.replace(/\/+$/, '');
+}
 
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
@@ -38,22 +74,6 @@ export class OAuthAuthenticationService {
     );
     registerService(SessionService, config.sessionStorage);
     this.config = config;
-    this.initializeWhitelistExtensions();
-  }
-
-  /**
-   * Initialize and cache normalized whitelist extensions
-   * Normalizes extensions once during initialization for efficient lookups
-   */
-  private initializeWhitelistExtensions(): void {
-    const whitelistFileTypes = this.config.whitelistFileTypes;
-    if (Array.isArray(whitelistFileTypes) && whitelistFileTypes.length > 0) {
-      whitelistFileTypes.forEach(ext => {
-        // Normalize extension to always have a leading dot and lowercase
-        const normalizedExt = (ext.startsWith('.') ? ext : `.${ext}`).toLowerCase();
-        this.normalizedWhitelistExtensions.add(normalizedExt);
-      });
-    }
   }
 
   // Config object with default values
@@ -143,16 +163,6 @@ export class OAuthAuthenticationService {
    * @returns True if the route is unprotected, false otherwise
    */
   isUnprotectedRoute(path: string): boolean {
-
-    // Check cached whitelist extensions for efficiency
-    if (this.normalizedWhitelistExtensions.size > 0) {
-      // Use extname() to get the exact file extension (only the final extension)
-      const fileExtension = extname(path).toLowerCase();
-      if (this.normalizedWhitelistExtensions.has(fileExtension)) {
-        return true;
-      }
-    }
-
     const unprotectedRoutes = this.getConfigValue(
       'unprotectedRoutes',
       [] as string[]
@@ -463,34 +473,15 @@ export class OAuthAuthenticationService {
     // Only a localhost issuer (development) may use cleartext http; a production
     // (https) issuer must never fetch signing keys over http, even for localhost.
     const configuredIssuer = this.getConfigValue('issuer');
-    let issuerUrl: URL;
-    try {
-      issuerUrl = new URL(configuredIssuer);
-    } catch {
-      throw createError({ statusCode: 500, message: 'Invalid OAuth issuer' });
-    }
+    const issuerUrl = assertSecureUrl(configuredIssuer, 'OAuth issuer', true);
     const allowInsecureLocalhost =
-      issuerUrl.protocol === 'http:' &&
-      JWKS_LOCAL_DEV_HOSTS.has(issuerUrl.hostname);
+      issuerUrl.protocol === 'http:' && isLocalDevHost(issuerUrl.hostname);
 
-    let jwksUrl: URL;
-    try {
-      jwksUrl = new URL(config.jwks_uri);
-    } catch {
-      throw createError({ statusCode: 500, message: 'Invalid jwks_uri' });
-    }
-    const jwksIsSecure =
-      jwksUrl.protocol === 'https:' ||
-      (allowInsecureLocalhost &&
-        jwksUrl.protocol === 'http:' &&
-        JWKS_LOCAL_DEV_HOSTS.has(jwksUrl.hostname));
-    if (!jwksIsSecure) {
-      throw createError({
-        statusCode: 500,
-        message:
-          'jwks_uri must use https (http is only permitted for a localhost issuer)',
-      });
-    }
+    const jwksUrl = assertSecureUrl(
+      config.jwks_uri,
+      'jwks_uri',
+      allowInsecureLocalhost
+    );
 
     if (!this.jwks || this.jwksUri !== config.jwks_uri) {
       this.jwks = createRemoteJWKSet(jwksUrl);
@@ -590,6 +581,11 @@ export class OAuthAuthenticationService {
       expiresAt: Date.now() + expires_in * 1000,
       userInfo: userData,
     };
+
+    // Regenerate the session id on privilege elevation (anonymous ->
+    // authenticated) so any pre-auth id a fixation attacker may have planted is
+    // discarded before the authenticated tokens are stored under a fresh id.
+    await regenerateSession(event);
 
     // Update session with user and auth data; clear transient PKCE/nonce.
     await updateSession(event, () => ({
@@ -1109,9 +1105,23 @@ export class OAuthAuthenticationService {
       return this.openIDConfigCache;
     }
 
+    const issuer = this.getConfigValue('issuer');
+    // Enforce https on the issuer itself: over TLS the discovery document and
+    // every subsequent token/userinfo call are authenticated, so a network
+    // attacker cannot forge the endpoints the client trusts. Only a localhost
+    // dev issuer may use http; a production https issuer then forces https on
+    // every advertised endpoint too.
+    const issuerUrl = assertSecureUrl(issuer, 'OAuth issuer', true);
+    const allowInsecureLocalhost =
+      issuerUrl.protocol === 'http:' && isLocalDevHost(issuerUrl.hostname);
+
+    let config: OpenIDConfiguration;
     try {
       const response = await fetch(
-        `${this.getConfigValue('issuer')}/.well-known/openid-configuration`
+        `${normalizeIssuer(issuer)}/.well-known/openid-configuration`,
+        // Reject redirects: a network attacker could otherwise redirect discovery
+        // to an attacker-controlled https endpoint that still passes validation.
+        { redirect: 'error' }
       );
 
       if (!response.ok) {
@@ -1120,11 +1130,7 @@ export class OAuthAuthenticationService {
         );
       }
 
-      const config = await response.json();
-      this.openIDConfigCache = config;
-      this.configLastFetched = now;
-
-      return config;
+      config = await response.json();
     } catch (error) {
       this.logger.error('Error fetching OpenID configuration', error);
       throw createError({
@@ -1132,12 +1138,68 @@ export class OAuthAuthenticationService {
         message: 'Failed to fetch OpenID configuration',
       });
     }
+
+    this.assertTrustedOpenIDConfiguration(
+      config,
+      issuer,
+      allowInsecureLocalhost
+    );
+
+    this.openIDConfigCache = config;
+    this.configLastFetched = now;
+
+    return config;
+  }
+
+  /**
+   * Validate a fetched OpenID configuration before trusting its endpoints:
+   * the document's `issuer` must match the configured issuer (OIDC Discovery
+   * §4.3), and every advertised endpoint we use must be https (localhost aside).
+   */
+  private assertTrustedOpenIDConfiguration(
+    config: OpenIDConfiguration,
+    issuer: string,
+    allowInsecureLocalhost: boolean
+  ): void {
+    if (
+      typeof config.issuer !== 'string' ||
+      normalizeIssuer(config.issuer) !== normalizeIssuer(issuer)
+    ) {
+      this.logger.error('OpenID configuration issuer mismatch', {
+        expected: issuer,
+        received: config.issuer,
+      });
+      throw createError({
+        statusCode: 500,
+        message:
+          'OpenID configuration issuer does not match the configured issuer',
+      });
+    }
+
+    const endpointKeys = [
+      'authorization_endpoint',
+      'token_endpoint',
+      'userinfo_endpoint',
+      'end_session_endpoint',
+      'revocation_endpoint',
+    ] as const;
+
+    for (const key of endpointKeys) {
+      const endpoint = config[key];
+      if (typeof endpoint !== 'string' || endpoint.length === 0) {
+        throw createError({
+          statusCode: 500,
+          message: `OpenID configuration is missing ${key}`,
+        });
+      }
+      assertSecureUrl(endpoint, `OpenID ${key}`, allowInsecureLocalhost);
+    }
   }
 }
 
 // OpenID Configuration interface
 interface OpenIDConfiguration {
-  issuer?: string;
+  issuer: string;
   authorization_endpoint: string;
   token_endpoint: string;
   userinfo_endpoint: string;

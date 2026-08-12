@@ -10,7 +10,7 @@ export const authConfig: AnalogAuthConfig = {
   unprotectedRoutes: [],
 
   sessionStorage: {
-    sessionSecret: process.env['SESSION_SECRET'] || 'default-dev-secret',
+    sessionSecret: process.env['SESSION_SECRET'],
 
     driver: {
       type: 'fs',
