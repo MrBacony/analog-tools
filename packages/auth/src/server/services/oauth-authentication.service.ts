@@ -6,6 +6,9 @@ import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 import { getSession, refetchSession, regenerateSession, updateSession } from '@analog-tools/session';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import { base64url } from '../utils/pkce';
+
+const AUTH_FAILED_MESSAGE = 'Authentication failed';
 
 // http is only acceptable for these hosts (local development).
 function isLocalDevHost(hostname: string): boolean {
@@ -49,6 +52,27 @@ function assertSecureUrl(
 
 function normalizeIssuer(issuer: string): string {
   return issuer.replace(/\/+$/, '');
+}
+
+// OIDC Core §3.1.3.6: at_hash is half of the access token hashed with the
+// digest matching the ID token's signing algorithm's bit size (EdDSA uses
+// SHA-512 per the OIDC errata). Unknown algs return null so the caller can
+// fail closed instead of skipping a claim that's actually present.
+function hashAlgForJwsAlg(alg: string): 'SHA-256' | 'SHA-384' | 'SHA-512' | null {
+  if (alg === 'EdDSA') return 'SHA-512';
+  const bits = /^[A-Z]{2}(256|384|512)$/.exec(alg)?.[1];
+  return bits ? (`SHA-${bits}` as const) : null;
+}
+
+async function computeAtHash(accessToken: string, alg: string): Promise<string | null> {
+  const hashAlg = hashAlgForJwsAlg(alg);
+  if (!hashAlg) return null;
+  const digest = await globalThis.crypto.subtle.digest(
+    hashAlg,
+    new TextEncoder().encode(accessToken)
+  );
+  const bytes = new Uint8Array(digest);
+  return base64url(bytes.slice(0, bytes.length / 2));
 }
 
 /**
@@ -454,12 +478,14 @@ export class OAuthAuthenticationService {
 
   /**
    * Verify an OIDC ID token: signature (via the provider's JWKS), `iss`, `aud`,
-   * `exp`/`nbf`, and the per-login `nonce`. Returns the verified claims so the
-   * caller can anchor identity in the cryptographically validated token.
+   * `exp`/`nbf`, the per-login `nonce`, and — when the provider sends it —
+   * `at_hash` binding the token to `accessToken`. Returns the verified claims
+   * so the caller can anchor identity in the cryptographically validated token.
    */
   private async validateIdToken(
     idToken: string,
-    nonce: string
+    nonce: string,
+    accessToken: string
   ): Promise<JWTPayload> {
     const config = await this.getOpenIDConfiguration();
 
@@ -489,8 +515,9 @@ export class OAuthAuthenticationService {
     }
 
     let payload: JWTPayload;
+    let protectedHeader: { alg: string };
     try {
-      ({ payload } = await jwtVerify(idToken, this.jwks, {
+      ({ payload, protectedHeader } = await jwtVerify(idToken, this.jwks, {
         // Trust anchor is the configured issuer, never the fetched metadata.
         // Normalized the same way as discovery validation, so a trailing
         // slash on the configured issuer can't pass discovery and then fail
@@ -500,12 +527,23 @@ export class OAuthAuthenticationService {
       }));
     } catch (error) {
       this.logger.error('ID token validation failed', error);
-      throw createError({ statusCode: 401, message: 'Invalid ID token' });
+      throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
     }
 
     if (payload['nonce'] !== nonce) {
       this.logger.error('ID token nonce mismatch');
-      throw createError({ statusCode: 401, message: 'Invalid ID token nonce' });
+      throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+    }
+
+    // Bind the ID token to the access token it was issued alongside, when the
+    // provider sends at_hash (OIDC Core §3.1.3.6). Absent = provider doesn't
+    // send it; present-but-wrong = token substitution, fail closed either way.
+    if (typeof payload['at_hash'] === 'string') {
+      const expected = await computeAtHash(accessToken, protectedHeader.alg);
+      if (expected === null || expected !== payload['at_hash']) {
+        this.logger.error('ID token at_hash mismatch');
+        throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+      }
     }
 
     return payload;
@@ -541,12 +579,10 @@ export class OAuthAuthenticationService {
     // Verify the ID token (authenticity + nonce replay protection) when present.
     let idTokenSub: string | undefined;
     if (id_token) {
-      const claims = await this.validateIdToken(id_token, nonce);
+      const claims = await this.validateIdToken(id_token, nonce, access_token);
       if (typeof claims.sub !== 'string' || claims.sub.length === 0) {
-        throw createError({
-          statusCode: 401,
-          message: 'ID token is missing a subject',
-        });
+        this.logger.error('ID token is missing a subject');
+        throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
       }
       idTokenSub = claims.sub;
     }
@@ -561,10 +597,7 @@ export class OAuthAuthenticationService {
       (typeof userData?.sub !== 'string' || userData.sub !== idTokenSub)
     ) {
       this.logger.error('ID token subject does not match userinfo subject');
-      throw createError({
-        statusCode: 401,
-        message: 'Authenticated subject mismatch',
-      });
+      throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
     }
 
     // Store user in database

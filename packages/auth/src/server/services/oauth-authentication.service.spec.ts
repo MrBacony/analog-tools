@@ -1173,6 +1173,51 @@ describe('OAuthAuthenticationService', () => {
       ).rejects.toEqual(expect.objectContaining({ statusCode: 401 }));
     });
 
+    it('should accept a correct at_hash bound to the access token', async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          sub: 'user123',
+          nonce: 'test-nonce',
+          at_hash: 'JbQWw3PiR3aMwaPtSiChOA', // sha256('new-access-token') left half, base64url
+        },
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof jwtVerify>>);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).resolves.toHaveProperty('user');
+    });
+
+    it('should reject when at_hash does not match the access token', async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          sub: 'user123',
+          nonce: 'test-nonce',
+          at_hash: 'not-the-right-hash',
+        },
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof jwtVerify>>);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).rejects.toEqual(expect.objectContaining({ statusCode: 401 }));
+    });
+
+    it('should reject an at_hash claim when the signing alg has no known digest', async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          sub: 'user123',
+          nonce: 'test-nonce',
+          at_hash: 'JbQWw3PiR3aMwaPtSiChOA',
+        },
+        protectedHeader: { alg: 'none' },
+      } as Awaited<ReturnType<typeof jwtVerify>>);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).rejects.toEqual(expect.objectContaining({ statusCode: 401 }));
+    });
+
     it('should reject an http jwks_uri when the issuer is https', async () => {
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: true,
