@@ -492,7 +492,10 @@ export class OAuthAuthenticationService {
     try {
       ({ payload } = await jwtVerify(idToken, this.jwks, {
         // Trust anchor is the configured issuer, never the fetched metadata.
-        issuer: configuredIssuer,
+        // Normalized the same way as discovery validation, so a trailing
+        // slash on the configured issuer can't pass discovery and then fail
+        // here against a token whose `iss` has none.
+        issuer: normalizeIssuer(configuredIssuer),
         audience: this.getConfigValue('clientId'),
       }));
     } catch (error) {
@@ -1119,9 +1122,15 @@ export class OAuthAuthenticationService {
     try {
       const response = await fetch(
         `${normalizeIssuer(issuer)}/.well-known/openid-configuration`,
-        // Reject redirects: a network attacker could otherwise redirect discovery
-        // to an attacker-controlled https endpoint that still passes validation.
-        { redirect: 'error' }
+        {
+          // Reject redirects: a network attacker could otherwise redirect
+          // discovery to an attacker-controlled https endpoint that still
+          // passes validation.
+          redirect: 'error',
+          signal: AbortSignal.timeout(
+            this.getConfigValue('discoveryTimeoutMs', 10000) as number
+          ),
+        }
       );
 
       if (!response.ok) {

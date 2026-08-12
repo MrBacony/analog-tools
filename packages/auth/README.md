@@ -119,6 +119,7 @@ The `AnalogAuthConfig` type accepts these options:
 | `logoutUrl` | `string` | No | URL to redirect to after OAuth provider logout |
 | `singleSessionPerUser` | `boolean` | No | If `true`, successful login invalidates other authenticated sessions for the same user (default: `false`) |
 | `userHandler` | `UserHandler` | No | Callbacks for user data processing |
+| `discoveryTimeoutMs` | `number` | No | Timeout for fetching the OpenID discovery document (default: `10000`). Pass e.g. `process.env['AUTH_DISCOVERY_TIMEOUT_MS']` to make it configurable per environment |
 
 ### Session Concurrency Policy
 

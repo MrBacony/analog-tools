@@ -451,7 +451,7 @@ describe('OAuthAuthenticationService', () => {
       // First call should fetch the config
       expect(global.fetch).toHaveBeenCalledWith(
         'https://auth.example.com/.well-known/openid-configuration',
-        { redirect: 'error' }
+        { redirect: 'error', signal: 'timeout-signal' }
       );
 
       // Reset fetch mock to verify caching
@@ -466,6 +466,31 @@ describe('OAuthAuthenticationService', () => {
       // Second call should use cached config
       expect(global.fetch).not.toHaveBeenCalled();
     });
+
+    it('should default the discovery fetch timeout to 10s', async () => {
+      await service.getAuthorizationUrl({
+        state: 'test-state',
+        codeChallenge: 'c',
+        nonce: 'n',
+      });
+
+      expect(AbortSignal.timeout).toHaveBeenCalledWith(10000);
+    });
+
+    it('should use discoveryTimeoutMs from config when set', async () => {
+      Object.defineProperty(service, 'config', {
+        value: { ...mockConfig, discoveryTimeoutMs: 3000 },
+        writable: true,
+      });
+
+      await service.getAuthorizationUrl({
+        state: 'test-state',
+        codeChallenge: 'c',
+        nonce: 'n',
+      });
+
+      expect(AbortSignal.timeout).toHaveBeenCalledWith(3000);
+    });
   });
 
   describe('OpenID configuration validation', () => {
@@ -475,7 +500,7 @@ describe('OAuthAuthenticationService', () => {
         writable: true,
       });
 
-      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+      await expect(service.getAuthorizationUrl({ state: 'state', codeChallenge: 'c', nonce: 'n' })).rejects.toThrow(
         /issuer must use https/
       );
       // Never even contacts the provider.
@@ -499,7 +524,7 @@ describe('OAuthAuthenticationService', () => {
         }),
       });
 
-      await expect(service.getAuthorizationUrl('state')).resolves.toContain(
+      await expect(service.getAuthorizationUrl({ state: 'state', codeChallenge: 'c', nonce: 'n' })).resolves.toContain(
         'http://localhost:8080/authorize'
       );
     });
@@ -513,7 +538,7 @@ describe('OAuthAuthenticationService', () => {
         }),
       });
 
-      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+      await expect(service.getAuthorizationUrl({ state: 'state', codeChallenge: 'c', nonce: 'n' })).rejects.toThrow(
         /issuer does not match/
       );
     });
@@ -527,7 +552,7 @@ describe('OAuthAuthenticationService', () => {
         }),
       });
 
-      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+      await expect(service.getAuthorizationUrl({ state: 'state', codeChallenge: 'c', nonce: 'n' })).rejects.toThrow(
         /token_endpoint must use https/
       );
     });
@@ -543,7 +568,7 @@ describe('OAuthAuthenticationService', () => {
         }),
       });
 
-      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+      await expect(service.getAuthorizationUrl({ state: 'state', codeChallenge: 'c', nonce: 'n' })).rejects.toThrow(
         /token_endpoint must use https/
       );
     });
@@ -565,7 +590,7 @@ describe('OAuthAuthenticationService', () => {
         }),
       });
 
-      await expect(service.getAuthorizationUrl('state')).resolves.toContain(
+      await expect(service.getAuthorizationUrl({ state: 'state', codeChallenge: 'c', nonce: 'n' })).resolves.toContain(
         'http://127.0.0.2:8080/authorize'
       );
     });
@@ -575,7 +600,7 @@ describe('OAuthAuthenticationService', () => {
         .fn()
         .mockRejectedValue(new TypeError('Failed to fetch'));
 
-      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+      await expect(service.getAuthorizationUrl({ state: 'state', codeChallenge: 'c', nonce: 'n' })).rejects.toThrow(
         /Failed to fetch OpenID configuration/
       );
     });
@@ -588,7 +613,7 @@ describe('OAuthAuthenticationService', () => {
         json: async () => incompleteConfig,
       });
 
-      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+      await expect(service.getAuthorizationUrl({ state: 'state', codeChallenge: 'c', nonce: 'n' })).rejects.toThrow(
         /missing token_endpoint/
       );
 
@@ -598,7 +623,7 @@ describe('OAuthAuthenticationService', () => {
         ok: true,
         json: async () => mockOpenIDConfig,
       });
-      await expect(service.getAuthorizationUrl('state')).resolves.toContain(
+      await expect(service.getAuthorizationUrl({ state: 'state', codeChallenge: 'c', nonce: 'n' })).resolves.toContain(
         mockOpenIDConfig.authorization_endpoint
       );
       expect(global.fetch).toHaveBeenCalled();
@@ -1161,6 +1186,23 @@ describe('OAuthAuthenticationService', () => {
       await expect(
         service.handleCallback(mockEvent as H3Event, mockCode, mockState)
       ).rejects.toEqual(expect.objectContaining({ statusCode: 500 }));
+    });
+
+    it('should verify the ID token against the issuer normalized the same way as discovery', async () => {
+      // A trailing slash on the configured issuer must not desync issuer
+      // matching between discovery validation and ID-token verification.
+      Object.defineProperty(service, 'config', {
+        value: { ...mockConfig, issuer: 'https://auth.example.com/' },
+        writable: true,
+      });
+
+      await service.handleCallback(mockEvent as H3Event, mockCode, mockState);
+
+      expect(jwtVerify).toHaveBeenCalledWith(
+        'new-id-token',
+        'mock-jwks',
+        expect.objectContaining({ issuer: 'https://auth.example.com' })
+      );
     });
 
     it('should reject when PKCE verifier / nonce are missing from the session', async () => {
