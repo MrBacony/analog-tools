@@ -425,7 +425,8 @@ describe('OAuthAuthenticationService', () => {
 
       // First call should fetch the config
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://auth.example.com/.well-known/openid-configuration'
+        'https://auth.example.com/.well-known/openid-configuration',
+        { redirect: 'error' }
       );
 
       // Reset fetch mock to verify caching
@@ -516,6 +517,62 @@ describe('OAuthAuthenticationService', () => {
       await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
         /token_endpoint must use https/
       );
+    });
+
+    it('should allow an http issuer on an IPv4 loopback address (development)', async () => {
+      Object.defineProperty(service, 'config', {
+        value: { ...mockConfig, issuer: 'http://127.0.0.2:8080/realms/dev' },
+        writable: true,
+      });
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          issuer: 'http://127.0.0.2:8080/realms/dev',
+          authorization_endpoint: 'http://127.0.0.2:8080/authorize',
+          token_endpoint: 'http://127.0.0.2:8080/token',
+          userinfo_endpoint: 'http://127.0.0.2:8080/userinfo',
+          end_session_endpoint: 'http://127.0.0.2:8080/logout',
+          revocation_endpoint: 'http://127.0.0.2:8080/revoke',
+        }),
+      });
+
+      await expect(service.getAuthorizationUrl('state')).resolves.toContain(
+        'http://127.0.0.2:8080/authorize'
+      );
+    });
+
+    it('should reject a discovery fetch that is redirected', async () => {
+      global.fetch = vi
+        .fn()
+        .mockRejectedValue(new TypeError('Failed to fetch'));
+
+      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+        /Failed to fetch OpenID configuration/
+      );
+    });
+
+    it('should reject a discovery document missing a required endpoint', async () => {
+      const { token_endpoint: _token_endpoint, ...incompleteConfig } =
+        mockOpenIDConfig;
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => incompleteConfig,
+      });
+
+      await expect(service.getAuthorizationUrl('state')).rejects.toThrow(
+        /missing token_endpoint/
+      );
+
+      // The incomplete document must not have been cached: a valid response
+      // is still fetched and used on the next call.
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => mockOpenIDConfig,
+      });
+      await expect(service.getAuthorizationUrl('state')).resolves.toContain(
+        mockOpenIDConfig.authorization_endpoint
+      );
+      expect(global.fetch).toHaveBeenCalled();
     });
   });
 

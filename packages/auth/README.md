@@ -460,7 +460,7 @@ export const protectedProcedure = t.procedure.use(isAuthenticated);
 - Use persistent storage (Redis, Cloudflare KV) -- not memory or filesystem
 - Configure `tokenRefreshApiKey` and set up a CRON job for scheduled token refresh
 - Set up HTTPS (required for `secure` cookies)
-- Use an `https` issuer (http is accepted only for `localhost`); the discovery document's `issuer` and advertised endpoints are validated before any token/userinfo call
+- Use an `https` issuer (http is accepted only for `localhost` or a loopback address, `127.0.0.0/8`/`::1`); the discovery document's `issuer` and advertised endpoints are validated before any token/userinfo call
 - Add rate limiting for `/api/auth/*` at the edge (reverse proxy, API gateway, or Nitro `routeRules`). The core package deliberately does not bundle a rate limiter — a first-party plugin is proposed in [#83](https://github.com/MrBacony/analog-tools/issues/83). The `refresh-tokens` API key is compared in constant time.
 
 ## Vite Configuration

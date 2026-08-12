@@ -7,7 +7,14 @@ import { LoggerService } from '@analog-tools/logger';
 import { getSession, refetchSession, regenerateSession, updateSession } from '@analog-tools/session';
 
 // http is only acceptable for these hosts (local development).
-const LOCAL_DEV_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+function isLocalDevHost(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '::1' ||
+    hostname === '[::1]' ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)
+  );
+}
 
 /**
  * Parse a URL and require https, except for local-development hosts. Guards
@@ -29,7 +36,7 @@ function assertSecureUrl(
     url.protocol === 'https:' ||
     (allowInsecureLocalhost &&
       url.protocol === 'http:' &&
-      LOCAL_DEV_HOSTS.has(url.hostname));
+      isLocalDevHost(url.hostname));
   if (!isSecure) {
     throw createError({
       statusCode: 500,
@@ -990,12 +997,15 @@ export class OAuthAuthenticationService {
     // every advertised endpoint too.
     const issuerUrl = assertSecureUrl(issuer, 'OAuth issuer', true);
     const allowInsecureLocalhost =
-      issuerUrl.protocol === 'http:' && LOCAL_DEV_HOSTS.has(issuerUrl.hostname);
+      issuerUrl.protocol === 'http:' && isLocalDevHost(issuerUrl.hostname);
 
     let config: OpenIDConfiguration;
     try {
       const response = await fetch(
-        `${issuer}/.well-known/openid-configuration`
+        `${normalizeIssuer(issuer)}/.well-known/openid-configuration`,
+        // Reject redirects: a network attacker could otherwise redirect discovery
+        // to an attacker-controlled https endpoint that still passes validation.
+        { redirect: 'error' }
       );
 
       if (!response.ok) {
@@ -1060,9 +1070,13 @@ export class OAuthAuthenticationService {
 
     for (const key of endpointKeys) {
       const endpoint = config[key];
-      if (typeof endpoint === 'string' && endpoint.length > 0) {
-        assertSecureUrl(endpoint, `OpenID ${key}`, allowInsecureLocalhost);
+      if (typeof endpoint !== 'string' || endpoint.length === 0) {
+        throw createError({
+          statusCode: 500,
+          message: `OpenID configuration is missing ${key}`,
+        });
       }
+      assertSecureUrl(endpoint, `OpenID ${key}`, allowInsecureLocalhost);
     }
   }
 }
