@@ -20,7 +20,7 @@ export type AuthRoute = {
 type StorageBasicConfig = {
   ttl?: number; // Time to live in seconds
   prefix?: string; // Prefix for session keys
-  sessionSecret?: string; // Secret key for session encryption
+  sessionSecret?: string | string[]; // Secret key(s) for session cookie signing; an array enables rotation
   cookieName?: string; // Session cookie name (defaults to 'auth.session')
 };
 
@@ -90,7 +90,6 @@ export type AnalogAuthConfig = {
   callbackUri: string;
 
   tokenRefreshApiKey?: string;
-  whitelistFileTypes?: string[];
   unprotectedRoutes?: string[];
   logoutUrl?: string;
   /**

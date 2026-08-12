@@ -80,11 +80,10 @@ const authConfig: AnalogAuthConfig = {
     '/',
     '/api/public/*',
   ],
-  whitelistFileTypes: ['.css', '.js', '.png', '.svg', '.ico', '.woff2'],
   // Optional: enforce only one active authenticated session per user
   // singleSessionPerUser: true,
   sessionStorage: {
-    sessionSecret: process.env['SESSION_SECRET'] || 'change-me-in-production',
+    sessionSecret: process.env['SESSION_SECRET'], // required — no default; init throws if unset
     ttl: 86400,
     driver: {
       type: 'redis',
@@ -116,7 +115,6 @@ The `AnalogAuthConfig` type accepts these options:
 | `sessionStorage` | `SessionStorageConfig` | Yes | Session storage configuration (see below) |
 | `audience` | `string` | No | API audience identifier (required by some providers like Auth0) |
 | `unprotectedRoutes` | `string[]` | No | Routes that bypass authentication |
-| `whitelistFileTypes` | `string[]` | No | File extensions that bypass authentication (e.g., `['.css', '.js']`) |
 | `tokenRefreshApiKey` | `string` | No | API key for the `/api/auth/refresh-tokens` endpoint |
 | `logoutUrl` | `string` | No | URL to redirect to after OAuth provider logout |
 | `singleSessionPerUser` | `boolean` | No | If `true`, successful login invalidates other authenticated sessions for the same user (default: `false`) |
@@ -220,15 +218,16 @@ unprotectedRoutes: [
 
 All routes not listed in `unprotectedRoutes` require a valid session. Unauthenticated browser requests get redirected to `/api/auth/login`. API requests (with `fetch: 'true'` header) receive a 401 response.
 
-### File Type Whitelist
+### Static Assets
 
-Static assets typically don't need authentication checks. Use `whitelistFileTypes` to skip auth for requests matching file extensions:
+Static assets do not need any auth configuration. In Nitro (and the Vite dev
+server) the public-asset handler serves existing files before this middleware
+runs, so real assets (`/favicon.ico`, `/assets/*.js`, `*.css`, fonts, …) are
+returned without an auth check regardless of `unprotectedRoutes`. Only requests
+that are *not* served as a static file reach the middleware.
 
-```typescript
-whitelistFileTypes: ['.css', '.js', '.png', '.svg', '.ico', '.woff2', '.jpg']
-```
-
-Extensions are normalized (case-insensitive, leading dot optional). This check runs before route matching, so it's efficient for high-traffic static asset requests.
+If you serve public content from a dynamic server route, list that route in
+`unprotectedRoutes` — never rely on its file extension.
 
 ### User Data Handling
 
@@ -462,7 +461,7 @@ export const protectedProcedure = t.procedure.use(isAuthenticated);
 - Configure `tokenRefreshApiKey` and set up a CRON job for scheduled token refresh
 - Set up HTTPS (required for `secure` cookies)
 - Use an `https` issuer (http is accepted only for `localhost`); the discovery document's `issuer` and advertised endpoints are validated before any token/userinfo call
-- Add rate limiting to auth endpoints in your infrastructure
+- Add rate limiting for `/api/auth/*` at the edge (reverse proxy, API gateway, or Nitro `routeRules`). The core package deliberately does not bundle a rate limiter — a first-party plugin is proposed in [#83](https://github.com/MrBacony/analog-tools/issues/83). The `refresh-tokens` API key is compared in constant time.
 
 ## Vite Configuration
 

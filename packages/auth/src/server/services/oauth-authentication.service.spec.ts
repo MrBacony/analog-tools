@@ -19,11 +19,16 @@ import {
 vi.mock('@analog-tools/session', () => ({
   getSession: vi.fn(),
   refetchSession: vi.fn(),
+  regenerateSession: vi.fn(),
   updateSession: vi.fn(),
 }));
 
-// Import the mocked functions for use in tests
-import { getSession, refetchSession, updateSession } from '@analog-tools/session';
+import {
+  getSession,
+  refetchSession,
+  regenerateSession,
+  updateSession,
+} from '@analog-tools/session';
 
 // Mock the fetch function
 vi.stubGlobal('fetch', vi.fn());
@@ -388,227 +393,6 @@ describe('OAuthAuthenticationService', () => {
 
       const invalidService = new OAuthAuthenticationService(invalidConfig);
       expect(invalidService.isUnprotectedRoute('/api/auth/login')).toBe(false);
-    });
-  });
-
-  describe('isUnprotectedRoute - whitelistFileTypes', () => {
-    it('should return true for paths with whitelisted file extensions', () => {
-      const whitelistConfig = {
-        ...mockConfig,
-        whitelistFileTypes: ['.js', '.css', '.png'],
-      };
-
-      const whitelistService = new OAuthAuthenticationService(whitelistConfig);
-
-      expect(whitelistService.isUnprotectedRoute('/static/bundle.js')).toBe(
-        true
-      );
-      expect(whitelistService.isUnprotectedRoute('/styles/main.css')).toBe(
-        true
-      );
-      expect(whitelistService.isUnprotectedRoute('/images/logo.png')).toBe(
-        true
-      );
-    });
-
-    it('should handle file extensions with and without dots', () => {
-      const whitelistConfig = {
-        ...mockConfig,
-        whitelistFileTypes: ['.js', 'css', '.svg'],
-      };
-
-      const whitelistService = new OAuthAuthenticationService(whitelistConfig);
-
-      expect(whitelistService.isUnprotectedRoute('/app.js')).toBe(true);
-      expect(whitelistService.isUnprotectedRoute('/style.css')).toBe(true);
-      expect(whitelistService.isUnprotectedRoute('/icon.svg')).toBe(true);
-    });
-
-    it('should be case-insensitive for file extensions', () => {
-      const whitelistConfig = {
-        ...mockConfig,
-        whitelistFileTypes: ['.js', '.CSS', '.PNG'],
-      };
-
-      const whitelistService = new OAuthAuthenticationService(whitelistConfig);
-
-      expect(whitelistService.isUnprotectedRoute('/app.JS')).toBe(true);
-      expect(whitelistService.isUnprotectedRoute('/style.Css')).toBe(true);
-      expect(whitelistService.isUnprotectedRoute('/logo.png')).toBe(true);
-      expect(whitelistService.isUnprotectedRoute('/image.PNG')).toBe(true);
-    });
-
-    it('should return false for paths without whitelisted extensions', () => {
-      const whitelistConfig = {
-        ...mockConfig,
-        whitelistFileTypes: ['.js', '.css'],
-      };
-
-      const whitelistService = new OAuthAuthenticationService(whitelistConfig);
-
-      expect(whitelistService.isUnprotectedRoute('/api/users')).toBe(false);
-      expect(whitelistService.isUnprotectedRoute('/admin/dashboard')).toBe(
-        false
-      );
-      expect(whitelistService.isUnprotectedRoute('/api/data.json')).toBe(false);
-    });
-
-    it('should return false for empty whitelistFileTypes', () => {
-      const whitelistConfig = {
-        ...mockConfig,
-        whitelistFileTypes: [],
-      };
-
-      const whitelistService = new OAuthAuthenticationService(whitelistConfig);
-
-      expect(whitelistService.isUnprotectedRoute('/app.js')).toBe(false);
-      expect(whitelistService.isUnprotectedRoute('/style.css')).toBe(false);
-    });
-
-    it('should return false when whitelistFileTypes is not an array', () => {
-      const whitelistConfig = {
-        ...mockConfig,
-        whitelistFileTypes: 'invalid' as unknown as string[],
-      };
-
-      const whitelistService = new OAuthAuthenticationService(whitelistConfig);
-
-      expect(whitelistService.isUnprotectedRoute('/app.js')).toBe(false);
-    });
-
-    it('should return true for whitelisted extensions even with path depth', () => {
-      const whitelistConfig = {
-        ...mockConfig,
-        whitelistFileTypes: ['.js', '.woff2'],
-      };
-
-      const whitelistService = new OAuthAuthenticationService(whitelistConfig);
-
-      expect(
-        whitelistService.isUnprotectedRoute('/assets/vendor/lib/script.js')
-      ).toBe(true);
-      expect(
-        whitelistService.isUnprotectedRoute('/public/fonts/roboto.woff2')
-      ).toBe(true);
-    });
-
-    it('should match only file extensions, not partial names', () => {
-      const whitelistConfig = {
-        ...mockConfig,
-        whitelistFileTypes: ['.js'],
-      };
-
-      const whitelistService = new OAuthAuthenticationService(whitelistConfig);
-
-      // Should match
-      expect(whitelistService.isUnprotectedRoute('/app.js')).toBe(true);
-      expect(whitelistService.isUnprotectedRoute('/dist/bundle.js')).toBe(true);
-
-      // Should NOT match
-      expect(whitelistService.isUnprotectedRoute('/javascript-module')).toBe(
-        false
-      );
-      expect(whitelistService.isUnprotectedRoute('/app.jsp')).toBe(false);
-      expect(whitelistService.isUnprotectedRoute('/test.js.map')).toBe(false);
-    });
-
-    it('should work in combination with unprotectedRoutes', () => {
-      const combinedConfig = {
-        ...mockConfig,
-        unprotectedRoutes: ['/api/public/*', '/health'],
-        whitelistFileTypes: ['.js', '.css'],
-      };
-
-      const combinedService = new OAuthAuthenticationService(combinedConfig);
-
-      // Unprotected routes should still work
-      expect(combinedService.isUnprotectedRoute('/api/public/data')).toBe(true);
-      expect(combinedService.isUnprotectedRoute('/health')).toBe(true);
-
-      // Whitelisted file types should work
-      expect(combinedService.isUnprotectedRoute('/app.js')).toBe(true);
-      expect(combinedService.isUnprotectedRoute('/style.css')).toBe(true);
-
-      // Other routes should be protected
-      expect(combinedService.isUnprotectedRoute('/api/users')).toBe(false);
-      expect(combinedService.isUnprotectedRoute('/admin')).toBe(false);
-    });
-
-    it('should verify precedence when path matches both unprotectedRoutes and whitelistFileTypes', () => {
-      const combinedConfig = {
-        ...mockConfig,
-        unprotectedRoutes: ['/api/public/*', '/health', '/static/*'],
-        whitelistFileTypes: ['.js', '.css', '.png', '.woff2'],
-      };
-
-      const combinedService = new OAuthAuthenticationService(combinedConfig);
-
-      // Paths matching both unprotected route patterns and having whitelisted extensions
-      // should be unprotected (both conditions independently grant access)
-      expect(combinedService.isUnprotectedRoute('/api/public/script.js')).toBe(true);
-      expect(combinedService.isUnprotectedRoute('/api/public/styles.css')).toBe(true);
-      expect(combinedService.isUnprotectedRoute('/static/logo.png')).toBe(true);
-      expect(combinedService.isUnprotectedRoute('/static/font.woff2')).toBe(true);
-
-      // Paths with whitelisted extension inside an unprotected wildcard route
-      expect(combinedService.isUnprotectedRoute('/api/public/nested/deep/bundle.js')).toBe(true);
-      expect(combinedService.isUnprotectedRoute('/static/vendor/lib/style.css')).toBe(true);
-
-      // Paths matching exact unprotected route with whitelisted extension
-      expect(combinedService.isUnprotectedRoute('/health.js')).toBe(true); // Matches exact route with whitelisted extension
-      expect(combinedService.isUnprotectedRoute('/health')).toBe(true); // Matches exact route
-
-      // Paths with whitelisted extension but not matching any unprotected route
-      expect(combinedService.isUnprotectedRoute('/protected/app.js')).toBe(true); // Unprotected due to extension
-      expect(combinedService.isUnprotectedRoute('/admin/styles.css')).toBe(true); // Unprotected due to extension
-
-      // Paths without whitelisted extension and not matching unprotected routes
-      expect(combinedService.isUnprotectedRoute('/protected/data')).toBe(false);
-      expect(combinedService.isUnprotectedRoute('/admin/users')).toBe(false);
-
-      // Verify that whitelisted extensions work even with path depth
-      expect(combinedService.isUnprotectedRoute('/api/public/vendor/deep/nested/lib.js')).toBe(true);
-
-      // Verify that non-whitelisted extensions don't bypass unprotected routes
-      expect(combinedService.isUnprotectedRoute('/api/public/data.json')).toBe(true); // Matches unprotected route pattern
-      expect(combinedService.isUnprotectedRoute('/protected/data.json')).toBe(false); // No match
-    });
-
-    it('should handle multiple dots in filenames correctly', () => {
-      const whitelistConfig = {
-        ...mockConfig,
-        whitelistFileTypes: ['.js', '.json'],
-      };
-
-      const whitelistService = new OAuthAuthenticationService(whitelistConfig);
-
-      // Should match based on the final extension
-      expect(whitelistService.isUnprotectedRoute('/test.spec.js')).toBe(true);
-      expect(whitelistService.isUnprotectedRoute('/package.lock.json')).toBe(
-        true
-      );
-
-      // Should NOT match
-      expect(whitelistService.isUnprotectedRoute('/test.js.map')).toBe(false);
-      expect(whitelistService.isUnprotectedRoute('/app.json.backup')).toBe(
-        false
-      );
-    });
-
-    it('should handle special characters in extensions', () => {
-      const whitelistConfig = {
-        ...mockConfig,
-        whitelistFileTypes: ['.woff2', '.webp'],
-      };
-
-      const whitelistService = new OAuthAuthenticationService(whitelistConfig);
-
-      expect(whitelistService.isUnprotectedRoute('/fonts/roboto.woff2')).toBe(
-        true
-      );
-      expect(whitelistService.isUnprotectedRoute('/images/optimized.webp')).toBe(
-        true
-      );
     });
   });
 
@@ -1229,6 +1013,15 @@ describe('OAuthAuthenticationService', () => {
           idToken: 'new-id-token',
           refreshToken: 'new-refresh-token',
         })
+      );
+
+      // Session fixation: the id is regenerated on login, before the
+      // authenticated tokens are written.
+      expect(regenerateSession).toHaveBeenCalledWith(mockEvent);
+      expect(
+        vi.mocked(regenerateSession).mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        vi.mocked(updateSession).mock.invocationCallOrder.at(-1) as number
       );
     });
 

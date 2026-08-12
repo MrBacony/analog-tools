@@ -1,11 +1,10 @@
-import { extname } from 'path';
 import { createError, H3Event } from 'h3';
 import { SessionService } from './session.service';
 import { AuthSessionData } from '../types/auth-session.types';
 import type { AnalogAuthConfig } from '../types/auth.types';
 import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
-import { getSession, refetchSession, updateSession } from '@analog-tools/session';
+import { getSession, refetchSession, regenerateSession, updateSession } from '@analog-tools/session';
 
 // http is only acceptable for these hosts (local development).
 const LOCAL_DEV_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
@@ -67,22 +66,6 @@ export class OAuthAuthenticationService {
     );
     registerService(SessionService, config.sessionStorage);
     this.config = config;
-    this.initializeWhitelistExtensions();
-  }
-
-  /**
-   * Initialize and cache normalized whitelist extensions
-   * Normalizes extensions once during initialization for efficient lookups
-   */
-  private initializeWhitelistExtensions(): void {
-    const whitelistFileTypes = this.config.whitelistFileTypes;
-    if (Array.isArray(whitelistFileTypes) && whitelistFileTypes.length > 0) {
-      whitelistFileTypes.forEach(ext => {
-        // Normalize extension to always have a leading dot and lowercase
-        const normalizedExt = (ext.startsWith('.') ? ext : `.${ext}`).toLowerCase();
-        this.normalizedWhitelistExtensions.add(normalizedExt);
-      });
-    }
   }
 
   // Config object with default values
@@ -95,9 +78,6 @@ export class OAuthAuthenticationService {
 
   // Add these properties for token refresh configuration
   private TOKEN_REFRESH_SAFETY_MARGIN = 60 * 5; // 5 minutes in seconds
-
-  // Cached normalized whitelist extensions for efficient lookups
-  private normalizedWhitelistExtensions: Set<string> = new Set();
 
   /**
    * Validate that the service has been properly initialized
@@ -168,16 +148,6 @@ export class OAuthAuthenticationService {
    * @returns True if the route is unprotected, false otherwise
    */
   isUnprotectedRoute(path: string): boolean {
-
-    // Check cached whitelist extensions for efficiency
-    if (this.normalizedWhitelistExtensions.size > 0) {
-      // Use extname() to get the exact file extension (only the final extension)
-      const fileExtension = extname(path).toLowerCase();
-      if (this.normalizedWhitelistExtensions.has(fileExtension)) {
-        return true;
-      }
-    }
-
     const unprotectedRoutes = this.getConfigValue(
       'unprotectedRoutes',
       [] as string[]
@@ -493,6 +463,11 @@ export class OAuthAuthenticationService {
       expiresAt: Date.now() + expires_in * 1000,
       userInfo: userData,
     };
+
+    // Regenerate the session id on privilege elevation (anonymous ->
+    // authenticated) so any pre-auth id a fixation attacker may have planted is
+    // discarded before the authenticated tokens are stored under a fresh id.
+    await regenerateSession(event);
 
     // Update session with user and auth data
     await updateSession(event, () => ({ user, auth }));

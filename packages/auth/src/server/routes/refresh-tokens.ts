@@ -3,6 +3,7 @@ import { OAuthAuthenticationService } from '../services/oauth-authentication.ser
 import { AuthRoute } from '../types/auth.types';
 import { inject } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
+import { timingSafeEqual } from '../utils/timing-safe-equal';
 
 const route: AuthRoute = {
   path: 'refresh-tokens',
@@ -21,7 +22,7 @@ const route: AuthRoute = {
     }
 
     const authHeader = getRequestHeaders(event).authorization;
-    if (!authHeader || `Bearer ${apiKey}` !== authHeader) {
+    if (!authHeader || !(await timingSafeEqual(authHeader, `Bearer ${apiKey}`))) {
       logger.warn('Unauthorized token refresh attempt');
       throw createError({
         statusCode: 401,
