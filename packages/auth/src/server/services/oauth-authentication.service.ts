@@ -6,6 +6,50 @@ import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 import { getSession, refetchSession, regenerateSession, updateSession } from '@analog-tools/session';
 
+// http is only acceptable for these hosts (local development).
+function isLocalDevHost(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '::1' ||
+    hostname === '[::1]' ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)
+  );
+}
+
+/**
+ * Parse a URL and require https, except for local-development hosts. Guards
+ * against tokens/secrets being sent over cleartext or to a non-https endpoint
+ * advertised by a tampered discovery document.
+ */
+function assertSecureUrl(
+  rawUrl: string,
+  label: string,
+  allowInsecureLocalhost: boolean
+): URL {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw createError({ statusCode: 500, message: `Invalid ${label} URL` });
+  }
+  const isSecure =
+    url.protocol === 'https:' ||
+    (allowInsecureLocalhost &&
+      url.protocol === 'http:' &&
+      isLocalDevHost(url.hostname));
+  if (!isSecure) {
+    throw createError({
+      statusCode: 500,
+      message: `${label} must use https (http is only permitted for a localhost issuer during development)`,
+    });
+  }
+  return url;
+}
+
+function normalizeIssuer(issuer: string): string {
+  return issuer.replace(/\/+$/, '');
+}
+
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
  */
@@ -945,9 +989,23 @@ export class OAuthAuthenticationService {
       return this.openIDConfigCache;
     }
 
+    const issuer = this.getConfigValue('issuer');
+    // Enforce https on the issuer itself: over TLS the discovery document and
+    // every subsequent token/userinfo call are authenticated, so a network
+    // attacker cannot forge the endpoints the client trusts. Only a localhost
+    // dev issuer may use http; a production https issuer then forces https on
+    // every advertised endpoint too.
+    const issuerUrl = assertSecureUrl(issuer, 'OAuth issuer', true);
+    const allowInsecureLocalhost =
+      issuerUrl.protocol === 'http:' && isLocalDevHost(issuerUrl.hostname);
+
+    let config: OpenIDConfiguration;
     try {
       const response = await fetch(
-        `${this.getConfigValue('issuer')}/.well-known/openid-configuration`
+        `${normalizeIssuer(issuer)}/.well-known/openid-configuration`,
+        // Reject redirects: a network attacker could otherwise redirect discovery
+        // to an attacker-controlled https endpoint that still passes validation.
+        { redirect: 'error' }
       );
 
       if (!response.ok) {
@@ -956,11 +1014,7 @@ export class OAuthAuthenticationService {
         );
       }
 
-      const config = await response.json();
-      this.openIDConfigCache = config;
-      this.configLastFetched = now;
-
-      return config;
+      config = await response.json();
     } catch (error) {
       this.logger.error('Error fetching OpenID configuration', error);
       throw createError({
@@ -968,11 +1022,68 @@ export class OAuthAuthenticationService {
         message: 'Failed to fetch OpenID configuration',
       });
     }
+
+    this.assertTrustedOpenIDConfiguration(
+      config,
+      issuer,
+      allowInsecureLocalhost
+    );
+
+    this.openIDConfigCache = config;
+    this.configLastFetched = now;
+
+    return config;
+  }
+
+  /**
+   * Validate a fetched OpenID configuration before trusting its endpoints:
+   * the document's `issuer` must match the configured issuer (OIDC Discovery
+   * §4.3), and every advertised endpoint we use must be https (localhost aside).
+   */
+  private assertTrustedOpenIDConfiguration(
+    config: OpenIDConfiguration,
+    issuer: string,
+    allowInsecureLocalhost: boolean
+  ): void {
+    if (
+      typeof config.issuer !== 'string' ||
+      normalizeIssuer(config.issuer) !== normalizeIssuer(issuer)
+    ) {
+      this.logger.error('OpenID configuration issuer mismatch', {
+        expected: issuer,
+        received: config.issuer,
+      });
+      throw createError({
+        statusCode: 500,
+        message:
+          'OpenID configuration issuer does not match the configured issuer',
+      });
+    }
+
+    const endpointKeys = [
+      'authorization_endpoint',
+      'token_endpoint',
+      'userinfo_endpoint',
+      'end_session_endpoint',
+      'revocation_endpoint',
+    ] as const;
+
+    for (const key of endpointKeys) {
+      const endpoint = config[key];
+      if (typeof endpoint !== 'string' || endpoint.length === 0) {
+        throw createError({
+          statusCode: 500,
+          message: `OpenID configuration is missing ${key}`,
+        });
+      }
+      assertSecureUrl(endpoint, `OpenID ${key}`, allowInsecureLocalhost);
+    }
   }
 }
 
 // OpenID Configuration interface
 interface OpenIDConfiguration {
+  issuer: string;
   authorization_endpoint: string;
   token_endpoint: string;
   userinfo_endpoint: string;
