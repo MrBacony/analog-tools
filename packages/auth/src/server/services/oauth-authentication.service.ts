@@ -54,6 +54,18 @@ function normalizeIssuer(issuer: string): string {
   return issuer.replace(/\/+$/, '');
 }
 
+/**
+ * Build the set of `iss` claim values (trailing-slash variants) accepted for
+ * a single configured issuer. Providers disagree on the canonical form:
+ * Auth0 emits `https://tenant.auth0.com/` (trailing slash) in both the
+ * discovery document and the id_token `iss`, while Keycloak and most others
+ * emit it without the slash. The variants stay anchored to the one configured
+ * issuer, so they never broaden trust to a different host.
+ */
+function issuerVariants(issuer: string): string[] {
+  const normalized = normalizeIssuer(issuer);
+  return [...new Set([issuer, normalized, `${normalized}/`])];
+}
 // OIDC Core §3.1.3.6: at_hash is half of the access token hashed with the
 // digest matching the ID token's signing algorithm's bit size (EdDSA uses
 // SHA-512 per the OIDC errata). Unknown algs return null so the caller can
@@ -520,10 +532,10 @@ export class OAuthAuthenticationService {
     try {
       ({ payload, protectedHeader } = await jwtVerify(idToken, this.jwks, {
         // Trust anchor is the configured issuer, never the fetched metadata.
-        // Normalized the same way as discovery validation, so a trailing
-        // slash on the configured issuer can't pass discovery and then fail
-        // here against a token whose `iss` has none.
-        issuer: normalizeIssuer(configuredIssuer),
+        // Accept every trailing-slash variant of the configured issuer so an
+        // id_token `iss` from both slash-preferring providers (Auth0) and
+        // slash-stripping providers (Keycloak) verify against the same config.
+        issuer: issuerVariants(configuredIssuer),
         audience: this.getConfigValue('clientId'),
       }));
     } catch (error) {

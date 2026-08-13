@@ -1279,9 +1279,9 @@ describe('OAuthAuthenticationService', () => {
       ).rejects.toEqual(expect.objectContaining({ statusCode: 500 }));
     });
 
-    it('should verify the ID token against the issuer normalized the same way as discovery', async () => {
-      // A trailing slash on the configured issuer must not desync issuer
-      // matching between discovery validation and ID-token verification.
+    it('should verify the ID token against both trailing-slash variants of the issuer', async () => {
+      // A configured issuer with a trailing slash (Auth0 form) must accept an
+      // id_token `iss` with and without the slash.
       Object.defineProperty(service, 'config', {
         value: { ...mockConfig, issuer: 'https://auth.example.com/' },
         writable: true,
@@ -1292,7 +1292,28 @@ describe('OAuthAuthenticationService', () => {
       expect(jwtVerify).toHaveBeenCalledWith(
         'new-id-token',
         'mock-jwks',
-        expect.objectContaining({ issuer: 'https://auth.example.com' })
+        expect.objectContaining({
+          issuer: ['https://auth.example.com/', 'https://auth.example.com'],
+        })
+      );
+    });
+
+    it('should verify the ID token against a slash-stripping issuer (Keycloak form)', async () => {
+      // A configured issuer without a trailing slash must likewise accept an
+      // id_token `iss` with and without the slash.
+      Object.defineProperty(service, 'config', {
+        value: { ...mockConfig, issuer: 'https://auth.example.com' },
+        writable: true,
+      });
+
+      await service.handleCallback(mockEvent as H3Event, mockCode, mockState);
+
+      expect(jwtVerify).toHaveBeenCalledWith(
+        'new-id-token',
+        'mock-jwks',
+        expect.objectContaining({
+          issuer: ['https://auth.example.com', 'https://auth.example.com/'],
+        })
       );
     });
 
