@@ -1,6 +1,6 @@
 {
   "name": "analog-tools",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "description": "Tools and utilities for AnalogJS applications",
   "packageManager": "pnpm@10.0.0",
   "license": "MIT",
