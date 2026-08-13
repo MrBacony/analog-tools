@@ -61,7 +61,7 @@ function normalizeIssuer(issuer: string): string {
 function hashAlgForJwsAlg(alg: string): 'SHA-256' | 'SHA-384' | 'SHA-512' | null {
   if (alg === 'EdDSA') return 'SHA-512';
   const bits = /^[A-Z]{2}(256|384|512)$/.exec(alg)?.[1];
-  return bits ? (`SHA-${bits}` as const) : null;
+  return bits ? (`SHA-${bits}` as 'SHA-256' | 'SHA-384' | 'SHA-512') : null;
 }
 
 async function computeAtHash(accessToken: string, alg: string): Promise<string | null> {
