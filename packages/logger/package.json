@@ -1,6 +1,6 @@
 {
   "name": "@analog-tools/logger",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "description": "Logging utility for AnalogJS applications",
   "main": "./index.cjs",
   "module": "./index.js",
