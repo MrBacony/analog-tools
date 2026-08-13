@@ -108,6 +108,22 @@ describe('Core Session Functions', () => {
       );
     });
 
+    it('defaults cookie.secure to true when not specified', async () => {
+      mockGetCookie.mockReturnValue(undefined);
+
+      await useSession(mockEvent, {
+        ...config,
+        cookie: { httpOnly: true, sameSite: 'lax' },
+      });
+
+      expect(mockSetCookie).toHaveBeenCalledWith(
+        mockEvent,
+        'test-session',
+        expect.any(String),
+        expect.objectContaining({ secure: true })
+      );
+    });
+
     it('should load existing session when valid cookie exists', async () => {
       const existingData = { userId: 'existing-user', username: 'testuser' };
       await store.setItem('existing-session-id', existingData);
