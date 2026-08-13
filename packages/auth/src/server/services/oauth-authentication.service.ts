@@ -478,8 +478,9 @@ export class OAuthAuthenticationService {
 
   /**
    * Verify an OIDC ID token: signature (via the provider's JWKS), `iss`, `aud`,
-   * `exp`/`nbf`, the per-login `nonce`, and — when the provider sends it —
-   * `at_hash` binding the token to `accessToken`. Returns the verified claims
+   * `exp`/`nbf`, the per-login `nonce`, `azp` (when present), and — when the
+   * provider sends it — `at_hash` binding the token to `accessToken`. Returns
+   * the verified claims
    * so the caller can anchor identity in the cryptographically validated token.
    */
   private async validateIdToken(
@@ -535,6 +536,14 @@ export class OAuthAuthenticationService {
       throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
     }
 
+    if (
+      typeof payload['azp'] !== 'undefined' &&
+      payload['azp'] !== this.getConfigValue('clientId')
+    ) {
+      this.logger.error('ID token azp does not match client ID');
+      throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+    }
+
     // Bind the ID token to the access token it was issued alongside, when the
     // provider sends at_hash (OIDC Core §3.1.3.6). Absent = provider doesn't
     // send it; present-but-wrong = token substitution, fail closed either way.
@@ -575,6 +584,16 @@ export class OAuthAuthenticationService {
     // Exchange code for tokens (PKCE)
     const tokens = await this.exchangeCodeForTokens(code, codeVerifier);
     const { access_token, id_token, refresh_token, expires_in } = tokens;
+
+    const requestsOpenIdScope = this.getConfigValue('scope')
+      .split(' ')
+      .includes('openid');
+    if (requestsOpenIdScope && !id_token) {
+      this.logger.error(
+        'Token response is missing id_token for an openid-scoped request'
+      );
+      throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+    }
 
     // Verify the ID token (authenticity + nonce replay protection) when present.
     let idTokenSub: string | undefined;

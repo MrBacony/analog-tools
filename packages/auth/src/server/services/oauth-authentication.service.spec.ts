@@ -780,7 +780,7 @@ describe('OAuthAuthenticationService', () => {
         refreshToken: 'shared-refresh-token',
       };
 
-      let resolveRefresh: (value: unknown) => void;
+      let resolveRefresh!: (value: unknown) => void;
       const refreshPromise = new Promise((resolve) => {
         resolveRefresh = resolve;
       });
@@ -1140,7 +1140,7 @@ describe('OAuthAuthenticationService', () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: { sub: 'user123', nonce: 'attacker-nonce' },
         protectedHeader: { alg: 'RS256' },
-      } as Awaited<ReturnType<typeof jwtVerify>>);
+      } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
       await expect(
         service.handleCallback(mockEvent as H3Event, mockCode, mockState)
@@ -1153,7 +1153,7 @@ describe('OAuthAuthenticationService', () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: { sub: 'someone-else', nonce: 'test-nonce' },
         protectedHeader: { alg: 'RS256' },
-      } as Awaited<ReturnType<typeof jwtVerify>>);
+      } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
       await expect(
         service.handleCallback(mockEvent as H3Event, mockCode, mockState)
@@ -1166,7 +1166,7 @@ describe('OAuthAuthenticationService', () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: { nonce: 'test-nonce' },
         protectedHeader: { alg: 'RS256' },
-      } as Awaited<ReturnType<typeof jwtVerify>>);
+      } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
       await expect(
         service.handleCallback(mockEvent as H3Event, mockCode, mockState)
@@ -1181,7 +1181,7 @@ describe('OAuthAuthenticationService', () => {
           at_hash: 'JbQWw3PiR3aMwaPtSiChOA', // sha256('new-access-token') left half, base64url
         },
         protectedHeader: { alg: 'RS256' },
-      } as Awaited<ReturnType<typeof jwtVerify>>);
+      } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
       await expect(
         service.handleCallback(mockEvent as H3Event, mockCode, mockState)
@@ -1196,7 +1196,7 @@ describe('OAuthAuthenticationService', () => {
           at_hash: 'not-the-right-hash',
         },
         protectedHeader: { alg: 'RS256' },
-      } as Awaited<ReturnType<typeof jwtVerify>>);
+      } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
       await expect(
         service.handleCallback(mockEvent as H3Event, mockCode, mockState)
@@ -1211,7 +1211,52 @@ describe('OAuthAuthenticationService', () => {
           at_hash: 'JbQWw3PiR3aMwaPtSiChOA',
         },
         protectedHeader: { alg: 'none' },
-      } as Awaited<ReturnType<typeof jwtVerify>>);
+      } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).rejects.toEqual(expect.objectContaining({ statusCode: 401 }));
+    });
+
+    it('should reject an azp claim that does not match the client ID', async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { sub: 'user123', nonce: 'test-nonce', azp: 'other-client' },
+        protectedHeader: { alg: 'RS256' },
+      } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).rejects.toEqual(expect.objectContaining({ statusCode: 401 }));
+    });
+
+    it('should accept an ID token whose azp matches the client ID', async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { sub: 'user123', nonce: 'test-nonce', azp: 'test-client' },
+        protectedHeader: { alg: 'RS256' },
+      } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
+
+      await expect(
+        service.handleCallback(mockEvent as H3Event, mockCode, mockState)
+      ).resolves.toHaveProperty('user');
+    });
+
+    it('should reject a missing id_token when the configured scope includes openid', async () => {
+      vi.mocked(global.fetch).mockImplementation(async (url) => {
+        if (String(url).includes('openid-configuration')) {
+          return { ok: true, json: async () => mockOpenIDConfig } as Response;
+        }
+        if (url === mockOpenIDConfig.token_endpoint) {
+          return {
+            ok: true,
+            json: async () => ({
+              access_token: 'new-access-token',
+              refresh_token: 'new-refresh-token',
+              expires_in: 3600,
+            }),
+          } as Response;
+        }
+        return { ok: false, status: 404, statusText: 'Not Found' } as Response;
+      });
 
       await expect(
         service.handleCallback(mockEvent as H3Event, mockCode, mockState)
@@ -1219,14 +1264,15 @@ describe('OAuthAuthenticationService', () => {
     });
 
     it('should reject an http jwks_uri when the issuer is https', async () => {
-      vi.mocked(global.fetch).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          ...mockOpenIDConfig,
-          jwks_uri: 'http://localhost:9999/jwks',
-        }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...mockOpenIDConfig,
+            jwks_uri: 'http://localhost:9999/jwks',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
 
       await expect(
         service.handleCallback(mockEvent as H3Event, mockCode, mockState)
