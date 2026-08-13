@@ -69,3 +69,5 @@ docs/issues
 .nx/self-healing
 .agents/skills
 .nx/migrate-runs
+
+*.plan.md

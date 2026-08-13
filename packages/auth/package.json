@@ -33,7 +33,8 @@
   "dependencies": {
     "@analog-tools/session": "workspace:^",
     "@analog-tools/inject": "workspace:^",
-    "@analog-tools/logger": "workspace:^"
+    "@analog-tools/logger": "workspace:^",
+    "jose": "^6.2.3"
   },
   "peerDependencies": {
     "h3": "^1.15.2",

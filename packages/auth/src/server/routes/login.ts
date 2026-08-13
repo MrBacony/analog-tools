@@ -6,6 +6,7 @@ import { AuthRoute } from '../types/auth.types';
 import { inject } from '@analog-tools/inject';
 import { updateSession } from '@analog-tools/session';
 import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
+import { deriveCodeChallenge, generateCodeVerifier } from '../utils/pkce';
 
 const route: AuthRoute = {
   path: 'login',
@@ -15,13 +16,18 @@ const route: AuthRoute = {
     // Initialize session
     await authService.initSession(event);
 
-    // Generate state parameter for CSRF protection
+    // Generate CSRF state, PKCE verifier/challenge, and an OIDC nonce.
     const state = randomUUID();
+    const nonce = randomUUID();
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await deriveCodeChallenge(codeVerifier);
 
-    // Store state in session using the new session API
+    // Persist the values the callback needs to verify the response.
     await updateSession<AuthSessionData>(event, (currentSession) => ({
       ...currentSession,
       state,
+      nonce,
+      codeVerifier,
     }));
 
     // Get redirect URL from query parameters
@@ -39,7 +45,11 @@ const route: AuthRoute = {
     }));
 
     // Get authorization URL
-    const authUrl = await authService.getAuthorizationUrl(state);
+    const authUrl = await authService.getAuthorizationUrl({
+      state,
+      codeChallenge,
+      nonce,
+    });
 
     // Redirect to OAuth provider
     return sendRedirect(event, authUrl);

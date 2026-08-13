@@ -5,6 +5,10 @@ import type { AnalogAuthConfig } from '../types/auth.types';
 import { inject, registerService, Injectable } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 import { getSession, refetchSession, regenerateSession, updateSession } from '@analog-tools/session';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import { base64url } from '../utils/pkce';
+
+const AUTH_FAILED_MESSAGE = 'Authentication failed';
 
 // http is only acceptable for these hosts (local development).
 function isLocalDevHost(hostname: string): boolean {
@@ -50,6 +54,27 @@ function normalizeIssuer(issuer: string): string {
   return issuer.replace(/\/+$/, '');
 }
 
+// OIDC Core §3.1.3.6: at_hash is half of the access token hashed with the
+// digest matching the ID token's signing algorithm's bit size (EdDSA uses
+// SHA-512 per the OIDC errata). Unknown algs return null so the caller can
+// fail closed instead of skipping a claim that's actually present.
+function hashAlgForJwsAlg(alg: string): 'SHA-256' | 'SHA-384' | 'SHA-512' | null {
+  if (alg === 'EdDSA') return 'SHA-512';
+  const bits = /^[A-Z]{2}(256|384|512)$/.exec(alg)?.[1];
+  return bits ? (`SHA-${bits}` as 'SHA-256' | 'SHA-384' | 'SHA-512') : null;
+}
+
+async function computeAtHash(accessToken: string, alg: string): Promise<string | null> {
+  const hashAlg = hashAlgForJwsAlg(alg);
+  if (!hashAlg) return null;
+  const digest = await globalThis.crypto.subtle.digest(
+    hashAlg,
+    new TextEncoder().encode(accessToken)
+  );
+  const bytes = new Uint8Array(digest);
+  return base64url(bytes.slice(0, bytes.length / 2));
+}
+
 /**
  * Service for handling OAuth authentication in a Backend-for-Frontend pattern
  */
@@ -85,6 +110,13 @@ export class OAuthAuthenticationService {
 
   // Add these properties for token refresh configuration
   private TOKEN_REFRESH_SAFETY_MARGIN = 60 * 5; // 5 minutes in seconds
+
+  // Cached normalized whitelist extensions for efficient lookups
+  private normalizedWhitelistExtensions: Set<string> = new Set();
+
+  // Cached remote JWKS for ID-token verification (keyed by jwks_uri)
+  private jwks?: ReturnType<typeof createRemoteJWKSet>;
+  private jwksUri?: string;
 
   /**
    * Validate that the service has been properly initialized
@@ -194,10 +226,12 @@ export class OAuthAuthenticationService {
   /**
    * Get OAuth authorization URL for login
    */
-  async getAuthorizationUrl(
-    state: string,
-    redirectUri?: string
-  ): Promise<string> {
+  async getAuthorizationUrl(params: {
+    state: string;
+    codeChallenge: string;
+    nonce: string;
+    redirectUri?: string;
+  }): Promise<string> {
     this.validateConfiguration();
 
     const config = await this.getOpenIDConfiguration();
@@ -207,21 +241,28 @@ export class OAuthAuthenticationService {
     const searchparams = {
       response_type: 'code',
       client_id: this.getConfigValue('clientId'),
-      redirect_uri: redirectUri || this.getConfigValue('callbackUri'),
+      redirect_uri: params.redirectUri || this.getConfigValue('callbackUri'),
       scope: this.getConfigValue('scope'),
-      state,
+      state: params.state,
+      nonce: params.nonce,
+      code_challenge: params.codeChallenge,
+      code_challenge_method: 'S256',
       ...(audience ? { audience } : {}),
     };
 
-    const params = new URLSearchParams(searchparams);
+    const urlParams = new URLSearchParams(searchparams);
 
-    return `${config.authorization_endpoint}?${params.toString()}`;
+    return `${config.authorization_endpoint}?${urlParams.toString()}`;
   }
 
   /**
    * Exchange authorization code for tokens
    */
-  private async exchangeCodeForTokens(code: string, redirectUri?: string) {
+  private async exchangeCodeForTokens(
+    code: string,
+    codeVerifier: string,
+    redirectUri?: string
+  ) {
     const config = await this.getOpenIDConfiguration();
 
     const response = await fetch(config.token_endpoint, {
@@ -234,6 +275,7 @@ export class OAuthAuthenticationService {
         client_id: this.getConfigValue('clientId'),
         client_secret: this.getConfigValue('clientSecret'),
         code,
+        code_verifier: codeVerifier,
         redirect_uri: redirectUri || this.getConfigValue('callbackUri'),
       }).toString(),
     });
@@ -435,6 +477,88 @@ export class OAuthAuthenticationService {
   }
 
   /**
+   * Verify an OIDC ID token: signature (via the provider's JWKS), `iss`, `aud`,
+   * `exp`/`nbf`, the per-login `nonce`, `azp` (when present), and — when the
+   * provider sends it — `at_hash` binding the token to `accessToken`. Returns
+   * the verified claims
+   * so the caller can anchor identity in the cryptographically validated token.
+   */
+  private async validateIdToken(
+    idToken: string,
+    nonce: string,
+    accessToken: string
+  ): Promise<JWTPayload> {
+    const config = await this.getOpenIDConfiguration();
+
+    if (!config.jwks_uri) {
+      throw createError({
+        statusCode: 500,
+        message: 'OpenID configuration is missing jwks_uri; cannot verify ID token',
+      });
+    }
+
+    // Only a localhost issuer (development) may use cleartext http; a production
+    // (https) issuer must never fetch signing keys over http, even for localhost.
+    const configuredIssuer = this.getConfigValue('issuer');
+    const issuerUrl = assertSecureUrl(configuredIssuer, 'OAuth issuer', true);
+    const allowInsecureLocalhost =
+      issuerUrl.protocol === 'http:' && isLocalDevHost(issuerUrl.hostname);
+
+    const jwksUrl = assertSecureUrl(
+      config.jwks_uri,
+      'jwks_uri',
+      allowInsecureLocalhost
+    );
+
+    if (!this.jwks || this.jwksUri !== config.jwks_uri) {
+      this.jwks = createRemoteJWKSet(jwksUrl);
+      this.jwksUri = config.jwks_uri;
+    }
+
+    let payload: JWTPayload;
+    let protectedHeader: { alg: string };
+    try {
+      ({ payload, protectedHeader } = await jwtVerify(idToken, this.jwks, {
+        // Trust anchor is the configured issuer, never the fetched metadata.
+        // Normalized the same way as discovery validation, so a trailing
+        // slash on the configured issuer can't pass discovery and then fail
+        // here against a token whose `iss` has none.
+        issuer: normalizeIssuer(configuredIssuer),
+        audience: this.getConfigValue('clientId'),
+      }));
+    } catch (error) {
+      this.logger.error('ID token validation failed', error);
+      throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+    }
+
+    if (payload['nonce'] !== nonce) {
+      this.logger.error('ID token nonce mismatch');
+      throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+    }
+
+    if (
+      typeof payload['azp'] !== 'undefined' &&
+      payload['azp'] !== this.getConfigValue('clientId')
+    ) {
+      this.logger.error('ID token azp does not match client ID');
+      throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+    }
+
+    // Bind the ID token to the access token it was issued alongside, when the
+    // provider sends at_hash (OIDC Core §3.1.3.6). Absent = provider doesn't
+    // send it; present-but-wrong = token substitution, fail closed either way.
+    if (typeof payload['at_hash'] === 'string') {
+      const expected = await computeAtHash(accessToken, protectedHeader.alg);
+      if (expected === null || expected !== payload['at_hash']) {
+        this.logger.error('ID token at_hash mismatch');
+        throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+      }
+    }
+
+    return payload;
+  }
+
+  /**
    * Handle OAuth callback
    */
   async handleCallback(event: H3Event, code: string, state: string) {
@@ -446,12 +570,54 @@ export class OAuthAuthenticationService {
       });
     }
 
-    // Exchange code for tokens
-    const tokens = await this.exchangeCodeForTokens(code);
+    // PKCE verifier and nonce were stored on the session by the login route.
+    const session = getSession<AuthSessionData>(event);
+    const codeVerifier = session?.codeVerifier;
+    const nonce = session?.nonce;
+    if (!codeVerifier || !nonce) {
+      throw createError({
+        statusCode: 400,
+        message: 'Missing PKCE verifier or nonce; restart the login flow',
+      });
+    }
+
+    // Exchange code for tokens (PKCE)
+    const tokens = await this.exchangeCodeForTokens(code, codeVerifier);
     const { access_token, id_token, refresh_token, expires_in } = tokens;
 
-    // Get user info from OAuth provider
+    const requestsOpenIdScope = this.getConfigValue('scope')
+      .split(' ')
+      .includes('openid');
+    if (requestsOpenIdScope && !id_token) {
+      this.logger.error(
+        'Token response is missing id_token for an openid-scoped request'
+      );
+      throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+    }
+
+    // Verify the ID token (authenticity + nonce replay protection) when present.
+    let idTokenSub: string | undefined;
+    if (id_token) {
+      const claims = await this.validateIdToken(id_token, nonce, access_token);
+      if (typeof claims.sub !== 'string' || claims.sub.length === 0) {
+        this.logger.error('ID token is missing a subject');
+        throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+      }
+      idTokenSub = claims.sub;
+    }
+
+    // Get user info from OAuth provider (profile enrichment)
     const userData = await this.getUserInfo(access_token);
+
+    // Anchor identity in the verified ID token: userinfo must describe the same
+    // subject, otherwise the tokens have been mixed/substituted.
+    if (
+      idTokenSub &&
+      (typeof userData?.sub !== 'string' || userData.sub !== idTokenSub)
+    ) {
+      this.logger.error('ID token subject does not match userinfo subject');
+      throw createError({ statusCode: 401, message: AUTH_FAILED_MESSAGE });
+    }
 
     // Store user in database
     const userHandler = this.getConfigValue('userHandler', undefined);
@@ -476,8 +642,13 @@ export class OAuthAuthenticationService {
     // discarded before the authenticated tokens are stored under a fresh id.
     await regenerateSession(event);
 
-    // Update session with user and auth data
-    await updateSession(event, () => ({ user, auth }));
+    // Update session with user and auth data; clear transient PKCE/nonce.
+    await updateSession(event, () => ({
+      user,
+      auth,
+      codeVerifier: undefined,
+      nonce: undefined,
+    }));
 
     if (this.getConfigValue('singleSessionPerUser', false)) {
       // Optional policy: keep current request session and invalidate
@@ -1003,9 +1174,15 @@ export class OAuthAuthenticationService {
     try {
       const response = await fetch(
         `${normalizeIssuer(issuer)}/.well-known/openid-configuration`,
-        // Reject redirects: a network attacker could otherwise redirect discovery
-        // to an attacker-controlled https endpoint that still passes validation.
-        { redirect: 'error' }
+        {
+          // Reject redirects: a network attacker could otherwise redirect
+          // discovery to an attacker-controlled https endpoint that still
+          // passes validation.
+          redirect: 'error',
+          signal: AbortSignal.timeout(
+            this.getConfigValue('discoveryTimeoutMs', 10000) as number
+          ),
+        }
       );
 
       if (!response.ok) {
@@ -1089,4 +1266,5 @@ interface OpenIDConfiguration {
   userinfo_endpoint: string;
   end_session_endpoint: string;
   revocation_endpoint: string;
+  jwks_uri?: string;
 }

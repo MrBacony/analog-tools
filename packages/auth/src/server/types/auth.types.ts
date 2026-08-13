@@ -93,6 +93,11 @@ export type AnalogAuthConfig = {
   unprotectedRoutes?: string[];
   logoutUrl?: string;
   /**
+   * Timeout in milliseconds for fetching the OpenID discovery document
+   * (`{issuer}/.well-known/openid-configuration`). Default: `10000` (10s).
+   */
+  discoveryTimeoutMs?: number;
+  /**
    * Optional security policy: if true, a successful login invalidates
    * other authenticated sessions for the same user identity.
    * Default: false (allow multiple device/browser sessions).
