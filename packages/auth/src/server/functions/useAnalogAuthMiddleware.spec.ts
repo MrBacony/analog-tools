@@ -5,8 +5,7 @@ import { LoggerService } from '@analog-tools/logger';
 import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import * as checkAuthenticationModule from './checkAuthentication';
 import * as h3Module from 'h3';
-import { H3Event, sendRedirect } from 'h3';
-import { TRPCError } from '@trpc/server';
+import { H3Event, isError, sendRedirect } from 'h3';
 import { updateSession } from '@analog-tools/session';
 
 // Mock the dependencies
@@ -200,7 +199,7 @@ describe('useAnalogAuthMiddleware', () => {
     expect(mockCheckAuthentication).toHaveBeenCalledWith(mockEvent);
   });
 
-  it('should throw TRPC UNAUTHORIZED error for unauthenticated API fetch requests', async () => {
+  it('should throw an h3 error with statusCode 401 for unauthenticated API fetch requests', async () => {
     mockGetRequestURL.mockReturnValue({ pathname: '/api/protected' });
     // @ts-expect-error any type
     mockGetHeader.mockImplementation((event, headerName) => {
@@ -210,7 +209,13 @@ describe('useAnalogAuthMiddleware', () => {
     });
     mockCheckAuthentication.mockResolvedValue(false);
 
-    await expect(useAnalogAuthMiddleware(mockEvent)).rejects.toThrow(TRPCError);
+    const error = await useAnalogAuthMiddleware(mockEvent).catch((e) => e);
+
+    // Only an h3 error carries a status h3 will answer with. Any other error
+    // class becomes an unhandled 500 and the client cannot react to it.
+    expect(isError(error)).toBe(true);
+    expect(error.statusCode).toBe(401);
+    expect(error.statusMessage).toBe('Unauthorized');
 
     const lastCall = (mockCheckAuthentication as Mock).mock.lastCall;
     expect(lastCall?.[0]).toBe(mockEvent);
@@ -264,9 +269,10 @@ describe('useAnalogAuthMiddleware', () => {
     mockCheckAuthentication.mockResolvedValue(false);
 
     // A client-supplied ssr header must not skip authentication.
-    await expect(useAnalogAuthMiddleware(mockEvent)).rejects.toBeInstanceOf(
-      TRPCError
-    );
+    const error = await useAnalogAuthMiddleware(mockEvent).catch((e) => e);
+    expect(isError(error)).toBe(true);
+    expect(error.statusCode).toBe(401);
+    expect(sendRedirect).not.toHaveBeenCalled();
 
     expect(mockAuthService.initSession).toHaveBeenCalled();
     expect(mockCheckAuthentication).toHaveBeenCalled();
