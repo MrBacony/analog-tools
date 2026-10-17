@@ -1,8 +1,7 @@
-import { getHeader, getRequestURL, H3Event, sendRedirect } from 'h3';
+import { getHeader, getRequestURL, H3Event, sendRedirect, createError } from 'h3';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
-import { TRPCError } from '@trpc/server';
 import { checkAuthentication } from './checkAuthentication';
 import { updateSession } from '@analog-tools/session';
 import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
@@ -38,9 +37,15 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
 
   // Not authenticated: API calls (fetch=true from the HTTP interceptor) receive
   // a 401 they can handle; browser navigations are sent to the login page.
+  //
+  // This must remain an h3 error. h3 derives the HTTP status only from its own
+  // error class; any other error object reaches the default error handler as
+  // unhandled and is answered with 500, so the client never sees the 401 its
+  // interceptor redirects on.
   if (getHeader(event, 'fetch') === 'true') {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized',
       message: 'User is not authenticated',
     });
   }
