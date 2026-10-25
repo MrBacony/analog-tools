@@ -27,9 +27,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Make unambigous main entry
-        if: github.ref != 'refs/heads/main'
-        run: git rev-parse --verify main || git remote set-branches origin main && git fetch --depth 1 origin main && git branch main origin/main
+      # Without an explicit base, `nx affected` compares against main, which
+      # on a push to main is HEAD itself and selects no projects at all.
+      - name: Derive base and head for nx affected
+        uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
 
       - name: Run Nx tests
         run: pnpm nx affected --target=test --parallel=3 --skipRemoteCache --skipNxCache
