@@ -23,17 +23,6 @@
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"]
     },
-    "@nx/eslint:lint": {
-      "cache": true,
-      "inputs": [
-        "default",
-        "^default",
-        "{workspaceRoot}/.eslintrc.json",
-        "{workspaceRoot}/.eslintignore",
-        "{workspaceRoot}/eslint.config.mjs",
-        "{workspaceRoot}/tools/eslint-rules/**/*"
-      ]
-    },
     "@nx/angular:package": {
       "cache": true,
       "dependsOn": ["^build"],
@@ -165,6 +154,18 @@
         "testTargetName": "test"
       },
       "include": ["packages/generator/**/*"]
+    },
+    {
+      "plugin": "@nx/eslint/plugin",
+      "options": {
+        "targetName": "lint"
+      },
+      "include": [
+        "apps/analog-demo-auth/**/*",
+        "apps/analog-example/**/*",
+        "packages/auth-angular/**/*",
+        "packages/generator/**/*"
+      ]
     }
   ],
   "release": {

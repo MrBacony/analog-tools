@@ -8,13 +8,14 @@
   "targets": {
     "build": {
       "executor": "@analogjs/platform:vite",
+      "defaultConfiguration": "production",
+      "outputs": ["{workspaceRoot}/dist/apps/analog-demo-auth"],
       "options": {
         "configFile": "apps/analog-demo-auth/vite.config.ts",
         "main": "apps/analog-demo-auth/src/main.ts",
         "outputPath": "dist/apps/analog-demo-auth/client",
         "tsConfig": "apps/analog-demo-auth/tsconfig.app.json"
       },
-      "defaultConfiguration": "production",
       "configurations": {
         "development": {
           "mode": "development"
@@ -23,8 +24,7 @@
           "sourcemap": false,
           "mode": "production"
         }
-      },
-      "outputs": ["{workspaceRoot}/dist/apps/analog-demo-auth"]
+      }
     },
     "serve": {
       "executor": "@analogjs/platform:vite-dev-server",
@@ -45,7 +45,17 @@
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint"
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/.eslintrc.json",
+        "{workspaceRoot}/.eslintignore",
+        "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/tools/eslint-rules/**/*",
+        {
+          "externalDependencies": ["eslint"]
+        }
+      ]
     },
     "serve-static": {
       "continuous": true,
