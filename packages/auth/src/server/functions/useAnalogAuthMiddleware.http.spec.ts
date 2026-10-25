@@ -96,7 +96,7 @@ describe('useAnalogAuthMiddleware over HTTP (real h3)', () => {
     const { status, location } = await request();
 
     expect(status).toBe(302);
-    expect(location).toBe('/api/auth/login');
+    expect(location).toBe('/api/auth/login?redirect_uri=%2Fapi%2Fprotected');
   });
 
   it('lets an authenticated API request with fetch:true reach the route', async () => {

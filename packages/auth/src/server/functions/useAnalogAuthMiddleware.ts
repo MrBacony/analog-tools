@@ -3,8 +3,6 @@ import { OAuthAuthenticationService } from '../services/oauth-authentication.ser
 import { LoggerService } from '@analog-tools/logger';
 import { inject } from '@analog-tools/inject';
 import { checkAuthentication } from './checkAuthentication';
-import { updateSession } from '@analog-tools/session';
-import { sanitizeRedirectUrl } from '../utils/sanitizeRedirectUrl';
 
 export async function useAnalogAuthMiddleware(event: H3Event) {
   const requestUrl = getRequestURL(event);
@@ -51,9 +49,7 @@ export async function useAnalogAuthMiddleware(event: H3Event) {
   }
 
   logger.debug('Redirecting to login page', { path: pathname });
-  await updateSession(event, (currentSession: Record<string, unknown>) => ({
-    ...currentSession,
-    redirectUrl: sanitizeRedirectUrl(`${requestUrl.pathname}${requestUrl.search}`),
-  }));
-  await sendRedirect(event, '/api/auth/login');
+  // The login route sanitizes redirect_uri and stores it in the session.
+  const target = encodeURIComponent(`${pathname}${requestUrl.search}`);
+  await sendRedirect(event, `/api/auth/login?redirect_uri=${target}`);
 }

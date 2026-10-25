@@ -120,6 +120,17 @@ describe('login route', () => {
     expect(updated.redirectUrl).toBeUndefined();
   });
 
+  it('should not store a scheme-relative redirect_uri', async () => {
+    (getQuery as unknown as Mock).mockReturnValue({
+      redirect_uri: '//evil.example/dashboard',
+    });
+
+    await loginRoute.handler(mockEvent);
+
+    const redirectUpdateFn = mockUpdateSession.mock.calls[1][1];
+    expect(redirectUpdateFn({}).redirectUrl).toBeUndefined();
+  });
+
   it('should redirect to OAuth provider', async () => {
     const result = await loginRoute.handler(mockEvent);
 
