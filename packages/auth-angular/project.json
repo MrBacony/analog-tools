@@ -19,6 +19,7 @@
       "executor": "@nx/angular:package",
       "outputs": ["{workspaceRoot}/node_modules/{projectName}"],
       "cache": false,
+      "defaultConfiguration": "production",
       "options": {
         "project": "packages/auth-angular/ng-package.json",
         "tsConfig": "packages/auth-angular/tsconfig.lib.json"
@@ -28,11 +29,20 @@
           "tsConfig": "packages/auth-angular/tsconfig.lib.prod.json"
         },
         "development": {}
-      },
-      "defaultConfiguration": "production"
+      }
     },
     "lint": {
-      "executor": "@nx/eslint:lint"
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/.eslintrc.json",
+        "{workspaceRoot}/.eslintignore",
+        "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/tools/eslint-rules/**/*",
+        {
+          "externalDependencies": ["eslint"]
+        }
+      ]
     }
   }
 }

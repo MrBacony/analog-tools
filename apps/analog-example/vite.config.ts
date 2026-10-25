@@ -5,6 +5,7 @@ import { defineConfig } from 'vite';
 
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path';
+import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -45,27 +46,27 @@ export default defineConfig(({ mode }) => {
           alias: {
             '@analog-tools/auth': resolve(
               __dirname,
-              '../../packages/auth/src/index.ts'
+              '../../packages/auth/src/index.ts',
             ),
             '@analog-tools/auth/trpc': resolve(
               __dirname,
-              '../../packages/auth-angular/src/trpc/index.ts'
+              '../../packages/auth-angular/src/trpc/index.ts',
             ),
             '@analog-tools/auth/angular': resolve(
               __dirname,
-              '../../packages/auth-angular/src/index.ts'
+              '../../packages/auth-angular/src/index.ts',
             ),
             '@analog-tools/session': resolve(
               __dirname,
-              '../../packages/session/src/index.ts'
+              '../../packages/session/src/index.ts',
             ),
             '@analog-tools/inject': resolve(
               __dirname,
-              '../../packages/inject/src/index.ts'
+              '../../packages/inject/src/index.ts',
             ),
             '@analog-tools/logger': resolve(
               __dirname,
-              '../../packages/logger/src/index.ts'
+              '../../packages/logger/src/index.ts',
             ),
           },
           routeRules: {
@@ -75,6 +76,7 @@ export default defineConfig(({ mode }) => {
           },
         },
       }),
+      nxReadySignal(),
     ],
     test: {
       globals: true,

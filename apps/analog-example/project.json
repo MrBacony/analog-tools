@@ -3,16 +3,19 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "prefix": "analog-example",
+  "sourceRoot": "apps/analog-example/src",
+  "tags": [],
   "targets": {
     "build": {
       "executor": "@analogjs/platform:vite",
+      "defaultConfiguration": "production",
+      "outputs": ["{workspaceRoot}/dist/apps/analog-example"],
       "options": {
         "main": "apps/analog-example/src/main.ts",
         "configFile": "apps/analog-example/vite.config.ts",
         "outputPath": "dist/apps/analog-example/client",
         "tsConfig": "apps/analog-example/tsconfig.app.json"
       },
-      "defaultConfiguration": "production",
       "configurations": {
         "development": {
           "mode": "development"
@@ -21,8 +24,7 @@
           "sourcemap": false,
           "mode": "production"
         }
-      },
-      "outputs": ["{workspaceRoot}/dist/apps/analog-example"]
+      }
     },
     "serve": {
       "executor": "@analogjs/platform:vite-dev-server",
@@ -43,7 +45,17 @@
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint"
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/.eslintrc.json",
+        "{workspaceRoot}/.eslintignore",
+        "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/tools/eslint-rules/**/*",
+        {
+          "externalDependencies": ["eslint"]
+        }
+      ]
     },
     "serve-static": {
       "continuous": true,
@@ -53,7 +65,11 @@
         "port": 4200,
         "staticFilePath": "dist/apps/analog-example/browser",
         "spa": true
-      }
+      },
+      "readyWhen": {
+        "signal": true
+      },
+      "dependsOn": ["build"]
     },
     "test": {
       "executor": "@analogjs/vitest-angular:test",
@@ -62,7 +78,5 @@
         "config": "vite.config.ts"
       }
     }
-  },
-  "tags": [],
-  "sourceRoot": "apps/analog-example/src"
+  }
 }

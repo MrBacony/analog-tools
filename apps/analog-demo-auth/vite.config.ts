@@ -3,6 +3,7 @@
 import analog from '@analogjs/platform';
 import { defineConfig, type Plugin } from 'vite';
 import { resolve } from 'path';
+import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 
 // Silence noisy vendor sourcemap warnings from @angular/platform-server.
 // Vite emits these per SSR request and inlines entire source files into the
@@ -118,26 +119,25 @@ export default defineConfig(() => {
       analog({
         nitro: {
           alias: {
-            
             '@analog-tools/auth': resolve(
               __dirname,
-              '../../packages/auth/src/index.ts'
+              '../../packages/auth/src/index.ts',
             ),
             '@analog-tools/auth/angular': resolve(
               __dirname,
-              '../../packages/auth-angular/src/index.ts'
+              '../../packages/auth-angular/src/index.ts',
             ),
             '@analog-tools/session': resolve(
               __dirname,
-              '../../packages/session/src/index.ts'
+              '../../packages/session/src/index.ts',
             ),
             '@analog-tools/inject': resolve(
               __dirname,
-              '../../packages/inject/src/index.ts'
+              '../../packages/inject/src/index.ts',
             ),
             '@analog-tools/logger': resolve(
               __dirname,
-              '../../packages/logger/src/index.ts'
+              '../../packages/logger/src/index.ts',
             ),
           },
           routeRules: {
@@ -147,6 +147,7 @@ export default defineConfig(() => {
           },
         },
       }),
+      nxReadySignal(),
     ],
     test: {
       globals: true,
@@ -161,7 +162,7 @@ export default defineConfig(() => {
       alias: {
         '@analog-tools/auth/angular': resolve(
           __dirname,
-          '../../packages/auth-angular/src/index.ts'
+          '../../packages/auth-angular/src/index.ts',
         ),
       },
     },
