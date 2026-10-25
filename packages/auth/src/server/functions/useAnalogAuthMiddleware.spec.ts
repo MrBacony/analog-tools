@@ -221,8 +221,8 @@ describe('useAnalogAuthMiddleware', () => {
     expect(lastCall?.[0]).toBe(mockEvent);
   });
 
-  it('should redirect to login for unauthenticated browser requests and not include URL fragments', async () => {
-    // include search and hash; fragments are not sent to the server and should not be stored
+  it('should pass the requested path to login as redirect_uri without URL fragments', async () => {
+    // fragments are not sent to the server and must not be forwarded
     mockGetRequestURL.mockReturnValue({
       pathname: '/api/protected',
       search: '?q=1',
@@ -232,30 +232,25 @@ describe('useAnalogAuthMiddleware', () => {
 
     await useAnalogAuthMiddleware(mockEvent);
 
-    expect(updateSession).toHaveBeenCalledWith(mockEvent, expect.any(Function));
-
-    // verify the mutator stores only pathname + search (no fragment)
-    const redirectMutator = vi.mocked(updateSession).mock.calls[0]?.[1];
-    expect(redirectMutator?.({ existing: true })).toEqual({
-      existing: true,
-      redirectUrl: '/api/protected?q=1',
-    });
-
-    expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/api/auth/login');
+    expect(sendRedirect).toHaveBeenCalledWith(
+      mockEvent,
+      '/api/auth/login?redirect_uri=%2Fapi%2Fprotected%3Fq%3D1'
+    );
   });
 
-  it('should store fallback redirect URL for scheme-relative browser request paths', async () => {
-    mockGetRequestURL.mockReturnValue({ pathname: '//evil.example/dashboard' });
+  // Regression for #93: a redirectUrl written here was overwritten by the
+  // login route, which only trusts its redirect_uri query parameter.
+  it('should not write the redirect target to the session itself', async () => {
+    mockGetRequestURL.mockReturnValue({ pathname: '/beitreten/ABC123', search: '' });
     mockCheckAuthentication.mockResolvedValue(false);
 
     await useAnalogAuthMiddleware(mockEvent);
 
-    const redirectMutator = vi.mocked(updateSession).mock.calls[0]?.[1];
-    expect(redirectMutator?.({ existing: true })).toEqual({
-      existing: true,
-      redirectUrl: '/',
-    });
-    expect(sendRedirect).toHaveBeenCalledWith(mockEvent, '/api/auth/login');
+    expect(updateSession).not.toHaveBeenCalled();
+    expect(sendRedirect).toHaveBeenCalledWith(
+      mockEvent,
+      '/api/auth/login?redirect_uri=%2Fbeitreten%2FABC123'
+    );
   });
 
   it('ignores the ssr header and still enforces authentication', async () => {
