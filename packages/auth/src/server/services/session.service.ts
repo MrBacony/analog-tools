@@ -6,7 +6,7 @@ import {
   destroySession,
   createUnstorageStore,
 } from '@analog-tools/session';
-import type { Storage } from 'unstorage';
+import type { Storage } from '@analog-tools/session';
 import { AuthSessionData, SessionWithSave, SessionWithHandler } from '../types/auth-session.types';
 import { LoggerService } from '@analog-tools/logger';
 import { inject, Injectable } from '@analog-tools/inject';

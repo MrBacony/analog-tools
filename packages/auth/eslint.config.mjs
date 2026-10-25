@@ -13,6 +13,17 @@ export default [
             '{projectRoot}/rollup.config.{js,ts,mjs,mts,cjs,cts}',
             '{projectRoot}/vite.config.{js,ts,mjs,mts}',
           ],
+          // The build copies @analog-tools/auth-angular into the published
+          // `angular` subpath; these peers serve that code, which this
+          // project's sources never import.
+          ignoredDependencies: [
+            '@analogjs/router',
+            '@angular/core',
+            '@angular/common',
+            '@angular/router',
+            '@trpc/client',
+            'rxjs',
+          ],
         },
       ],
     },

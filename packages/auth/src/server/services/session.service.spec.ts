@@ -9,7 +9,7 @@ import {
   destroySession,
   createUnstorageStore,
 } from '@analog-tools/session';
-import type { Storage } from 'unstorage';
+import type { Storage } from '@analog-tools/session';
 import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
 import { SessionStorageConfig } from '../types/auth.types';

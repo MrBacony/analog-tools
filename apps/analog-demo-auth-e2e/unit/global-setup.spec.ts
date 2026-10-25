@@ -53,7 +53,7 @@ describe('global setup Keycloak discovery', () => {
     });
 
     await expect(cleanupSessionDirectory({ rmFn })).rejects.toThrow(
-      /Failed to clean up session directory.*permission denied/s
+      /Failed to clean up session directory[\s\S]*permission denied/
     );
   });
 });
