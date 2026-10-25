@@ -39,10 +39,6 @@
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"]
     },
-    "@nx/vitest:test": {
-      "cache": true,
-      "inputs": ["default", "^production"]
-    },
     "@angular/build:application": {
       "cache": true,
       "dependsOn": ["^build"],
@@ -161,6 +157,14 @@
       "options": {
         "targetName": "e2e"
       }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "options": {
+        "testMode": "watch",
+        "testTargetName": "test"
+      },
+      "include": ["packages/generator/**/*"]
     }
   ],
   "release": {

@@ -3,15 +3,11 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "packages/generator/src",
   "projectType": "library",
-  "tags": [
-    "publishable"
-  ],
+  "tags": ["publishable"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
-      "outputs": [
-        "{workspaceRoot}/node_modules/{projectName}"
-      ],
+      "outputs": ["{workspaceRoot}/node_modules/{projectName}"],
       "cache": false,
       "options": {
         "outputPath": "{workspaceRoot}/node_modules/@analog-tools/generator/",
@@ -46,28 +42,28 @@
       "executor": "@nx/eslint:lint"
     },
     "test": {
-      "executor": "@nx/vitest:test",
       "outputs": [
-        "{options.reportsDirectory}"
+        "{projectRoot}/{options.coverage.reportsDirectory}",
+        "{workspaceRoot}/coverage/tools/analog"
       ],
       "options": {
-        "reportsDirectory": "{projectRoot}/../../coverage/packages/generator"
+        "coverage.reportsDirectory": "../../coverage/packages/generator"
       }
     },
     "pack": {
       "executor": "nx:run-commands",
+      "dependsOn": [
+        {
+          "target": "build"
+        }
+      ],
       "options": {
         "commands": [
           "nx run @analog-tools/generator:build",
           "cd dist/packages/generator && npm pack --pack-destination ~"
         ],
         "parallel": false
-      },
-      "dependsOn": [
-        {
-          "target": "build"
-        }
-      ]
+      }
     }
   }
 }
