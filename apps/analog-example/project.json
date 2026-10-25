@@ -65,7 +65,11 @@
         "port": 4200,
         "staticFilePath": "dist/apps/analog-example/browser",
         "spa": true
-      }
+      },
+      "readyWhen": {
+        "signal": true
+      },
+      "dependsOn": ["build"]
     },
     "test": {
       "executor": "@analogjs/vitest-angular:test",
