@@ -2,14 +2,20 @@
  * Integration test for #93: a deep link opened while logged out must survive
  * the middleware -> login -> callback round trip. The real middleware, auth
  * routes and session run against a real h3 server; only the identity provider
- * side of OAuthAuthenticationService is stubbed.
+ * side of OAuthAuthenticationService is stubbed. The handleCallback stub keeps
+ * the session-id regeneration of the real implementation, so the target must
+ * also survive the fixation defence.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, H3Event, toNodeListener } from 'h3';
 import { createServer, Server } from 'node:http';
 import { registerMockService, resetAllInjections } from '@analog-tools/inject';
 import { LoggerService } from '@analog-tools/logger';
-import { createUnstorageStore, useSession } from '@analog-tools/session';
+import {
+  createUnstorageStore,
+  regenerateSession,
+  useSession,
+} from '@analog-tools/session';
 import { OAuthAuthenticationService } from '../services/oauth-authentication.service';
 import { useAnalogAuthMiddleware } from './useAnalogAuthMiddleware';
 import { handleAuthRoute } from './handleAuthRoute';
@@ -24,7 +30,7 @@ async function startServer(): Promise<{ baseUrl: string; server: Server }> {
     isAuthenticated: vi.fn().mockResolvedValue(false),
     getAuthorizationUrl: async ({ state }: { state: string }) =>
       `https://idp.example/authorize?state=${state}`,
-    handleCallback: vi.fn().mockResolvedValue(undefined),
+    handleCallback: (event: H3Event) => regenerateSession(event),
   });
 
   const app = createApp();
@@ -75,9 +81,11 @@ describe('deep link survives login (real h3 + session)', () => {
     const loginUrl = await get('/beitreten/ABC123?ref=mail');
     const authorizeUrl = await get(loginUrl);
     const state = new URL(authorizeUrl).searchParams.get('state');
+    const preAuthCookie = cookie;
 
     const finalLocation = await get(`/api/auth/callback?code=c&state=${state}`);
 
     expect(finalLocation).toBe('/beitreten/ABC123?ref=mail');
+    expect(cookie).not.toBe(preAuthCookie);
   });
 });
